@@ -1,0 +1,19 @@
+{
+  "name": "monome-iii-studio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Visual configurator that compiles Grid button layouts into iii Lua scripts.",
+  "packageManager": "pnpm@10.33.3",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}
