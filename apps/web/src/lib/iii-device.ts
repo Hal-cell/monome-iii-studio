@@ -409,14 +409,32 @@ export async function uploadAndRun(
 }
 
 /**
- * Start an existing file on the device. Same effect as typing
- * `first("name")` in the diii REPL.
+ * Run an existing file on the device immediately.
+ *
+ * Per https://monome.org/docs/iii/code, `first(file)` only SETS the
+ * boot script (next-power-on) — it does not execute the file. The
+ * function that actually runs a stored script is `require(file)`,
+ * documented as "run file". We additionally clear the entry from
+ * `package.loaded` first so a re-Run actually re-executes (standard
+ * Lua require() short-circuits cached modules; the iii filesystem
+ * may or may not key the cache the same way our filename does, so
+ * we clear both `name` and `name.lua` to be safe).
+ *
+ * uploadAndRun keeps using `first()` because it already runs the
+ * script as a side-effect of the `^^w` upload-commit (per the diii
+ * `^^upload` description "send a file, store and run it"); the
+ * extra `first()` there only updates the boot script for persistence.
  */
 export async function runFile(filename: string): Promise<void> {
   if (!_port) throw new Error('not connected to iii device');
   _setStatus({ kind: 'busy', action: `running ${filename}` });
   try {
-    await writeLineRaw(`first("${filename}")`);
+    const stem = filename.replace(/\.lua$/i, '');
+    await writeLineRaw(
+      `package.loaded["${filename}"]=nil; package.loaded["${stem}"]=nil`,
+    );
+    await sleep(CMD_DELAY_MS);
+    await writeLineRaw(`require("${filename}")`);
     await sleep(CMD_DELAY_MS);
   } finally {
     if (deviceStatus().kind === 'busy') {
