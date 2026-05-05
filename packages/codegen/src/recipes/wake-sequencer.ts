@@ -87,30 +87,22 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     return `[${v}]=${vel}`;
   }).join(', ');
 
-  // Duration mapping: V (1..bodyHeight) → master-tick count, on a
-  // logarithmic curve so each cell is a perceptually-similar jump
-  // (human time perception is log, not linear). V=1 → 1 master tick
-  // (≈ stepSeconds / STEP_TICKS, true sub-step staccato), V=bodyHeight
-  // → MAX_DURATION_S seconds (≥ 2 s). Voice-stealing in dense
-  // sequences will still clamp larger values to the next-firing time,
-  // but at least the small / mid values land below one step duration
-  // and read as audibly distinct.
-  const MAX_DURATION_S = 2;
-  const minTicks = 1;
-  const maxTicks = Math.max(
-    minTicks + 1,
-    Math.ceil(MAX_DURATION_S / masterTickSeconds),
-  );
+  // Duration mapping: V (1..bodyHeight) → master-tick count. Linear
+  // interpolation in seconds across [MIN_DURATION_S, MAX_DURATION_S];
+  // V=1 = MIN_DURATION_S, V=bodyHeight = MAX_DURATION_S. Voice-stealing
+  // in dense mono sequences will still clamp longer durations to the
+  // next firing time — that's a property of monophonic playback, not
+  // of this curve.
+  const MIN_DURATION_S = 0.5;
+  const MAX_DURATION_S = 3;
   const durationEntries = Array.from({ length: bodyHeight + 1 }, (_, v) => {
     if (v === 0) return `[0]=0`;
-    if (bodyHeight === 1) return `[1]=${maxTicks}`;
-    // Geometric interpolation between minTicks and maxTicks across
-    // V=1..bodyHeight.
-    const t = (v - 1) / (bodyHeight - 1);
-    const ticks = Math.max(
-      minTicks,
-      Math.round(minTicks * Math.pow(maxTicks / minTicks, t)),
-    );
+    const seconds =
+      bodyHeight === 1
+        ? MAX_DURATION_S
+        : MIN_DURATION_S +
+          ((v - 1) / (bodyHeight - 1)) * (MAX_DURATION_S - MIN_DURATION_S);
+    const ticks = Math.max(1, Math.round(seconds / masterTickSeconds));
     return `[${v}]=${ticks}`;
   }).join(', ');
 

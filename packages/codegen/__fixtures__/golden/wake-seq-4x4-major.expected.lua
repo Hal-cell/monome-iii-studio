@@ -81,7 +81,7 @@ _wake_rr[3 + 4*W] = 3
 _wake_rr[4 + 4*W] = 3
 local _wake_scale = {[1]=0, [2]=2, [3]=4}
 local _wake_vel = {[0]=0, [1]=42, [2]=84, [3]=127}
-local _wake_dur = {[0]=0, [1]=1, [2]=11, [3]=128}
+local _wake_dur = {[0]=0, [1]=32, [2]=112, [3]=192}
 
 local function _wake_tick()
   -- 1. tick down active note duration; close any voice that just expired

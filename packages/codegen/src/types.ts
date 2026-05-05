@@ -377,13 +377,13 @@ export type StepSequencerBehavior = {
  *           soon as PITCH is set without the user having to touch this
  *           page first.
  *   3 DURATION
- *           note length, distributed on a logarithmic time curve from
- *           one master tick (≈ stepDuration / STEP_TICKS, true sub-step
- *           staccato) up to ≥ 2 s. The metro runs `STEP_TICKS` times
- *           per step so V=1 can express a sub-step note even in dense
- *           sequences (where every step has a pitch and voice-stealing
- *           clamps longer values to the next-firing time).
- *           V=0 = silent step. Default = body_height (longest).
+ *           note length, linear in seconds across [0.5 s, 3 s].
+ *           V=1 = 0.5 s, V=body_height = 3 s, intermediate values
+ *           interpolate evenly. V=0 = silent step.
+ *           Default = body_height (longest). Voice-stealing in dense
+ *           mono sequences will clamp longer values to the next-firing
+ *           time — that's a property of monophonic playback, not of
+ *           the curve.
  *
  * Live BPM / run-stop / scale switching are NOT in v1 — those need
  * the CLK page (deferred). For v1, scale + root + bpm are static
