@@ -73,6 +73,23 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     return `[${v}]=${vel}`;
   }).join(', ');
 
+  // Gate mapping: V (1..bodyHeight) → master-tick count. We want the
+  // top cell to be a clearly-audible legato length regardless of BPM /
+  // steps_per_beat / bodyHeight, so we pin the top cell to MAX_GATE_S
+  // seconds and distribute the lower cells linearly in time. ceil()
+  // guarantees ≥ MAX_GATE_S; max(1, …) keeps the smallest cell from
+  // collapsing to a 0-tick (silent) gate when BPM is very fast.
+  // V=0 is "cleared / silent step" and stays at 0 ticks — the tick
+  // never reads it because the firing condition requires g > 0.
+  const MAX_GATE_S = 2;
+  const gateEntries = Array.from({ length: bodyHeight + 1 }, (_, v) => {
+    if (v === 0) return `[0]=0`;
+    const targetS = (v / bodyHeight) * MAX_GATE_S;
+    const ticks = Math.max(1, Math.ceil(targetS / masterTickSeconds));
+    return `[${v}]=${ticks}`;
+  }).join(', ');
+  const gateTicks = `_${name}_gate`;
+
   // ---- state init ----
 
   // OCT page is centred on the middle body row. Value V (1..bodyHeight)
@@ -120,6 +137,7 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     rrLines,
     `local ${scaleOffsets} = {${scaleEntries}}`,
     `local ${velocityTable} = {${velocityEntries}}`,
+    `local ${gateTicks} = {${gateEntries}}`,
     '',
     // ---- tick ----
     `local function ${tickName}()`,
@@ -148,7 +166,7 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `    local note = ${params.root_note} + ${scaleOffsets}[pitch] + 12 * (oct - ${octaveCenter})`,
     `    midi_note_on(note, ${velocityTable}[v], ${params.channel})`,
     `    state.${activeNoteSlot} = note`,
-    `    state.${activeGateSlot} = g`,
+    `    state.${activeGateSlot} = ${gateTicks}[g]`,
     '  end',
     '  redraw()',
     'end',

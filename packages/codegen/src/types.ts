@@ -376,9 +376,13 @@ export type StepSequencerBehavior = {
  *           linearly). Default = body_height (max), so steps fire as
  *           soon as PITCH is set without the user having to touch this
  *           page first.
- *   3 GATE   note length in master ticks (0 = silent step, 1..body_height
- *           = ticks held). Default = body_height (longest), so changes
- *           on this page are immediately audible.
+ *   3 GATE   note length, distributed linearly in TIME from 0..2 s.
+ *           Value V (1..body_height) maps to ceil(V/body_height × 2 s
+ *           / master_tick) master ticks, so the top cell is always
+ *           ≥ 2 s of held note regardless of BPM / steps_per_beat /
+ *           body_height. V=0 = silent step. Default = body_height
+ *           (longest), so changes on this page are immediately
+ *           audible.
  *
  * Live BPM / run-stop / scale switching are NOT in v1 — those need
  * the CLK page (deferred). For v1, scale + root + bpm are static

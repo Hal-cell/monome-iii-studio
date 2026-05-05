@@ -80,6 +80,7 @@ _wake_rr[3 + 4*W] = 3
 _wake_rr[4 + 4*W] = 3
 local _wake_scale = {[1]=0, [2]=2, [3]=4}
 local _wake_vel = {[0]=0, [1]=42, [2]=84, [3]=127}
+local _wake_gate = {[0]=0, [1]=6, [2]=11, [3]=16}
 
 local function _wake_tick()
   -- 1. tick down active gate; close any voice that just expired
@@ -107,7 +108,7 @@ local function _wake_tick()
     local note = 60 + _wake_scale[pitch] + 12 * (oct - 2)
     midi_note_on(note, _wake_vel[v], 1)
     state.wake_active_note = note
-    state.wake_active_gate = g
+    state.wake_active_gate = _wake_gate[g]
   end
   redraw()
 end

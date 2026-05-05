@@ -176,6 +176,7 @@ _wake_rr[7 + 8*W] = 7
 _wake_rr[8 + 8*W] = 7
 local _wake_scale = {[1]=0, [2]=2, [3]=4, [4]=5, [5]=7, [6]=9, [7]=11}
 local _wake_vel = {[0]=0, [1]=18, [2]=36, [3]=54, [4]=72, [5]=90, [6]=108, [7]=127}
+local _wake_gate = {[0]=0, [1]=3, [2]=5, [3]=7, [4]=10, [5]=12, [6]=14, [7]=16}
 
 local function _wake_tick()
   -- 1. tick down active gate; close any voice that just expired
@@ -203,7 +204,7 @@ local function _wake_tick()
     local note = 60 + _wake_scale[pitch] + 12 * (oct - 4)
     midi_note_on(note, _wake_vel[v], 1)
     state.wake_active_note = note
-    state.wake_active_gate = g
+    state.wake_active_gate = _wake_gate[g]
   end
   redraw()
 end
