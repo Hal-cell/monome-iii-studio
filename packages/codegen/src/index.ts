@@ -25,6 +25,8 @@ export type {
   RegionMode,
   MeterBehavior,
   MeterParams,
+  NoteKeyboardBehavior,
+  NoteKeyboardParams,
   RadioBehavior,
   RadioParams,
   RangeBehavior,

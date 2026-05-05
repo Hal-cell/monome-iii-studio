@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "tool_version": "0.0.0",
+  "name": "test-nk-chromatic-row",
+  "width": 16,
+  "height": 8,
+  "active_page_index": 0,
+  "pages": [
+    {
+      "id": "p1",
+      "name": "main",
+      "regions": [
+        {
+          "id": "r-keys",
+          "name": "keys",
+          "cells": [
+            {"x": 0, "y": 7},
+            {"x": 1, "y": 7},
+            {"x": 2, "y": 7},
+            {"x": 3, "y": 7},
+            {"x": 4, "y": 7},
+            {"x": 5, "y": 7},
+            {"x": 6, "y": 7},
+            {"x": 7, "y": 7}
+          ],
+          "mode": "per_cell",
+          "behavior": {
+            "kind": "note_keyboard",
+            "params": {
+              "channel": 1,
+              "root_note": 36,
+              "column_interval": 1,
+              "row_interval": 1,
+              "velocity": 100,
+              "led_held": 12,
+              "led_idle": 3
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

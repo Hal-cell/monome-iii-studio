@@ -163,10 +163,49 @@ export type MeterBehavior = {
   params: MeterParams;
 };
 
-// ---------- Pending recipes (Steps 7+) ----------
+// ---------- Note keyboard ----------
+
+/**
+ * Isomorphic MIDI keyboard with configurable row/column intervals.
+ * per_cell-only.
+ *
+ * Note formula for a cell at selection-relative position (rx, ry)
+ * where (0, 0) is the top-left of the bounding box:
+ *
+ *   note = root_note
+ *        + (height - 1 - ry) * row_interval   -- bottom row plays lowest
+ *        + rx * column_interval
+ *
+ * Defaults match monome's traditional fourths-tuning layout:
+ * row_interval=5 (perfect fourth), column_interval=1 (chromatic).
+ *
+ * Out-of-range behavior: cells whose computed note falls outside
+ * [0, 127] are silently dropped — no _<region>_note entry, no LED
+ * draw, no _route entry. The cell appears unlit and unresponsive on
+ * the Grid. (Decision B+B1 from the Step 7 design discussion.)
+ */
+export type NoteKeyboardParams = {
+  channel: number;
+  /** MIDI note for the bottom-left cell of the selection. */
+  root_note: number;
+  /** Semitones between adjacent cells within a row. Default 1 (chromatic). */
+  column_interval: number;
+  /** Semitones offset between adjacent rows. Default 5 (perfect 4th). */
+  row_interval: number;
+  velocity: number;
+  led_held: number;
+  led_idle: number;
+};
+
+export type NoteKeyboardBehavior = {
+  kind: 'note_keyboard';
+  params: NoteKeyboardParams;
+};
+
+// ---------- Pending recipes (Step 8) ----------
 
 export type PendingBehavior = {
-  kind: 'note_keyboard' | 'step_sequencer';
+  kind: 'step_sequencer';
   params: unknown;
 };
 
@@ -176,6 +215,7 @@ export type Behavior =
   | RadioBehavior
   | RangeBehavior
   | MeterBehavior
+  | NoteKeyboardBehavior
   | PendingBehavior;
 
 // ---------- Region / Page / GridLayout ----------

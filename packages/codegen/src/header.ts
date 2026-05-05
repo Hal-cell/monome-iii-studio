@@ -64,5 +64,9 @@ function describeBehavior(region: Region): string {
     const numCols = new Set(region.cells.map((c) => c.x)).size;
     return `meter group, ch${p.channel} cc from ${p.base_cc}, ${numCols} cols → 0..127`;
   }
+  if (region.behavior.kind === 'note_keyboard') {
+    const p = region.behavior.params;
+    return `note keyboard per_cell, ch${p.channel} root MIDI ${p.root_note} (row=${p.row_interval}, col=${p.column_interval})`;
+  }
   return `${region.behavior.kind} (not yet supported)`;
 }
