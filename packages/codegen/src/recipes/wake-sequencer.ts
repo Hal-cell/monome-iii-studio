@@ -75,11 +75,29 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
 
   // ---- state init ----
 
+  // OCT page is centred on the middle body row. Value V (1..bodyHeight)
+  // maps to octave shift `V - octaveCenter`, so the default cell sits
+  // at "no shift" and pressing higher / lower cells transposes up /
+  // down. With bodyHeight=7 → centre=4 → shifts run -3..+3.
+  const octaveCenter = Math.floor(bodyHeight / 2) + 1;
+
+  // Per-page initial value:
+  //   PITCH (0): empty — every step starts silent until the user sets
+  //              a degree.
+  //   OCT   (1): centre — see above.
+  //   VEL   (2): bodyHeight — max velocity, top cell lit. Without this
+  //              every step is silent and the other pages have no
+  //              audible effect.
+  //   GATE  (3): bodyHeight — longest gate. Same rationale — without
+  //              audibly-distinct gate values the page feels inert.
+  const PAGE_DEFAULTS = [0, octaveCenter, bodyHeight, bodyHeight];
+
   // data: 4 pages, each page is a {col → value 0..bodyHeight} table.
   const dataInit = Array.from({ length: NUM_PAGES }, (_, p) => {
+    const def = PAGE_DEFAULTS[p];
     const cols = Array.from(
       { length: numCols },
-      (_, c) => `[${c}]=0`,
+      (_, c) => `[${c}]=${def}`,
     ).join(', ');
     return `[${p}]={${cols}}`;
   }).join(', ');
@@ -120,16 +138,17 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `  local oct = state.${dataSlot}[1][state.${stepSlot}]`,
     `  local v = state.${dataSlot}[2][state.${stepSlot}]`,
     `  local g = state.${dataSlot}[3][state.${stepSlot}]`,
-    "  -- pitch>0 and v>0 are both required for the step to sound",
-    '  if pitch > 0 and v > 0 then',
+    "  -- pitch / v / g all > 0 required for the step to sound. v=0",
+    "  -- (cleared on VEL page) and g=0 (cleared on GATE page) both",
+    "  -- silence the step the same way pitch=0 does.",
+    '  if pitch > 0 and v > 0 and g > 0 then',
     `    if state.${activeNoteSlot} >= 0 then`,
     `      midi_note_off(state.${activeNoteSlot}, 0, ${params.channel})`,
     '    end',
-    `    local note = ${params.root_note} + ${scaleOffsets}[pitch] + 12 * oct`,
+    `    local note = ${params.root_note} + ${scaleOffsets}[pitch] + 12 * (oct - ${octaveCenter})`,
     `    midi_note_on(note, ${velocityTable}[v], ${params.channel})`,
     `    state.${activeNoteSlot} = note`,
-    "    -- gate value of 0 still gets a 1-tick blip; 1..body_height = held ticks",
-    `    state.${activeGateSlot} = (g == 0) and 1 or g`,
+    `    state.${activeGateSlot} = g`,
     '  end',
     '  redraw()',
     'end',
@@ -149,7 +168,11 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `    local body_row = rr - 1`,
     `    local value = ${bodyHeight} - body_row`,
     `    local cur = state.${dataSlot}[state.${pageSlot}][c]`,
-    '    if cur == value then',
+    "    -- OCT (page 1) is centred and must always show one cell lit;",
+    "    -- pressing the lit cell is a no-op rather than a toggle-off.",
+    `    if state.${pageSlot} == 1 then`,
+    `      state.${dataSlot}[1][c] = value`,
+    '    elseif cur == value then',
     `      state.${dataSlot}[state.${pageSlot}][c] = 0`,
     '    else',
     `      state.${dataSlot}[state.${pageSlot}][c] = value`,

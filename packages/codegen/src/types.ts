@@ -364,11 +364,21 @@ export type StepSequencerBehavior = {
  *     when on the PITCH page).
  *
  * Pages (v1):
- *   0 PITCH  scale degree (0 = silent, 1..body_height = degree)
- *   1 OCT    octave shift (0 = none, 1..body_height = +1..+N octaves)
- *   2 VEL    velocity bucket (0 = silent, 1..body_height = 1..127)
- *   3 GATE   note length in master ticks (0 = step is silent
- *            regardless of pitch; 1..body_height = ticks held)
+ *   0 PITCH  scale degree (0 = silent step, 1..body_height = degree).
+ *           Default 0 — the user opts steps in.
+ *   1 OCT    octave shift, centred on the middle body row. Value V
+ *           (1..body_height) maps to shift `V - centre` where
+ *           centre = floor(body_height/2) + 1, so the default cell is
+ *           "no shift" and pressing higher / lower cells transposes up
+ *           or down. This page never toggles off — there is always
+ *           exactly one cell lit per column.
+ *   2 VEL    velocity bucket (0 = silent step, 1..body_height = 1..127
+ *           linearly). Default = body_height (max), so steps fire as
+ *           soon as PITCH is set without the user having to touch this
+ *           page first.
+ *   3 GATE   note length in master ticks (0 = silent step, 1..body_height
+ *           = ticks held). Default = body_height (longest), so changes
+ *           on this page are immediately audible.
  *
  * Live BPM / run-stop / scale switching are NOT in v1 — those need
  * the CLK page (deferred). For v1, scale + root + bpm are static

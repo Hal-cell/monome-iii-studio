@@ -12,7 +12,7 @@ local W, H = grid_size_x(), grid_size_y()
 local state = {
   wake_step = -1,
   wake_page = 0,
-  wake_data = {[0]={[0]=0, [1]=0, [2]=0, [3]=0, [4]=0, [5]=0, [6]=0, [7]=0}, [1]={[0]=0, [1]=0, [2]=0, [3]=0, [4]=0, [5]=0, [6]=0, [7]=0}, [2]={[0]=0, [1]=0, [2]=0, [3]=0, [4]=0, [5]=0, [6]=0, [7]=0}, [3]={[0]=0, [1]=0, [2]=0, [3]=0, [4]=0, [5]=0, [6]=0, [7]=0}},
+  wake_data = {[0]={[0]=0, [1]=0, [2]=0, [3]=0, [4]=0, [5]=0, [6]=0, [7]=0}, [1]={[0]=4, [1]=4, [2]=4, [3]=4, [4]=4, [5]=4, [6]=4, [7]=4}, [2]={[0]=7, [1]=7, [2]=7, [3]=7, [4]=7, [5]=7, [6]=7, [7]=7}, [3]={[0]=7, [1]=7, [2]=7, [3]=7, [4]=7, [5]=7, [6]=7, [7]=7}},
   wake_active_note = -1,
   wake_active_gate = 0,
 }
@@ -193,16 +193,17 @@ local function _wake_tick()
   local oct = state.wake_data[1][state.wake_step]
   local v = state.wake_data[2][state.wake_step]
   local g = state.wake_data[3][state.wake_step]
-  -- pitch>0 and v>0 are both required for the step to sound
-  if pitch > 0 and v > 0 then
+  -- pitch / v / g all > 0 required for the step to sound. v=0
+  -- (cleared on VEL page) and g=0 (cleared on GATE page) both
+  -- silence the step the same way pitch=0 does.
+  if pitch > 0 and v > 0 and g > 0 then
     if state.wake_active_note >= 0 then
       midi_note_off(state.wake_active_note, 0, 1)
     end
-    local note = 60 + _wake_scale[pitch] + 12 * oct
+    local note = 60 + _wake_scale[pitch] + 12 * (oct - 4)
     midi_note_on(note, _wake_vel[v], 1)
     state.wake_active_note = note
-    -- gate value of 0 still gets a 1-tick blip; 1..body_height = held ticks
-    state.wake_active_gate = (g == 0) and 1 or g
+    state.wake_active_gate = g
   end
   redraw()
 end
@@ -221,7 +222,11 @@ local function handle_wake(x, y, z)
     local body_row = rr - 1
     local value = 7 - body_row
     local cur = state.wake_data[state.wake_page][c]
-    if cur == value then
+    -- OCT (page 1) is centred and must always show one cell lit;
+    -- pressing the lit cell is a no-op rather than a toggle-off.
+    if state.wake_page == 1 then
+      state.wake_data[1][c] = value
+    elseif cur == value then
       state.wake_data[state.wake_page][c] = 0
     else
       state.wake_data[state.wake_page][c] = value
