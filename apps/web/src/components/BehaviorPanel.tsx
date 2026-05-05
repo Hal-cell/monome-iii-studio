@@ -42,6 +42,7 @@ import {
   connectDevice,
   deviceStatus,
   disconnectDevice,
+  isProtectedFile,
   isSerialSupported,
   uploadAndRun,
 } from '../lib/iii-device.ts';
@@ -106,8 +107,12 @@ export function BehaviorPanel() {
 
   const canAdd = () =>
     selectionSize() > 0 && recipe() !== null && shapeViolation() === null;
-  const canDownload = () => regions().length > 0;
   const downloadName = () => (layoutName().trim() || 'untitled');
+  // Layout name "init" or "lib" would clobber iii's core files
+  // (init.lua / lib.lua) on upload — block it before the user gets
+  // there. Case-insensitive so "Init", "LIB" etc. are blocked too.
+  const reservedName = () => isProtectedFile(`${downloadName()}.lua`);
+  const canDownload = () => regions().length > 0 && !reservedName();
 
   function onAddRegion() {
     if (!canAdd()) return;
@@ -189,6 +194,12 @@ export function BehaviorPanel() {
     const status = deviceStatus();
     if (status.kind !== 'connected') return;
     const filename = `${downloadName()}.lua`;
+    if (isProtectedFile(filename)) {
+      setNotice(
+        `"${filename}" is a core iii file — pick a different layout name`,
+      );
+      return;
+    }
     try {
       setNotice(`uploading ${filename}…`);
       await uploadAndRun(filename, emit(buildLayout()));
@@ -264,8 +275,18 @@ export function BehaviorPanel() {
             value={layoutName()}
             onInput={(e) => setLayoutName(e.currentTarget.value)}
             placeholder="untitled"
-            class="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm text-neutral-200 font-mono focus:outline-none focus:border-neutral-600"
+            class={`w-full bg-neutral-900 border rounded px-2 py-1 text-sm text-neutral-200 font-mono focus:outline-none ${
+              reservedName()
+                ? 'border-rose-500/60 focus:border-rose-400'
+                : 'border-neutral-800 focus:border-neutral-600'
+            }`}
           />
+          <Show when={reservedName()}>
+            <p class="text-[10px] text-rose-400 italic leading-relaxed">
+              "{downloadName()}" conflicts with a core iii file
+              ({downloadName()}.lua). Pick a different name.
+            </p>
+          </Show>
           <div class="flex gap-1">
             <SmallButton onClick={onImportClick}>Import</SmallButton>
             <SmallButton onClick={onExport} disabled={regions().length === 0}>

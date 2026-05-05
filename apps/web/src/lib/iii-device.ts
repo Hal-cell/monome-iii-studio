@@ -426,25 +426,54 @@ export async function runFile(filename: string): Promise<void> {
 }
 
 /**
- * Ask the device for its file list. iii exposes the shell-style helper
- * `ls()` which prints one filename per line; that's what we send.
- * Source: https://monome.org/docs/iii/code (filesystem section).
+ * Ask the device for its file list. We use the diii-style for-loop
+ * incantation (`fs_list_files`) rather than the docs' `ls()` helper —
+ * `ls()` is defined in lib.lua, which the user can modify or
+ * temporarily delete (it auto-rebuilds on next boot but only on the
+ * NEXT boot). `fs_list_files` is a built-in primitive and is always
+ * available.
+ *
+ * To know when the listing has finished we bracket it with a print()
+ * of a unique sentinel marker; that's much more reliable than the
+ * "quiet for N ms" heuristic, which times out unhelpfully if the
+ * device prints anything else (e.g. script log lines).
  */
 export async function listFiles(): Promise<string[]> {
   if (!_port) throw new Error('not connected to iii device');
-  const lines = await sendAndCollect('ls()', 400, 3000);
-  // The REPL echoes each character of the command back as we type it,
-  // so the response begins with garbled echoes of "ls()". Filter to
-  // plausible filenames: non-empty, no special markers, no shell-ish
-  // tokens, no spaces.
+  const MARKER = '__III_LIST_END__';
+  const lines: string[] = [];
+  let done = false;
+  const listener = (l: string) => {
+    if (l.includes(MARKER)) {
+      done = true;
+      return;
+    }
+    lines.push(l);
+  };
+  _readListeners.push(listener);
+  try {
+    await writeLineRaw('for _,x in pairs(fs_list_files()) do print(x) end');
+    await writeLineRaw(`print("${MARKER}")`);
+    const start = Date.now();
+    while (!done && Date.now() - start < 3000) {
+      await sleep(50);
+    }
+  } finally {
+    _readListeners = _readListeners.filter((l) => l !== listener);
+  }
+  // Filter to plausible filenames: non-empty, no whitespace, no
+  // REPL-prompt or control-marker noise, no echoed command tokens.
   const names = new Set<string>();
   for (const raw of lines) {
     const l = raw.trim();
     if (!l) continue;
-    if (l.includes('^^')) continue;
-    if (l === 'ls()' || l.startsWith('ls(')) continue;
     if (l.startsWith('>')) continue;
+    if (l.includes('^^')) continue;
     if (/\s/.test(l)) continue;
+    // Filter echoed command tokens — the REPL echoes our request back.
+    if (l.includes('fs_list_files') || l.includes('pairs')) continue;
+    if (l.startsWith('for') || l === 'do' || l === 'end') continue;
+    if (l.startsWith('print')) continue;
     names.add(l);
   }
   return Array.from(names).sort();
@@ -468,7 +497,10 @@ export async function sendCommand(line: string): Promise<string[]> {
 export const PROTECTED_FILES: readonly string[] = ['init.lua', 'lib.lua'];
 
 export function isProtectedFile(name: string): boolean {
-  return PROTECTED_FILES.includes(name);
+  // iii treats filenames case-insensitively for these core files —
+  // uploading "Init.lua" would still clobber init.lua. Compare lower.
+  const lower = name.toLowerCase();
+  return PROTECTED_FILES.includes(lower);
 }
 
 /**
