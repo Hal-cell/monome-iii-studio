@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool_version": "0.0.0",
-  "name": "test-nk-chromatic-row",
+  "name": "test-nk-major",
   "width": 16,
   "height": 8,
   "active_page_index": 0,
@@ -14,6 +14,54 @@
           "id": "r-keys",
           "name": "keys",
           "cells": [
+            {
+              "x": 0,
+              "y": 4
+            },
+            {
+              "x": 1,
+              "y": 4
+            },
+            {
+              "x": 2,
+              "y": 4
+            },
+            {
+              "x": 3,
+              "y": 4
+            },
+            {
+              "x": 0,
+              "y": 5
+            },
+            {
+              "x": 1,
+              "y": 5
+            },
+            {
+              "x": 2,
+              "y": 5
+            },
+            {
+              "x": 3,
+              "y": 5
+            },
+            {
+              "x": 0,
+              "y": 6
+            },
+            {
+              "x": 1,
+              "y": 6
+            },
+            {
+              "x": 2,
+              "y": 6
+            },
+            {
+              "x": 3,
+              "y": 6
+            },
             {
               "x": 0,
               "y": 7
@@ -29,22 +77,6 @@
             {
               "x": 3,
               "y": 7
-            },
-            {
-              "x": 4,
-              "y": 7
-            },
-            {
-              "x": 5,
-              "y": 7
-            },
-            {
-              "x": 6,
-              "y": 7
-            },
-            {
-              "x": 7,
-              "y": 7
             }
           ],
           "mode": "per_cell",
@@ -52,14 +84,14 @@
             "kind": "note_keyboard",
             "params": {
               "channel": 1,
-              "root_note": 36,
+              "root_note": 60,
               "column_interval": 1,
-              "row_interval": 1,
+              "row_interval": 3,
+              "scale": "major",
               "velocity": 100,
               "led_held": 12,
               "led_idle": 3,
-              "led_octave": 6,
-              "scale": "chromatic"
+              "led_octave": 6
             }
           }
         }

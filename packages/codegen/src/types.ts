@@ -163,6 +163,9 @@ export type MeterBehavior = {
   params: MeterParams;
 };
 
+// Re-export ScaleName for consumers using only the package types.
+export type { ScaleName } from './scales.ts';
+
 // ---------- Note keyboard ----------
 
 /**
@@ -188,10 +191,27 @@ export type NoteKeyboardParams = {
   channel: number;
   /** MIDI note for the bottom-left cell of the selection. */
   root_note: number;
-  /** Semitones between adjacent cells within a row. Default 1 (chromatic). */
+  /**
+   * Cells per step in the horizontal direction. Units depend on
+   * `scale`: for `chromatic`, semitones; for any other scale,
+   * scale-degree steps. Default 1.
+   */
   column_interval: number;
-  /** Semitones offset between adjacent rows. Default 5 (perfect 4th). */
+  /**
+   * Cells per step in the vertical direction (between adjacent rows).
+   * Units depend on `scale`: for `chromatic`, semitones (default 5 =
+   * perfect 4th, monome's traditional layout); for any other scale,
+   * scale-degree steps.
+   */
   row_interval: number;
+  /**
+   * Scale that interprets the intervals above. `chromatic` (default)
+   * preserves the original semitone semantics. Any other scale makes
+   * the keyboard "scale-aware": cells walk through the scale's
+   * degrees rather than every semitone, so every cell lands on a
+   * note that's IN the scale.
+   */
+  scale: import('./scales.ts').ScaleName;
   velocity: number;
   led_held: number;
   led_idle: number;
@@ -285,9 +305,19 @@ export type StepSequencerCommonParams = {
 
 export type StepSequencerNoteParams = StepSequencerCommonParams & {
   output_mode: 'note_per_row';
-  /** Top row plays this note. Row R plays `base_note + R`. */
+  /**
+   * BOTTOM row plays this note (matches piano-laid-flat convention:
+   * up = higher pitch). Row indices walk UP the scale toward the top.
+   */
   base_note: number;
   velocity: number;
+  /**
+   * Scale used to map row indices to MIDI notes. `chromatic` (default)
+   * gives the simple `base_note + (numRows-1-r)` mapping (one
+   * semitone per row). Any other scale walks scale degrees instead,
+   * so every row lands on a scale tone.
+   */
+  scale: import('./scales.ts').ScaleName;
 };
 
 export type StepSequencerCCParams = StepSequencerCommonParams & {

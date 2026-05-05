@@ -233,6 +233,32 @@ const meter: RecipeMeta = {
 
 // ---------- Note keyboard ----------
 
+const SCALE_OPTIONS = [
+  { value: 'chromatic', label: 'Chromatic' },
+  { value: 'major', label: 'Major' },
+  { value: 'minor', label: 'Minor' },
+  { value: 'dorian', label: 'Dorian' },
+  { value: 'phrygian', label: 'Phrygian' },
+  { value: 'lydian', label: 'Lydian' },
+  { value: 'mixolydian', label: 'Mixolydian' },
+  { value: 'locrian', label: 'Locrian' },
+] as const;
+
+type ScaleName =
+  | 'chromatic'
+  | 'major'
+  | 'minor'
+  | 'dorian'
+  | 'phrygian'
+  | 'lydian'
+  | 'mixolydian'
+  | 'locrian';
+
+function asScale(v: unknown): ScaleName {
+  const s = asString(v, 'chromatic');
+  return SCALE_OPTIONS.some((o) => o.value === s) ? (s as ScaleName) : 'chromatic';
+}
+
 const noteKeyboard: RecipeMeta = {
   id: 'note_keyboard',
   label: 'Note keyboard',
@@ -243,14 +269,22 @@ const noteKeyboard: RecipeMeta = {
     root_note: 36,
     column_interval: 1,
     row_interval: 5,
+    scale: 'chromatic',
     velocity: 100,
     led_held: 12,
     led_idle: 3,
     led_octave: 6,
   },
-  paramsFor: () => [
+  paramsFor: (values) => [
     { kind: 'int', key: 'channel', label: 'Channel', min: 1, max: 16, default: 1 },
     { kind: 'int', key: 'root_note', label: 'Root note', min: 0, max: 127, default: 36 },
+    {
+      kind: 'enum',
+      key: 'scale',
+      label: 'Scale',
+      options: SCALE_OPTIONS,
+      default: 'chromatic',
+    },
     {
       kind: 'int',
       key: 'column_interval',
@@ -258,7 +292,10 @@ const noteKeyboard: RecipeMeta = {
       min: 0,
       max: 24,
       default: 1,
-      help: 'semitones per cell within a row (1 = chromatic)',
+      help:
+        values.scale === 'chromatic' || values.scale === undefined
+          ? 'semitones per cell within a row (1 = chromatic)'
+          : 'scale-degree steps per cell within a row',
     },
     {
       kind: 'int',
@@ -267,7 +304,10 @@ const noteKeyboard: RecipeMeta = {
       min: 0,
       max: 24,
       default: 5,
-      help: '5 = fourths, 7 = fifths, 12 = octaves',
+      help:
+        values.scale === 'chromatic' || values.scale === undefined
+          ? '5 = fourths, 7 = fifths, 12 = octaves (in semitones)'
+          : 'scale-degree steps between rows (e.g. 3 = thirds in scale)',
     },
     { kind: 'int', key: 'velocity', label: 'Velocity', min: 0, max: 127, default: 100 },
     { kind: 'int', key: 'led_held', label: 'LED held', min: 0, max: 15, default: 12 },
@@ -289,6 +329,7 @@ const noteKeyboard: RecipeMeta = {
       root_note: asInt(v.root_note, 36),
       column_interval: asInt(v.column_interval, 1),
       row_interval: asInt(v.row_interval, 5),
+      scale: asScale(v.scale),
       velocity: asInt(v.velocity, 100),
       led_held: asInt(v.led_held, 12),
       led_idle: asInt(v.led_idle, 3),
@@ -309,6 +350,7 @@ const stepSequencer: RecipeMeta = {
     channel: 1,
     base_note: 36,
     base_cc: 20,
+    scale: 'chromatic',
     velocity: 100,
     on_value: 127,
     off_value: 0,
@@ -400,7 +442,22 @@ const stepSequencer: RecipeMeta = {
     }
     return [
       ...head,
-      { kind: 'int', key: 'base_note', label: 'Base note', min: 0, max: 127, default: 36 },
+      {
+        kind: 'int',
+        key: 'base_note',
+        label: 'Base note',
+        min: 0,
+        max: 127,
+        default: 36,
+        help: 'BOTTOM row of the selection plays this note (top row = highest pitch)',
+      },
+      {
+        kind: 'enum',
+        key: 'scale',
+        label: 'Scale',
+        options: SCALE_OPTIONS,
+        default: 'chromatic',
+      },
       { kind: 'int', key: 'velocity', label: 'Velocity', min: 0, max: 127, default: 100 },
       ...tail,
     ];
@@ -444,6 +501,7 @@ const stepSequencer: RecipeMeta = {
       params: {
         output_mode: 'note_per_row',
         base_note: asInt(v.base_note, 36),
+        scale: asScale(v.scale),
         velocity: asInt(v.velocity, 100),
         ...common,
       },

@@ -5,6 +5,7 @@ import type {
   StepSequencerParams,
 } from '../types.ts';
 import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
+import { noteAtDegree } from '../scales.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type StepSeqRegion = Region & { behavior: StepSequencerBehavior };
@@ -31,8 +32,6 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     params.output_mode === 'note_per_row'
       ? `_${name}_notes`
       : `_${name}_ccs`;
-  const baseValue =
-    params.output_mode === 'note_per_row' ? params.base_note : params.base_cc;
 
   // Master tick rate. Per-row divs slow individual rows down from this.
   const masterTickSeconds = 60 / params.bpm / params.steps_per_beat;
@@ -56,9 +55,22 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     .map((c) => `${colTable}[${luaKey(c)}] = ${c.x - xLeft}`)
     .join('\n');
 
+  // Per-row value table:
+  //   note mode: top row = highest pitch (piano-flat convention).
+  //              row r → scale-degree (numRows-1-r) above base_note.
+  //   cc mode:   row r → base_cc + r (no flip; CC numbers carry no
+  //              musical "up/down", and users typically order rows
+  //              as labeled tracks).
+  const valueForRow = (r: number): number => {
+    if (params.output_mode === 'note_per_row') {
+      const degree = numRows - 1 - r;
+      return noteAtDegree(params.base_note, params.scale, degree);
+    }
+    return params.base_cc + r;
+  };
   const valuesEntries = Array.from(
     { length: numRows },
-    (_, r) => `[${r}]=${baseValue + r}`,
+    (_, r) => `[${r}]=${valueForRow(r)}`,
   ).join(', ');
 
   const divsEntries = divs.map((d, r) => `[${r}]=${d}`).join(', ');

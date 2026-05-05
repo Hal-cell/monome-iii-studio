@@ -90,7 +90,8 @@
               "velocity": 100,
               "led_held": 12,
               "led_idle": 3,
-              "led_octave": 6
+              "led_octave": 6,
+              "scale": "chromatic"
             }
           }
         }

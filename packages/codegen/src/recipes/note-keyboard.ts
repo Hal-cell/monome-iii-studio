@@ -1,5 +1,6 @@
 import type { Cell, NoteKeyboardBehavior, Region } from '../types.ts';
 import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
+import { noteAtDegree } from '../scales.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type NKRegion = Region & { behavior: NoteKeyboardBehavior };
@@ -15,13 +16,18 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   // Compute the MIDI note for each cell. Drop cells whose note falls
   // outside [0, 127] (decision B): they get no note table entry, no
   // LED line, no route — they appear unlit and unresponsive.
+  //
+  // For chromatic scale, the row/column intervals are semitones —
+  // identical to the pre-scale behaviour. For any other scale, they
+  // are scale-degree steps; the keyboard becomes scale-aware, with
+  // every cell landing on a note IN the scale.
   const cellsWithNote = region.cells.map((c) => {
     const rx = c.x - xLeft;
     const ry = c.y - yTop;
-    const note =
-      params.root_note +
+    const degree =
       (height - 1 - ry) * params.row_interval +
       rx * params.column_interval;
+    const note = noteAtDegree(params.root_note, params.scale, degree);
     return { cell: c, note };
   });
 

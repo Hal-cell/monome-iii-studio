@@ -110,7 +110,7 @@ _tracks_col[5 + 8*W] = 4
 _tracks_col[6 + 8*W] = 5
 _tracks_col[7 + 8*W] = 6
 _tracks_col[8 + 8*W] = 7
-local _tracks_notes = {[0]=36, [1]=37, [2]=38, [3]=39}
+local _tracks_notes = {[0]=39, [1]=38, [2]=37, [3]=36}
 local _tracks_divs = {[0]=1, [1]=1, [2]=1, [3]=1}
 
 local function _tracks_tick()

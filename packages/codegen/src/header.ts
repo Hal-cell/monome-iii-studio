@@ -66,7 +66,8 @@ function describeBehavior(region: Region): string {
   }
   if (region.behavior.kind === 'note_keyboard') {
     const p = region.behavior.params;
-    return `note keyboard per_cell, ch${p.channel} root MIDI ${p.root_note} (row=${p.row_interval}, col=${p.column_interval})`;
+    const scaleInfo = p.scale === 'chromatic' ? '' : `, ${p.scale}`;
+    return `note keyboard per_cell, ch${p.channel} root MIDI ${p.root_note} (row=${p.row_interval}, col=${p.column_interval}${scaleInfo})`;
   }
   if (region.behavior.kind === 'step_sequencer') {
     const p = region.behavior.params;
@@ -83,10 +84,13 @@ function describeBehavior(region: Region): string {
     });
     const isPoly = divsResolved.some((d) => d !== 1);
     const divsInfo = isPoly ? `, divs=[${divsResolved.join(',')}]` : '';
-    const head =
-      p.output_mode === 'note_per_row'
-        ? `ch${p.channel} note from ${p.base_note}`
-        : `ch${p.channel} cc from ${p.base_cc}`;
+    let head: string;
+    if (p.output_mode === 'note_per_row') {
+      const scaleInfo = p.scale === 'chromatic' ? '' : ` ${p.scale}`;
+      head = `ch${p.channel} note from ${p.base_note}${scaleInfo}`;
+    } else {
+      head = `ch${p.channel} cc from ${p.base_cc}`;
+    }
     return `step seq group, ${numRows}×${numCols}, ${head}, ${p.bpm} BPM @ 1/${p.steps_per_beat}${divsInfo}${dirInfo}${gateInfo}`;
   }
   // Exhaustive: every behavior kind handled above.
