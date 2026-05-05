@@ -409,32 +409,28 @@ export async function uploadAndRun(
 }
 
 /**
- * Run an existing file on the device immediately.
+ * Run an existing file on the device by setting it as the boot script
+ * and rebooting. Reboot is the only clean way to start a fresh Lua VM
+ * — calling `require(file)` from the REPL piles a new metro / event
+ * handler on top of whatever is already running, so the LED writes
+ * collide and the grid appears to flicker as if the script is firing
+ * many times at once.
  *
- * Per https://monome.org/docs/iii/code, `first(file)` only SETS the
- * boot script (next-power-on) — it does not execute the file. The
- * function that actually runs a stored script is `require(file)`,
- * documented as "run file". We additionally clear the entry from
- * `package.loaded` first so a re-Run actually re-executes (standard
- * Lua require() short-circuits cached modules; the iii filesystem
- * may or may not key the cache the same way our filename does, so
- * we clear both `name` and `name.lua` to be safe).
+ * `first(file)` (next-boot script) + `^^reboot` (the diii REPL command
+ * to reboot the device, per the III_COMMANDS list in monome/diii's
+ * src/diii/repl.py) gives the same clean-VM semantics as the
+ * post-upload `^^w` flow.
  *
- * uploadAndRun keeps using `first()` because it already runs the
- * script as a side-effect of the `^^w` upload-commit (per the diii
- * `^^upload` description "send a file, store and run it"); the
- * extra `first()` there only updates the boot script for persistence.
+ * The reboot triggers a USB re-enumeration; the disconnect / reconnect
+ * loop in this module brings the connection back automatically.
  */
 export async function runFile(filename: string): Promise<void> {
   if (!_port) throw new Error('not connected to iii device');
   _setStatus({ kind: 'busy', action: `running ${filename}` });
   try {
-    const stem = filename.replace(/\.lua$/i, '');
-    await writeLineRaw(
-      `package.loaded["${filename}"]=nil; package.loaded["${stem}"]=nil`,
-    );
+    await writeLineRaw(`first("${filename}")`);
     await sleep(CMD_DELAY_MS);
-    await writeLineRaw(`require("${filename}")`);
+    await writeLineRaw('^^reboot');
     await sleep(CMD_DELAY_MS);
   } finally {
     if (deviceStatus().kind === 'busy') {
