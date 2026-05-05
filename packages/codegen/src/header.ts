@@ -51,5 +51,9 @@ function describeBehavior(region: Region): string {
     const noun = region.mode === 'per_cell' ? 'cc from' : 'cc';
     return `toggle ${region.mode}, ch${p.channel} ${noun} ${p.cc}`;
   }
+  if (region.behavior.kind === 'radio') {
+    const p = region.behavior.params;
+    return `radio group, ch${p.channel} cc ${p.cc} → 0..127`;
+  }
   return `${region.behavior.kind} (not yet supported)`;
 }

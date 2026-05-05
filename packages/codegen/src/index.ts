@@ -23,6 +23,8 @@ export type {
   PendingBehavior,
   Region,
   RegionMode,
+  RadioBehavior,
+  RadioParams,
   ToggleBehavior,
   ToggleParams,
 } from './types.ts';

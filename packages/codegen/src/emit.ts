@@ -1,11 +1,13 @@
 import type {
   GridLayout,
   MomentaryBehavior,
+  RadioBehavior,
   Region,
   ToggleBehavior,
 } from './types.ts';
 import { emitHeader } from './header.ts';
 import { emitMomentary } from './recipes/momentary.ts';
+import { emitRadio } from './recipes/radio.ts';
 import { emitToggle } from './recipes/toggle.ts';
 
 /**
@@ -15,8 +17,8 @@ import { emitToggle } from './recipes/toggle.ts';
  * stability is part of the public contract — see vault
  * `notes/engineering-kickoff.md` "Project-specific addenda".
  *
- * Step 3: `momentary` and `toggle` recipes are implemented. emit() throws
- * if it encounters any other behavior kind.
+ * Step 4: `momentary`, `toggle`, and `radio` recipes are implemented.
+ * emit() throws if it encounters any other behavior kind.
  */
 export function emit(layout: GridLayout): string {
   if (layout.pages.length !== 1) {
@@ -37,6 +39,8 @@ export function emit(layout: GridLayout): string {
       frags = emitMomentary(region as Region & { behavior: MomentaryBehavior });
     } else if (region.behavior.kind === 'toggle') {
       frags = emitToggle(region as Region & { behavior: ToggleBehavior });
+    } else if (region.behavior.kind === 'radio') {
+      frags = emitRadio(region as Region & { behavior: RadioBehavior });
     } else {
       throw new Error(
         `Recipe "${region.behavior.kind}" not yet implemented (region "${region.name}")`,

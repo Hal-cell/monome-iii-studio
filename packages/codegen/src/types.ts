@@ -77,14 +77,46 @@ export type ToggleBehavior = {
   params: ToggleParams;
 };
 
-// ---------- Pending recipes (Steps 4+) ----------
+// ---------- Radio (Switches) ----------
+
+/**
+ * Mutually-exclusive single-selection across N cells. Group-only.
+ *
+ * CC value mapping: the selected cell's selection-local index (0..N-1)
+ * is mapped uniformly to the MIDI CC range 0..127 via
+ * `floor(idx * 127 / (N-1))`. This deviates intentionally from the
+ * grid-recipes "Switches" pattern (which sends raw idx) — see Step 4
+ * commit message for rationale.
+ *
+ * Note output is a Phase 2 stretch (requires note-off bookkeeping for
+ * the previously-selected cell).
+ */
+export type RadioParams = {
+  channel: number;
+  cc: number;
+  /** Selection index that is active at script boot. 0..N-1. Default 0. */
+  initial_index: number;
+  led_on: number;
+  led_off: number;
+};
+
+export type RadioBehavior = {
+  kind: 'radio';
+  params: RadioParams;
+};
+
+// ---------- Pending recipes (Steps 5+) ----------
 
 export type PendingBehavior = {
-  kind: 'radio' | 'range' | 'meter' | 'note_keyboard' | 'step_sequencer';
+  kind: 'range' | 'meter' | 'note_keyboard' | 'step_sequencer';
   params: unknown;
 };
 
-export type Behavior = MomentaryBehavior | ToggleBehavior | PendingBehavior;
+export type Behavior =
+  | MomentaryBehavior
+  | ToggleBehavior
+  | RadioBehavior
+  | PendingBehavior;
 
 // ---------- Region / Page / GridLayout ----------
 
