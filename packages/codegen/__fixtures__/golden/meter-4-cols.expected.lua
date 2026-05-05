@@ -13,6 +13,23 @@ local state = {
   faders_h = {[0]=0, [1]=0, [2]=0, [3]=0},
 }
 
+-- ---- differential LED writes ----
+-- Wrap iii's grid_led so unchanged brightness is skipped. Calling
+-- grid_led_all(0) on every redraw makes the whole grid flicker dark
+-- when several keys are pressed in quick succession; instead we
+-- clear once at init and only push deltas after that. _prev_led is
+-- keyed the same way as our route table (1-indexed x + y*W). nil
+-- entries are treated as 0 so the first redraw skips zero-fills.
+local _real_grid_led = grid_led
+local _prev_led = {}
+local function grid_led(x, y, v)
+  local k = x + y*W
+  if (_prev_led[k] or 0) ~= v then
+    _real_grid_led(x, y, v)
+    _prev_led[k] = v
+  end
+end
+
 -- ---- region: faders ----
 local _faders_col = {}
 _faders_col[1 + 1*W] = 0
@@ -59,7 +76,6 @@ end
 
 -- ---- LED draw ----
 local function redraw()
-  grid_led_all(0)
   -- region: faders
   grid_led(1, 1, state.faders_h[0] > 7 and 12 or 3)
   grid_led(1, 2, state.faders_h[0] > 6 and 12 or 3)
@@ -138,4 +154,5 @@ function event_grid(x, y, z)
 end
 
 -- ---- init ----
+grid_led_all(0)
 redraw()
