@@ -45,6 +45,7 @@ import {
   isSerialSupported,
   uploadAndRun,
 } from '../lib/iii-device.ts';
+import { FileManager } from './FileManager.tsx';
 import { ParamEditor } from './ParamEditor.tsx';
 import { RecipeSelector } from './RecipeSelector.tsx';
 
@@ -356,6 +357,18 @@ export function BehaviorPanel() {
         </Section>
       </Show>
 
+      <Show
+        when={
+          deviceStatus().kind === 'connected' ||
+          deviceStatus().kind === 'busy' ||
+          deviceStatus().kind === 'reconnecting'
+        }
+      >
+        <Section title="Files on iii">
+          <FileManager />
+        </Section>
+      </Show>
+
       <div class="mt-auto pt-4 border-t border-neutral-900 space-y-2">
         <DeviceRow
           onConnect={onConnect}
@@ -524,6 +537,8 @@ function DeviceRow(props: {
         return 'connecting…';
       case 'connected':
         return 'iii connected';
+      case 'reconnecting':
+        return 'iii rebooted, reconnecting…';
       case 'busy':
         return s.action;
       case 'error':
@@ -534,13 +549,17 @@ function DeviceRow(props: {
     const k = status().kind;
     if (k === 'connected') return 'bg-amber-200';
     if (k === 'busy') return 'bg-amber-200 animate-pulse';
-    if (k === 'connecting') return 'bg-neutral-400 animate-pulse';
+    if (k === 'connecting' || k === 'reconnecting')
+      return 'bg-neutral-400 animate-pulse';
     if (k === 'error') return 'bg-rose-400';
     return 'bg-neutral-700';
   };
   const showConnect = () =>
     status().kind === 'disconnected' || status().kind === 'error';
-  const showDisconnect = () => status().kind === 'connected';
+  const showDisconnect = () =>
+    status().kind === 'connected' ||
+    status().kind === 'busy' ||
+    status().kind === 'reconnecting';
   const supported = isSerialSupported();
   return (
     <div class="flex items-center gap-2 text-[10px]">
