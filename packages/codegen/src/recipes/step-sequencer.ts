@@ -4,7 +4,7 @@ import type {
   StepSequencerBehavior,
   StepSequencerParams,
 } from '../types.ts';
-import { luaKey, luaXY } from '../lua-coords.ts';
+import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type StepSeqRegion = Region & { behavior: StepSequencerBehavior };
@@ -13,7 +13,7 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
   const { xLeft, yTop, height, numCols } = analyzeRect(region.cells);
   const numRows = height;
   const params = region.behavior.params;
-  const name = region.name;
+  const name = luaIdent(region.name);
 
   const handlerName = `handle_${name}`;
   const tickName = `_${name}_tick`;

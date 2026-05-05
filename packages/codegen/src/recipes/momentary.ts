@@ -4,7 +4,7 @@ import type {
   MomentaryParams,
   Region,
 } from '../types.ts';
-import { luaKey, luaXY } from '../lua-coords.ts';
+import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
 
 /**
  * Lua source fragments contributed by a single region.
@@ -26,7 +26,8 @@ type MomentaryRegion = Region & { behavior: MomentaryBehavior };
 
 export function emitMomentary(region: MomentaryRegion): EmittedFragments {
   const sortedCells = sortCells(region.cells);
-  const handlerName = `handle_${region.name}`;
+  const safeName = luaIdent(region.name);
+  const handlerName = `handle_${safeName}`;
 
   const routeAdditions = sortedCells.map(
     (c) => `_route[${luaKey(c)}] = ${handlerName}`,
@@ -34,8 +35,8 @@ export function emitMomentary(region: MomentaryRegion): EmittedFragments {
 
   const fragments =
     region.mode === 'per_cell'
-      ? emitPerCell(region.name, sortedCells, handlerName, region.behavior.params)
-      : emitGroup(region.name, sortedCells, handlerName, region.behavior.params);
+      ? emitPerCell(safeName, sortedCells, handlerName, region.behavior.params)
+      : emitGroup(safeName, sortedCells, handlerName, region.behavior.params);
 
   return { ...fragments, routeAdditions };
 }

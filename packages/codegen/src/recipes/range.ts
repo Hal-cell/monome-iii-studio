@@ -1,5 +1,5 @@
 import type { Cell, RangeBehavior, Region } from '../types.ts';
-import { luaKey, luaXY } from '../lua-coords.ts';
+import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 import { computeRadioValues } from './radio.ts';
 
@@ -7,15 +7,16 @@ type RangeRegion = Region & { behavior: RangeBehavior };
 
 export function emitRange(region: RangeRegion): EmittedFragments {
   const sortedCells = sortCells(region.cells);
-  const handlerName = `handle_${region.name}`;
+  const safeName = luaIdent(region.name);
+  const handlerName = `handle_${safeName}`;
   const params = region.behavior.params;
-  const stateHeld = `${region.name}_held`;
-  const stateCount = `${region.name}_count`;
-  const stateLo = `${region.name}_lo`;
-  const stateHi = `${region.name}_hi`;
-  const stateSet = `${region.name}_set`;
-  const idxTable = `_${region.name}_idx`;
-  const valuesTable = `_${region.name}_values`;
+  const stateHeld = `${safeName}_held`;
+  const stateCount = `${safeName}_count`;
+  const stateLo = `${safeName}_lo`;
+  const stateHi = `${safeName}_hi`;
+  const stateSet = `${safeName}_set`;
+  const idxTable = `_${safeName}_idx`;
+  const valuesTable = `_${safeName}_values`;
 
   const idxLines = sortedCells
     .map((c, i) => `${idxTable}[${luaKey(c)}] = ${i}`)
@@ -27,7 +28,7 @@ export function emitRange(region: RangeRegion): EmittedFragments {
   const valuesEntries = values.map((v, i) => `[${i}]=${v}`).join(', ');
 
   const declarations = [
-    `-- ---- region: ${region.name} ----`,
+    `-- ---- region: ${safeName} ----`,
     `local ${idxTable} = {}`,
     idxLines,
     `local ${valuesTable} = {${valuesEntries}}`,
@@ -62,7 +63,7 @@ export function emitRange(region: RangeRegion): EmittedFragments {
     .join('\n');
 
   const drawBlock = [
-    `  -- region: ${region.name}`,
+    `  -- region: ${safeName}`,
     '  do',
     `    local set = state.${stateSet}`,
     `    local lo, hi = state.${stateLo}, state.${stateHi}`,

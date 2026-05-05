@@ -41,3 +41,28 @@ export function luaXY(cell: Cell): string {
 export function lua1(coord: number): number {
   return coord + 1;
 }
+
+/**
+ * Sanitize a user-supplied region name into a valid Lua identifier
+ * for use as part of variable, function, table, or state-slot names.
+ *
+ * Lua identifiers are `[a-zA-Z_][a-zA-Z0-9_]*`. The auto-generated
+ * default name in the UI used to be `region-N` (with a hyphen), which
+ * Lua parses as `region` minus `N_…`, surfacing as
+ *   "malformed number near '1_'"
+ * during script load. We sanitize here so the emitter is robust
+ * regardless of what the user typed.
+ *
+ * Replaces any non-identifier char with `_`. If the result starts
+ * with a digit, prefixes `_`. Empty input becomes `_`.
+ *
+ * Display names (the human-readable version shown in the script's
+ * header comment) keep the original — see `header.ts`. Only the
+ * Lua-side identifiers go through this sanitizer.
+ */
+export function luaIdent(name: string): string {
+  let s = name.replace(/[^a-zA-Z0-9_]/g, '_');
+  if (/^[0-9]/.test(s)) s = '_' + s;
+  if (s === '') s = '_';
+  return s;
+}

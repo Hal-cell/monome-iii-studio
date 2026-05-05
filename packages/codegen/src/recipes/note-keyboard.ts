@@ -1,15 +1,16 @@
 import type { Cell, NoteKeyboardBehavior, Region } from '../types.ts';
-import { luaKey, luaXY } from '../lua-coords.ts';
+import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type NKRegion = Region & { behavior: NoteKeyboardBehavior };
 
 export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   const { yTop, height, xLeft } = analyzeSelection(region.cells);
-  const handlerName = `handle_${region.name}`;
+  const safeName = luaIdent(region.name);
+  const handlerName = `handle_${safeName}`;
   const params = region.behavior.params;
-  const stateSlot = `${region.name}_held`;
-  const noteTable = `_${region.name}_note`;
+  const stateSlot = `${safeName}_held`;
+  const noteTable = `_${safeName}_note`;
 
   // Compute the MIDI note for each cell. Drop cells whose note falls
   // outside [0, 127] (decision B): they get no note table entry, no
@@ -33,7 +34,7 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     .join('\n');
 
   const declarations = [
-    `-- ---- region: ${region.name} ----`,
+    `-- ---- region: ${safeName} ----`,
     `local ${noteTable} = {}`,
     noteLines,
     '',
@@ -62,7 +63,7 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     })
     .join('\n');
 
-  const drawBlock = [`  -- region: ${region.name}`, ledLines].join('\n');
+  const drawBlock = [`  -- region: ${safeName}`, ledLines].join('\n');
 
   const routeAdditions = inRange.map(
     ({ cell }) => `_route[${luaKey(cell)}] = ${handlerName}`,

@@ -1,15 +1,16 @@
 import type { Cell, RadioBehavior, Region } from '../types.ts';
-import { luaKey, luaXY } from '../lua-coords.ts';
+import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type RadioRegion = Region & { behavior: RadioBehavior };
 
 export function emitRadio(region: RadioRegion): EmittedFragments {
   const sortedCells = sortCells(region.cells);
-  const handlerName = `handle_${region.name}`;
-  const stateSlot = `${region.name}_index`;
-  const idxTable = `_${region.name}_idx`;
-  const valuesTable = `_${region.name}_values`;
+  const safeName = luaIdent(region.name);
+  const handlerName = `handle_${safeName}`;
+  const stateSlot = `${safeName}_index`;
+  const idxTable = `_${safeName}_idx`;
+  const valuesTable = `_${safeName}_values`;
   const params = region.behavior.params;
 
   const idxLines = sortedCells
@@ -20,7 +21,7 @@ export function emitRadio(region: RadioRegion): EmittedFragments {
   const valuesEntries = values.map((v, i) => `[${i}]=${v}`).join(', ');
 
   const declarations = [
-    `-- ---- region: ${region.name} ----`,
+    `-- ---- region: ${safeName} ----`,
     `local ${idxTable} = {}`,
     idxLines,
     `local ${valuesTable} = {${valuesEntries}}`,
@@ -39,7 +40,7 @@ export function emitRadio(region: RadioRegion): EmittedFragments {
     )
     .join('\n');
 
-  const drawBlock = [`  -- region: ${region.name}`, ledLines].join('\n');
+  const drawBlock = [`  -- region: ${safeName}`, ledLines].join('\n');
 
   const routeAdditions = sortedCells.map(
     (c) => `_route[${luaKey(c)}] = ${handlerName}`,

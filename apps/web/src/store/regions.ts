@@ -62,7 +62,11 @@ export function addRegion(input: {
 }): SavedRegion {
   const region: SavedRegion = {
     id: `r-${_idCounter++}`,
-    name: `region-${_nameCounter++}`,
+    // Default name uses underscore so it lands in Lua as a valid
+    // identifier without sanitization. The codegen sanitizes anyway
+    // (defensive), but a clean default avoids the surprise of
+    // `region-1` becoming `region_1` only after download.
+    name: `region_${_nameCounter++}`,
     cellKeys: input.cellKeys,
     mode: input.mode,
     recipeKind: input.recipeKind,

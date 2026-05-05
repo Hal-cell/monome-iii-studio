@@ -1,12 +1,13 @@
 import type { Cell, Region, ToggleBehavior, ToggleParams } from '../types.ts';
-import { luaKey, luaXY } from '../lua-coords.ts';
+import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type ToggleRegion = Region & { behavior: ToggleBehavior };
 
 export function emitToggle(region: ToggleRegion): EmittedFragments {
   const sortedCells = sortCells(region.cells);
-  const handlerName = `handle_${region.name}`;
+  const safeName = luaIdent(region.name);
+  const handlerName = `handle_${safeName}`;
 
   const routeAdditions = sortedCells.map(
     (c) => `_route[${luaKey(c)}] = ${handlerName}`,
@@ -14,8 +15,8 @@ export function emitToggle(region: ToggleRegion): EmittedFragments {
 
   const fragments =
     region.mode === 'per_cell'
-      ? emitPerCell(region.name, sortedCells, handlerName, region.behavior.params)
-      : emitGroup(region.name, sortedCells, handlerName, region.behavior.params);
+      ? emitPerCell(safeName, sortedCells, handlerName, region.behavior.params)
+      : emitGroup(safeName, sortedCells, handlerName, region.behavior.params);
 
   return { ...fragments, routeAdditions };
 }

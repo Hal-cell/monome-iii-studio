@@ -1,16 +1,17 @@
 import type { Cell, MeterBehavior, Region } from '../types.ts';
-import { lua1, luaKey, luaXY } from '../lua-coords.ts';
+import { lua1, luaIdent, luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type MeterRegion = Region & { behavior: MeterBehavior };
 
 export function emitMeter(region: MeterRegion): EmittedFragments {
   const { columns, yTop, height } = analyzeSelection(region.cells);
-  const handlerName = `handle_${region.name}`;
+  const safeName = luaIdent(region.name);
+  const handlerName = `handle_${safeName}`;
   const params = region.behavior.params;
-  const stateSlot = `${region.name}_h`;
-  const colTable = `_${region.name}_col`;
-  const valuesTable = `_${region.name}_values`;
+  const stateSlot = `${safeName}_h`;
+  const colTable = `_${safeName}_col`;
+  const valuesTable = `_${safeName}_values`;
 
   // Cell → column-index-within-selection (0..numCols-1).
   // Each column has the same N cells (the full selection height).
@@ -31,7 +32,7 @@ export function emitMeter(region: MeterRegion): EmittedFragments {
     .join(', ');
 
   const declarations = [
-    `-- ---- region: ${region.name} ----`,
+    `-- ---- region: ${safeName} ----`,
     `local ${colTable} = {}`,
     colLines,
     `local ${valuesTable} = {${valuesEntries}}`,
@@ -61,7 +62,7 @@ export function emitMeter(region: MeterRegion): EmittedFragments {
     })
     .join('\n');
 
-  const drawBlock = [`  -- region: ${region.name}`, ledLines].join('\n');
+  const drawBlock = [`  -- region: ${safeName}`, ledLines].join('\n');
 
   const routeAdditions = region.cells
     .slice()
