@@ -1,4 +1,5 @@
 import type { Cell, Region, ToggleBehavior, ToggleParams } from '../types.ts';
+import { luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type ToggleRegion = Region & { behavior: ToggleBehavior };
@@ -8,7 +9,7 @@ export function emitToggle(region: ToggleRegion): EmittedFragments {
   const handlerName = `handle_${region.name}`;
 
   const routeAdditions = sortedCells.map(
-    (c) => `_route[${c.x} + ${c.y}*W] = ${handlerName}`,
+    (c) => `_route[${luaKey(c)}] = ${handlerName}`,
   );
 
   const fragments =
@@ -35,7 +36,7 @@ function emitPerCell(
   const idxTable = `_${name}_idx`;
 
   const idxLines = cells
-    .map((c, i) => `${idxTable}[${c.x} + ${c.y}*W] = ${i}`)
+    .map((c, i) => `${idxTable}[${luaKey(c)}] = ${i}`)
     .join('\n');
 
   const declarations = [
@@ -54,7 +55,7 @@ function emitPerCell(
   const ledLines = cells
     .map(
       (c) =>
-        `  grid_led(${c.x}, ${c.y}, state.${stateSlot}[${c.x} + ${c.y}*W] and ${params.led_on} or ${params.led_off})`,
+        `  grid_led(${luaXY(c)}, state.${stateSlot}[${luaKey(c)}] and ${params.led_on} or ${params.led_off})`,
     )
     .join('\n');
 
@@ -87,7 +88,7 @@ function emitGroup(
   ].join('\n');
 
   const ledLines = cells
-    .map((c) => `    grid_led(${c.x}, ${c.y}, lit)`)
+    .map((c) => `    grid_led(${luaXY(c)}, lit)`)
     .join('\n');
 
   const drawBlock = [

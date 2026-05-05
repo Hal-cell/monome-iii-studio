@@ -1,4 +1,5 @@
 import type { Cell, NoteKeyboardBehavior, Region } from '../types.ts';
+import { luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type NKRegion = Region & { behavior: NoteKeyboardBehavior };
@@ -28,7 +29,7 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     .sort((a, b) => a.cell.y - b.cell.y || a.cell.x - b.cell.x);
 
   const noteLines = inRange
-    .map(({ cell, note }) => `${noteTable}[${cell.x} + ${cell.y}*W] = ${note}`)
+    .map(({ cell, note }) => `${noteTable}[${luaKey(cell)}] = ${note}`)
     .join('\n');
 
   const declarations = [
@@ -52,14 +53,14 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   const ledLines = inRange
     .map(
       ({ cell }) =>
-        `  grid_led(${cell.x}, ${cell.y}, state.${stateSlot}[${cell.x} + ${cell.y}*W] and ${params.led_held} or ${params.led_idle})`,
+        `  grid_led(${luaXY(cell)}, state.${stateSlot}[${luaKey(cell)}] and ${params.led_held} or ${params.led_idle})`,
     )
     .join('\n');
 
   const drawBlock = [`  -- region: ${region.name}`, ledLines].join('\n');
 
   const routeAdditions = inRange.map(
-    ({ cell }) => `_route[${cell.x} + ${cell.y}*W] = ${handlerName}`,
+    ({ cell }) => `_route[${luaKey(cell)}] = ${handlerName}`,
   );
 
   return {

@@ -19,14 +19,14 @@ local state = {
 
 -- ---- region: fader ----
 local _fader_idx = {}
-_fader_idx[0 + 0*W] = 0
-_fader_idx[1 + 0*W] = 1
-_fader_idx[2 + 0*W] = 2
-_fader_idx[3 + 0*W] = 3
-_fader_idx[4 + 0*W] = 4
-_fader_idx[5 + 0*W] = 5
-_fader_idx[6 + 0*W] = 6
-_fader_idx[7 + 0*W] = 7
+_fader_idx[1 + 1*W] = 0
+_fader_idx[2 + 1*W] = 1
+_fader_idx[3 + 1*W] = 2
+_fader_idx[4 + 1*W] = 3
+_fader_idx[5 + 1*W] = 4
+_fader_idx[6 + 1*W] = 5
+_fader_idx[7 + 1*W] = 6
+_fader_idx[8 + 1*W] = 7
 local _fader_values = {[0]=0, [1]=18, [2]=36, [3]=54, [4]=72, [5]=90, [6]=108, [7]=127}
 
 local function handle_fader(x, y, z)
@@ -57,28 +57,28 @@ local function redraw()
   do
     local set = state.fader_set
     local lo, hi = state.fader_lo, state.fader_hi
-    grid_led(0, 0, set and lo <= 0 and 0 <= hi and 12 or 3)
-    grid_led(1, 0, set and lo <= 1 and 1 <= hi and 12 or 3)
-    grid_led(2, 0, set and lo <= 2 and 2 <= hi and 12 or 3)
-    grid_led(3, 0, set and lo <= 3 and 3 <= hi and 12 or 3)
-    grid_led(4, 0, set and lo <= 4 and 4 <= hi and 12 or 3)
-    grid_led(5, 0, set and lo <= 5 and 5 <= hi and 12 or 3)
-    grid_led(6, 0, set and lo <= 6 and 6 <= hi and 12 or 3)
-    grid_led(7, 0, set and lo <= 7 and 7 <= hi and 12 or 3)
+    grid_led(1, 1, set and lo <= 0 and 0 <= hi and 12 or 3)
+    grid_led(2, 1, set and lo <= 1 and 1 <= hi and 12 or 3)
+    grid_led(3, 1, set and lo <= 2 and 2 <= hi and 12 or 3)
+    grid_led(4, 1, set and lo <= 3 and 3 <= hi and 12 or 3)
+    grid_led(5, 1, set and lo <= 4 and 4 <= hi and 12 or 3)
+    grid_led(6, 1, set and lo <= 5 and 5 <= hi and 12 or 3)
+    grid_led(7, 1, set and lo <= 6 and 6 <= hi and 12 or 3)
+    grid_led(8, 1, set and lo <= 7 and 7 <= hi and 12 or 3)
   end
   grid_refresh()
 end
 
 -- ---- dispatch ----
 local _route = {}
-_route[0 + 0*W] = handle_fader
-_route[1 + 0*W] = handle_fader
-_route[2 + 0*W] = handle_fader
-_route[3 + 0*W] = handle_fader
-_route[4 + 0*W] = handle_fader
-_route[5 + 0*W] = handle_fader
-_route[6 + 0*W] = handle_fader
-_route[7 + 0*W] = handle_fader
+_route[1 + 1*W] = handle_fader
+_route[2 + 1*W] = handle_fader
+_route[3 + 1*W] = handle_fader
+_route[4 + 1*W] = handle_fader
+_route[5 + 1*W] = handle_fader
+_route[6 + 1*W] = handle_fader
+_route[7 + 1*W] = handle_fader
+_route[8 + 1*W] = handle_fader
 
 function event_grid(x, y, z)
   local h = _route[x + y*W]

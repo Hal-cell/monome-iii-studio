@@ -15,140 +15,140 @@ local state = {
 
 -- ---- region: faders ----
 local _faders_col = {}
-_faders_col[0 + 0*W] = 0
-_faders_col[0 + 1*W] = 0
-_faders_col[0 + 2*W] = 0
-_faders_col[0 + 3*W] = 0
-_faders_col[0 + 4*W] = 0
-_faders_col[0 + 5*W] = 0
-_faders_col[0 + 6*W] = 0
-_faders_col[0 + 7*W] = 0
-_faders_col[1 + 0*W] = 1
-_faders_col[1 + 1*W] = 1
-_faders_col[1 + 2*W] = 1
-_faders_col[1 + 3*W] = 1
-_faders_col[1 + 4*W] = 1
-_faders_col[1 + 5*W] = 1
-_faders_col[1 + 6*W] = 1
-_faders_col[1 + 7*W] = 1
-_faders_col[2 + 0*W] = 2
-_faders_col[2 + 1*W] = 2
-_faders_col[2 + 2*W] = 2
-_faders_col[2 + 3*W] = 2
-_faders_col[2 + 4*W] = 2
-_faders_col[2 + 5*W] = 2
-_faders_col[2 + 6*W] = 2
-_faders_col[2 + 7*W] = 2
-_faders_col[3 + 0*W] = 3
-_faders_col[3 + 1*W] = 3
-_faders_col[3 + 2*W] = 3
-_faders_col[3 + 3*W] = 3
-_faders_col[3 + 4*W] = 3
-_faders_col[3 + 5*W] = 3
-_faders_col[3 + 6*W] = 3
-_faders_col[3 + 7*W] = 3
-_faders_col[4 + 0*W] = 4
-_faders_col[4 + 1*W] = 4
-_faders_col[4 + 2*W] = 4
-_faders_col[4 + 3*W] = 4
-_faders_col[4 + 4*W] = 4
-_faders_col[4 + 5*W] = 4
-_faders_col[4 + 6*W] = 4
-_faders_col[4 + 7*W] = 4
-_faders_col[5 + 0*W] = 5
-_faders_col[5 + 1*W] = 5
-_faders_col[5 + 2*W] = 5
-_faders_col[5 + 3*W] = 5
-_faders_col[5 + 4*W] = 5
-_faders_col[5 + 5*W] = 5
-_faders_col[5 + 6*W] = 5
-_faders_col[5 + 7*W] = 5
-_faders_col[6 + 0*W] = 6
-_faders_col[6 + 1*W] = 6
-_faders_col[6 + 2*W] = 6
-_faders_col[6 + 3*W] = 6
-_faders_col[6 + 4*W] = 6
-_faders_col[6 + 5*W] = 6
-_faders_col[6 + 6*W] = 6
-_faders_col[6 + 7*W] = 6
-_faders_col[7 + 0*W] = 7
-_faders_col[7 + 1*W] = 7
-_faders_col[7 + 2*W] = 7
-_faders_col[7 + 3*W] = 7
-_faders_col[7 + 4*W] = 7
-_faders_col[7 + 5*W] = 7
-_faders_col[7 + 6*W] = 7
-_faders_col[7 + 7*W] = 7
-_faders_col[8 + 0*W] = 8
-_faders_col[8 + 1*W] = 8
-_faders_col[8 + 2*W] = 8
-_faders_col[8 + 3*W] = 8
-_faders_col[8 + 4*W] = 8
-_faders_col[8 + 5*W] = 8
-_faders_col[8 + 6*W] = 8
-_faders_col[8 + 7*W] = 8
-_faders_col[9 + 0*W] = 9
-_faders_col[9 + 1*W] = 9
-_faders_col[9 + 2*W] = 9
-_faders_col[9 + 3*W] = 9
-_faders_col[9 + 4*W] = 9
-_faders_col[9 + 5*W] = 9
-_faders_col[9 + 6*W] = 9
-_faders_col[9 + 7*W] = 9
-_faders_col[10 + 0*W] = 10
-_faders_col[10 + 1*W] = 10
-_faders_col[10 + 2*W] = 10
-_faders_col[10 + 3*W] = 10
-_faders_col[10 + 4*W] = 10
-_faders_col[10 + 5*W] = 10
-_faders_col[10 + 6*W] = 10
-_faders_col[10 + 7*W] = 10
-_faders_col[11 + 0*W] = 11
-_faders_col[11 + 1*W] = 11
-_faders_col[11 + 2*W] = 11
-_faders_col[11 + 3*W] = 11
-_faders_col[11 + 4*W] = 11
-_faders_col[11 + 5*W] = 11
-_faders_col[11 + 6*W] = 11
-_faders_col[11 + 7*W] = 11
-_faders_col[12 + 0*W] = 12
-_faders_col[12 + 1*W] = 12
-_faders_col[12 + 2*W] = 12
-_faders_col[12 + 3*W] = 12
-_faders_col[12 + 4*W] = 12
-_faders_col[12 + 5*W] = 12
-_faders_col[12 + 6*W] = 12
-_faders_col[12 + 7*W] = 12
-_faders_col[13 + 0*W] = 13
-_faders_col[13 + 1*W] = 13
-_faders_col[13 + 2*W] = 13
-_faders_col[13 + 3*W] = 13
-_faders_col[13 + 4*W] = 13
-_faders_col[13 + 5*W] = 13
-_faders_col[13 + 6*W] = 13
-_faders_col[13 + 7*W] = 13
-_faders_col[14 + 0*W] = 14
-_faders_col[14 + 1*W] = 14
-_faders_col[14 + 2*W] = 14
-_faders_col[14 + 3*W] = 14
-_faders_col[14 + 4*W] = 14
-_faders_col[14 + 5*W] = 14
-_faders_col[14 + 6*W] = 14
-_faders_col[14 + 7*W] = 14
-_faders_col[15 + 0*W] = 15
-_faders_col[15 + 1*W] = 15
-_faders_col[15 + 2*W] = 15
-_faders_col[15 + 3*W] = 15
-_faders_col[15 + 4*W] = 15
-_faders_col[15 + 5*W] = 15
-_faders_col[15 + 6*W] = 15
-_faders_col[15 + 7*W] = 15
+_faders_col[1 + 1*W] = 0
+_faders_col[1 + 2*W] = 0
+_faders_col[1 + 3*W] = 0
+_faders_col[1 + 4*W] = 0
+_faders_col[1 + 5*W] = 0
+_faders_col[1 + 6*W] = 0
+_faders_col[1 + 7*W] = 0
+_faders_col[1 + 8*W] = 0
+_faders_col[2 + 1*W] = 1
+_faders_col[2 + 2*W] = 1
+_faders_col[2 + 3*W] = 1
+_faders_col[2 + 4*W] = 1
+_faders_col[2 + 5*W] = 1
+_faders_col[2 + 6*W] = 1
+_faders_col[2 + 7*W] = 1
+_faders_col[2 + 8*W] = 1
+_faders_col[3 + 1*W] = 2
+_faders_col[3 + 2*W] = 2
+_faders_col[3 + 3*W] = 2
+_faders_col[3 + 4*W] = 2
+_faders_col[3 + 5*W] = 2
+_faders_col[3 + 6*W] = 2
+_faders_col[3 + 7*W] = 2
+_faders_col[3 + 8*W] = 2
+_faders_col[4 + 1*W] = 3
+_faders_col[4 + 2*W] = 3
+_faders_col[4 + 3*W] = 3
+_faders_col[4 + 4*W] = 3
+_faders_col[4 + 5*W] = 3
+_faders_col[4 + 6*W] = 3
+_faders_col[4 + 7*W] = 3
+_faders_col[4 + 8*W] = 3
+_faders_col[5 + 1*W] = 4
+_faders_col[5 + 2*W] = 4
+_faders_col[5 + 3*W] = 4
+_faders_col[5 + 4*W] = 4
+_faders_col[5 + 5*W] = 4
+_faders_col[5 + 6*W] = 4
+_faders_col[5 + 7*W] = 4
+_faders_col[5 + 8*W] = 4
+_faders_col[6 + 1*W] = 5
+_faders_col[6 + 2*W] = 5
+_faders_col[6 + 3*W] = 5
+_faders_col[6 + 4*W] = 5
+_faders_col[6 + 5*W] = 5
+_faders_col[6 + 6*W] = 5
+_faders_col[6 + 7*W] = 5
+_faders_col[6 + 8*W] = 5
+_faders_col[7 + 1*W] = 6
+_faders_col[7 + 2*W] = 6
+_faders_col[7 + 3*W] = 6
+_faders_col[7 + 4*W] = 6
+_faders_col[7 + 5*W] = 6
+_faders_col[7 + 6*W] = 6
+_faders_col[7 + 7*W] = 6
+_faders_col[7 + 8*W] = 6
+_faders_col[8 + 1*W] = 7
+_faders_col[8 + 2*W] = 7
+_faders_col[8 + 3*W] = 7
+_faders_col[8 + 4*W] = 7
+_faders_col[8 + 5*W] = 7
+_faders_col[8 + 6*W] = 7
+_faders_col[8 + 7*W] = 7
+_faders_col[8 + 8*W] = 7
+_faders_col[9 + 1*W] = 8
+_faders_col[9 + 2*W] = 8
+_faders_col[9 + 3*W] = 8
+_faders_col[9 + 4*W] = 8
+_faders_col[9 + 5*W] = 8
+_faders_col[9 + 6*W] = 8
+_faders_col[9 + 7*W] = 8
+_faders_col[9 + 8*W] = 8
+_faders_col[10 + 1*W] = 9
+_faders_col[10 + 2*W] = 9
+_faders_col[10 + 3*W] = 9
+_faders_col[10 + 4*W] = 9
+_faders_col[10 + 5*W] = 9
+_faders_col[10 + 6*W] = 9
+_faders_col[10 + 7*W] = 9
+_faders_col[10 + 8*W] = 9
+_faders_col[11 + 1*W] = 10
+_faders_col[11 + 2*W] = 10
+_faders_col[11 + 3*W] = 10
+_faders_col[11 + 4*W] = 10
+_faders_col[11 + 5*W] = 10
+_faders_col[11 + 6*W] = 10
+_faders_col[11 + 7*W] = 10
+_faders_col[11 + 8*W] = 10
+_faders_col[12 + 1*W] = 11
+_faders_col[12 + 2*W] = 11
+_faders_col[12 + 3*W] = 11
+_faders_col[12 + 4*W] = 11
+_faders_col[12 + 5*W] = 11
+_faders_col[12 + 6*W] = 11
+_faders_col[12 + 7*W] = 11
+_faders_col[12 + 8*W] = 11
+_faders_col[13 + 1*W] = 12
+_faders_col[13 + 2*W] = 12
+_faders_col[13 + 3*W] = 12
+_faders_col[13 + 4*W] = 12
+_faders_col[13 + 5*W] = 12
+_faders_col[13 + 6*W] = 12
+_faders_col[13 + 7*W] = 12
+_faders_col[13 + 8*W] = 12
+_faders_col[14 + 1*W] = 13
+_faders_col[14 + 2*W] = 13
+_faders_col[14 + 3*W] = 13
+_faders_col[14 + 4*W] = 13
+_faders_col[14 + 5*W] = 13
+_faders_col[14 + 6*W] = 13
+_faders_col[14 + 7*W] = 13
+_faders_col[14 + 8*W] = 13
+_faders_col[15 + 1*W] = 14
+_faders_col[15 + 2*W] = 14
+_faders_col[15 + 3*W] = 14
+_faders_col[15 + 4*W] = 14
+_faders_col[15 + 5*W] = 14
+_faders_col[15 + 6*W] = 14
+_faders_col[15 + 7*W] = 14
+_faders_col[15 + 8*W] = 14
+_faders_col[16 + 1*W] = 15
+_faders_col[16 + 2*W] = 15
+_faders_col[16 + 3*W] = 15
+_faders_col[16 + 4*W] = 15
+_faders_col[16 + 5*W] = 15
+_faders_col[16 + 6*W] = 15
+_faders_col[16 + 7*W] = 15
+_faders_col[16 + 8*W] = 15
 local _faders_values = {[0]=0, [1]=15, [2]=31, [3]=47, [4]=63, [5]=79, [6]=95, [7]=111, [8]=127}
 
 local function handle_faders(x, y, z)
   if z ~= 1 then return end
   local col = _faders_col[x + y*W]
-  local h = 8 - (y - 0)
+  local h = 8 - (y - 1)
   state.faders_h[col] = h
   midi_cc(16 + col, _faders_values[h], 1)
 end
@@ -157,156 +157,139 @@ end
 local function redraw()
   grid_led_all(0)
   -- region: faders
-  grid_led(0, 0, state.faders_h[0] > 7 and 12 or 3)
-  grid_led(0, 1, state.faders_h[0] > 6 and 12 or 3)
-  grid_led(0, 2, state.faders_h[0] > 5 and 12 or 3)
-  grid_led(0, 3, state.faders_h[0] > 4 and 12 or 3)
-  grid_led(0, 4, state.faders_h[0] > 3 and 12 or 3)
-  grid_led(0, 5, state.faders_h[0] > 2 and 12 or 3)
-  grid_led(0, 6, state.faders_h[0] > 1 and 12 or 3)
-  grid_led(0, 7, state.faders_h[0] > 0 and 12 or 3)
-  grid_led(1, 0, state.faders_h[1] > 7 and 12 or 3)
-  grid_led(1, 1, state.faders_h[1] > 6 and 12 or 3)
-  grid_led(1, 2, state.faders_h[1] > 5 and 12 or 3)
-  grid_led(1, 3, state.faders_h[1] > 4 and 12 or 3)
-  grid_led(1, 4, state.faders_h[1] > 3 and 12 or 3)
-  grid_led(1, 5, state.faders_h[1] > 2 and 12 or 3)
-  grid_led(1, 6, state.faders_h[1] > 1 and 12 or 3)
-  grid_led(1, 7, state.faders_h[1] > 0 and 12 or 3)
-  grid_led(2, 0, state.faders_h[2] > 7 and 12 or 3)
-  grid_led(2, 1, state.faders_h[2] > 6 and 12 or 3)
-  grid_led(2, 2, state.faders_h[2] > 5 and 12 or 3)
-  grid_led(2, 3, state.faders_h[2] > 4 and 12 or 3)
-  grid_led(2, 4, state.faders_h[2] > 3 and 12 or 3)
-  grid_led(2, 5, state.faders_h[2] > 2 and 12 or 3)
-  grid_led(2, 6, state.faders_h[2] > 1 and 12 or 3)
-  grid_led(2, 7, state.faders_h[2] > 0 and 12 or 3)
-  grid_led(3, 0, state.faders_h[3] > 7 and 12 or 3)
-  grid_led(3, 1, state.faders_h[3] > 6 and 12 or 3)
-  grid_led(3, 2, state.faders_h[3] > 5 and 12 or 3)
-  grid_led(3, 3, state.faders_h[3] > 4 and 12 or 3)
-  grid_led(3, 4, state.faders_h[3] > 3 and 12 or 3)
-  grid_led(3, 5, state.faders_h[3] > 2 and 12 or 3)
-  grid_led(3, 6, state.faders_h[3] > 1 and 12 or 3)
-  grid_led(3, 7, state.faders_h[3] > 0 and 12 or 3)
-  grid_led(4, 0, state.faders_h[4] > 7 and 12 or 3)
-  grid_led(4, 1, state.faders_h[4] > 6 and 12 or 3)
-  grid_led(4, 2, state.faders_h[4] > 5 and 12 or 3)
-  grid_led(4, 3, state.faders_h[4] > 4 and 12 or 3)
-  grid_led(4, 4, state.faders_h[4] > 3 and 12 or 3)
-  grid_led(4, 5, state.faders_h[4] > 2 and 12 or 3)
-  grid_led(4, 6, state.faders_h[4] > 1 and 12 or 3)
-  grid_led(4, 7, state.faders_h[4] > 0 and 12 or 3)
-  grid_led(5, 0, state.faders_h[5] > 7 and 12 or 3)
-  grid_led(5, 1, state.faders_h[5] > 6 and 12 or 3)
-  grid_led(5, 2, state.faders_h[5] > 5 and 12 or 3)
-  grid_led(5, 3, state.faders_h[5] > 4 and 12 or 3)
-  grid_led(5, 4, state.faders_h[5] > 3 and 12 or 3)
-  grid_led(5, 5, state.faders_h[5] > 2 and 12 or 3)
-  grid_led(5, 6, state.faders_h[5] > 1 and 12 or 3)
-  grid_led(5, 7, state.faders_h[5] > 0 and 12 or 3)
-  grid_led(6, 0, state.faders_h[6] > 7 and 12 or 3)
-  grid_led(6, 1, state.faders_h[6] > 6 and 12 or 3)
-  grid_led(6, 2, state.faders_h[6] > 5 and 12 or 3)
-  grid_led(6, 3, state.faders_h[6] > 4 and 12 or 3)
-  grid_led(6, 4, state.faders_h[6] > 3 and 12 or 3)
-  grid_led(6, 5, state.faders_h[6] > 2 and 12 or 3)
-  grid_led(6, 6, state.faders_h[6] > 1 and 12 or 3)
-  grid_led(6, 7, state.faders_h[6] > 0 and 12 or 3)
-  grid_led(7, 0, state.faders_h[7] > 7 and 12 or 3)
-  grid_led(7, 1, state.faders_h[7] > 6 and 12 or 3)
-  grid_led(7, 2, state.faders_h[7] > 5 and 12 or 3)
-  grid_led(7, 3, state.faders_h[7] > 4 and 12 or 3)
-  grid_led(7, 4, state.faders_h[7] > 3 and 12 or 3)
-  grid_led(7, 5, state.faders_h[7] > 2 and 12 or 3)
-  grid_led(7, 6, state.faders_h[7] > 1 and 12 or 3)
-  grid_led(7, 7, state.faders_h[7] > 0 and 12 or 3)
-  grid_led(8, 0, state.faders_h[8] > 7 and 12 or 3)
-  grid_led(8, 1, state.faders_h[8] > 6 and 12 or 3)
-  grid_led(8, 2, state.faders_h[8] > 5 and 12 or 3)
-  grid_led(8, 3, state.faders_h[8] > 4 and 12 or 3)
-  grid_led(8, 4, state.faders_h[8] > 3 and 12 or 3)
-  grid_led(8, 5, state.faders_h[8] > 2 and 12 or 3)
-  grid_led(8, 6, state.faders_h[8] > 1 and 12 or 3)
-  grid_led(8, 7, state.faders_h[8] > 0 and 12 or 3)
-  grid_led(9, 0, state.faders_h[9] > 7 and 12 or 3)
-  grid_led(9, 1, state.faders_h[9] > 6 and 12 or 3)
-  grid_led(9, 2, state.faders_h[9] > 5 and 12 or 3)
-  grid_led(9, 3, state.faders_h[9] > 4 and 12 or 3)
-  grid_led(9, 4, state.faders_h[9] > 3 and 12 or 3)
-  grid_led(9, 5, state.faders_h[9] > 2 and 12 or 3)
-  grid_led(9, 6, state.faders_h[9] > 1 and 12 or 3)
-  grid_led(9, 7, state.faders_h[9] > 0 and 12 or 3)
-  grid_led(10, 0, state.faders_h[10] > 7 and 12 or 3)
-  grid_led(10, 1, state.faders_h[10] > 6 and 12 or 3)
-  grid_led(10, 2, state.faders_h[10] > 5 and 12 or 3)
-  grid_led(10, 3, state.faders_h[10] > 4 and 12 or 3)
-  grid_led(10, 4, state.faders_h[10] > 3 and 12 or 3)
-  grid_led(10, 5, state.faders_h[10] > 2 and 12 or 3)
-  grid_led(10, 6, state.faders_h[10] > 1 and 12 or 3)
-  grid_led(10, 7, state.faders_h[10] > 0 and 12 or 3)
-  grid_led(11, 0, state.faders_h[11] > 7 and 12 or 3)
-  grid_led(11, 1, state.faders_h[11] > 6 and 12 or 3)
-  grid_led(11, 2, state.faders_h[11] > 5 and 12 or 3)
-  grid_led(11, 3, state.faders_h[11] > 4 and 12 or 3)
-  grid_led(11, 4, state.faders_h[11] > 3 and 12 or 3)
-  grid_led(11, 5, state.faders_h[11] > 2 and 12 or 3)
-  grid_led(11, 6, state.faders_h[11] > 1 and 12 or 3)
-  grid_led(11, 7, state.faders_h[11] > 0 and 12 or 3)
-  grid_led(12, 0, state.faders_h[12] > 7 and 12 or 3)
-  grid_led(12, 1, state.faders_h[12] > 6 and 12 or 3)
-  grid_led(12, 2, state.faders_h[12] > 5 and 12 or 3)
-  grid_led(12, 3, state.faders_h[12] > 4 and 12 or 3)
-  grid_led(12, 4, state.faders_h[12] > 3 and 12 or 3)
-  grid_led(12, 5, state.faders_h[12] > 2 and 12 or 3)
-  grid_led(12, 6, state.faders_h[12] > 1 and 12 or 3)
-  grid_led(12, 7, state.faders_h[12] > 0 and 12 or 3)
-  grid_led(13, 0, state.faders_h[13] > 7 and 12 or 3)
-  grid_led(13, 1, state.faders_h[13] > 6 and 12 or 3)
-  grid_led(13, 2, state.faders_h[13] > 5 and 12 or 3)
-  grid_led(13, 3, state.faders_h[13] > 4 and 12 or 3)
-  grid_led(13, 4, state.faders_h[13] > 3 and 12 or 3)
-  grid_led(13, 5, state.faders_h[13] > 2 and 12 or 3)
-  grid_led(13, 6, state.faders_h[13] > 1 and 12 or 3)
-  grid_led(13, 7, state.faders_h[13] > 0 and 12 or 3)
-  grid_led(14, 0, state.faders_h[14] > 7 and 12 or 3)
-  grid_led(14, 1, state.faders_h[14] > 6 and 12 or 3)
-  grid_led(14, 2, state.faders_h[14] > 5 and 12 or 3)
-  grid_led(14, 3, state.faders_h[14] > 4 and 12 or 3)
-  grid_led(14, 4, state.faders_h[14] > 3 and 12 or 3)
-  grid_led(14, 5, state.faders_h[14] > 2 and 12 or 3)
-  grid_led(14, 6, state.faders_h[14] > 1 and 12 or 3)
-  grid_led(14, 7, state.faders_h[14] > 0 and 12 or 3)
-  grid_led(15, 0, state.faders_h[15] > 7 and 12 or 3)
-  grid_led(15, 1, state.faders_h[15] > 6 and 12 or 3)
-  grid_led(15, 2, state.faders_h[15] > 5 and 12 or 3)
-  grid_led(15, 3, state.faders_h[15] > 4 and 12 or 3)
-  grid_led(15, 4, state.faders_h[15] > 3 and 12 or 3)
-  grid_led(15, 5, state.faders_h[15] > 2 and 12 or 3)
-  grid_led(15, 6, state.faders_h[15] > 1 and 12 or 3)
-  grid_led(15, 7, state.faders_h[15] > 0 and 12 or 3)
+  grid_led(1, 1, state.faders_h[0] > 7 and 12 or 3)
+  grid_led(1, 2, state.faders_h[0] > 6 and 12 or 3)
+  grid_led(1, 3, state.faders_h[0] > 5 and 12 or 3)
+  grid_led(1, 4, state.faders_h[0] > 4 and 12 or 3)
+  grid_led(1, 5, state.faders_h[0] > 3 and 12 or 3)
+  grid_led(1, 6, state.faders_h[0] > 2 and 12 or 3)
+  grid_led(1, 7, state.faders_h[0] > 1 and 12 or 3)
+  grid_led(1, 8, state.faders_h[0] > 0 and 12 or 3)
+  grid_led(2, 1, state.faders_h[1] > 7 and 12 or 3)
+  grid_led(2, 2, state.faders_h[1] > 6 and 12 or 3)
+  grid_led(2, 3, state.faders_h[1] > 5 and 12 or 3)
+  grid_led(2, 4, state.faders_h[1] > 4 and 12 or 3)
+  grid_led(2, 5, state.faders_h[1] > 3 and 12 or 3)
+  grid_led(2, 6, state.faders_h[1] > 2 and 12 or 3)
+  grid_led(2, 7, state.faders_h[1] > 1 and 12 or 3)
+  grid_led(2, 8, state.faders_h[1] > 0 and 12 or 3)
+  grid_led(3, 1, state.faders_h[2] > 7 and 12 or 3)
+  grid_led(3, 2, state.faders_h[2] > 6 and 12 or 3)
+  grid_led(3, 3, state.faders_h[2] > 5 and 12 or 3)
+  grid_led(3, 4, state.faders_h[2] > 4 and 12 or 3)
+  grid_led(3, 5, state.faders_h[2] > 3 and 12 or 3)
+  grid_led(3, 6, state.faders_h[2] > 2 and 12 or 3)
+  grid_led(3, 7, state.faders_h[2] > 1 and 12 or 3)
+  grid_led(3, 8, state.faders_h[2] > 0 and 12 or 3)
+  grid_led(4, 1, state.faders_h[3] > 7 and 12 or 3)
+  grid_led(4, 2, state.faders_h[3] > 6 and 12 or 3)
+  grid_led(4, 3, state.faders_h[3] > 5 and 12 or 3)
+  grid_led(4, 4, state.faders_h[3] > 4 and 12 or 3)
+  grid_led(4, 5, state.faders_h[3] > 3 and 12 or 3)
+  grid_led(4, 6, state.faders_h[3] > 2 and 12 or 3)
+  grid_led(4, 7, state.faders_h[3] > 1 and 12 or 3)
+  grid_led(4, 8, state.faders_h[3] > 0 and 12 or 3)
+  grid_led(5, 1, state.faders_h[4] > 7 and 12 or 3)
+  grid_led(5, 2, state.faders_h[4] > 6 and 12 or 3)
+  grid_led(5, 3, state.faders_h[4] > 5 and 12 or 3)
+  grid_led(5, 4, state.faders_h[4] > 4 and 12 or 3)
+  grid_led(5, 5, state.faders_h[4] > 3 and 12 or 3)
+  grid_led(5, 6, state.faders_h[4] > 2 and 12 or 3)
+  grid_led(5, 7, state.faders_h[4] > 1 and 12 or 3)
+  grid_led(5, 8, state.faders_h[4] > 0 and 12 or 3)
+  grid_led(6, 1, state.faders_h[5] > 7 and 12 or 3)
+  grid_led(6, 2, state.faders_h[5] > 6 and 12 or 3)
+  grid_led(6, 3, state.faders_h[5] > 5 and 12 or 3)
+  grid_led(6, 4, state.faders_h[5] > 4 and 12 or 3)
+  grid_led(6, 5, state.faders_h[5] > 3 and 12 or 3)
+  grid_led(6, 6, state.faders_h[5] > 2 and 12 or 3)
+  grid_led(6, 7, state.faders_h[5] > 1 and 12 or 3)
+  grid_led(6, 8, state.faders_h[5] > 0 and 12 or 3)
+  grid_led(7, 1, state.faders_h[6] > 7 and 12 or 3)
+  grid_led(7, 2, state.faders_h[6] > 6 and 12 or 3)
+  grid_led(7, 3, state.faders_h[6] > 5 and 12 or 3)
+  grid_led(7, 4, state.faders_h[6] > 4 and 12 or 3)
+  grid_led(7, 5, state.faders_h[6] > 3 and 12 or 3)
+  grid_led(7, 6, state.faders_h[6] > 2 and 12 or 3)
+  grid_led(7, 7, state.faders_h[6] > 1 and 12 or 3)
+  grid_led(7, 8, state.faders_h[6] > 0 and 12 or 3)
+  grid_led(8, 1, state.faders_h[7] > 7 and 12 or 3)
+  grid_led(8, 2, state.faders_h[7] > 6 and 12 or 3)
+  grid_led(8, 3, state.faders_h[7] > 5 and 12 or 3)
+  grid_led(8, 4, state.faders_h[7] > 4 and 12 or 3)
+  grid_led(8, 5, state.faders_h[7] > 3 and 12 or 3)
+  grid_led(8, 6, state.faders_h[7] > 2 and 12 or 3)
+  grid_led(8, 7, state.faders_h[7] > 1 and 12 or 3)
+  grid_led(8, 8, state.faders_h[7] > 0 and 12 or 3)
+  grid_led(9, 1, state.faders_h[8] > 7 and 12 or 3)
+  grid_led(9, 2, state.faders_h[8] > 6 and 12 or 3)
+  grid_led(9, 3, state.faders_h[8] > 5 and 12 or 3)
+  grid_led(9, 4, state.faders_h[8] > 4 and 12 or 3)
+  grid_led(9, 5, state.faders_h[8] > 3 and 12 or 3)
+  grid_led(9, 6, state.faders_h[8] > 2 and 12 or 3)
+  grid_led(9, 7, state.faders_h[8] > 1 and 12 or 3)
+  grid_led(9, 8, state.faders_h[8] > 0 and 12 or 3)
+  grid_led(10, 1, state.faders_h[9] > 7 and 12 or 3)
+  grid_led(10, 2, state.faders_h[9] > 6 and 12 or 3)
+  grid_led(10, 3, state.faders_h[9] > 5 and 12 or 3)
+  grid_led(10, 4, state.faders_h[9] > 4 and 12 or 3)
+  grid_led(10, 5, state.faders_h[9] > 3 and 12 or 3)
+  grid_led(10, 6, state.faders_h[9] > 2 and 12 or 3)
+  grid_led(10, 7, state.faders_h[9] > 1 and 12 or 3)
+  grid_led(10, 8, state.faders_h[9] > 0 and 12 or 3)
+  grid_led(11, 1, state.faders_h[10] > 7 and 12 or 3)
+  grid_led(11, 2, state.faders_h[10] > 6 and 12 or 3)
+  grid_led(11, 3, state.faders_h[10] > 5 and 12 or 3)
+  grid_led(11, 4, state.faders_h[10] > 4 and 12 or 3)
+  grid_led(11, 5, state.faders_h[10] > 3 and 12 or 3)
+  grid_led(11, 6, state.faders_h[10] > 2 and 12 or 3)
+  grid_led(11, 7, state.faders_h[10] > 1 and 12 or 3)
+  grid_led(11, 8, state.faders_h[10] > 0 and 12 or 3)
+  grid_led(12, 1, state.faders_h[11] > 7 and 12 or 3)
+  grid_led(12, 2, state.faders_h[11] > 6 and 12 or 3)
+  grid_led(12, 3, state.faders_h[11] > 5 and 12 or 3)
+  grid_led(12, 4, state.faders_h[11] > 4 and 12 or 3)
+  grid_led(12, 5, state.faders_h[11] > 3 and 12 or 3)
+  grid_led(12, 6, state.faders_h[11] > 2 and 12 or 3)
+  grid_led(12, 7, state.faders_h[11] > 1 and 12 or 3)
+  grid_led(12, 8, state.faders_h[11] > 0 and 12 or 3)
+  grid_led(13, 1, state.faders_h[12] > 7 and 12 or 3)
+  grid_led(13, 2, state.faders_h[12] > 6 and 12 or 3)
+  grid_led(13, 3, state.faders_h[12] > 5 and 12 or 3)
+  grid_led(13, 4, state.faders_h[12] > 4 and 12 or 3)
+  grid_led(13, 5, state.faders_h[12] > 3 and 12 or 3)
+  grid_led(13, 6, state.faders_h[12] > 2 and 12 or 3)
+  grid_led(13, 7, state.faders_h[12] > 1 and 12 or 3)
+  grid_led(13, 8, state.faders_h[12] > 0 and 12 or 3)
+  grid_led(14, 1, state.faders_h[13] > 7 and 12 or 3)
+  grid_led(14, 2, state.faders_h[13] > 6 and 12 or 3)
+  grid_led(14, 3, state.faders_h[13] > 5 and 12 or 3)
+  grid_led(14, 4, state.faders_h[13] > 4 and 12 or 3)
+  grid_led(14, 5, state.faders_h[13] > 3 and 12 or 3)
+  grid_led(14, 6, state.faders_h[13] > 2 and 12 or 3)
+  grid_led(14, 7, state.faders_h[13] > 1 and 12 or 3)
+  grid_led(14, 8, state.faders_h[13] > 0 and 12 or 3)
+  grid_led(15, 1, state.faders_h[14] > 7 and 12 or 3)
+  grid_led(15, 2, state.faders_h[14] > 6 and 12 or 3)
+  grid_led(15, 3, state.faders_h[14] > 5 and 12 or 3)
+  grid_led(15, 4, state.faders_h[14] > 4 and 12 or 3)
+  grid_led(15, 5, state.faders_h[14] > 3 and 12 or 3)
+  grid_led(15, 6, state.faders_h[14] > 2 and 12 or 3)
+  grid_led(15, 7, state.faders_h[14] > 1 and 12 or 3)
+  grid_led(15, 8, state.faders_h[14] > 0 and 12 or 3)
+  grid_led(16, 1, state.faders_h[15] > 7 and 12 or 3)
+  grid_led(16, 2, state.faders_h[15] > 6 and 12 or 3)
+  grid_led(16, 3, state.faders_h[15] > 5 and 12 or 3)
+  grid_led(16, 4, state.faders_h[15] > 4 and 12 or 3)
+  grid_led(16, 5, state.faders_h[15] > 3 and 12 or 3)
+  grid_led(16, 6, state.faders_h[15] > 2 and 12 or 3)
+  grid_led(16, 7, state.faders_h[15] > 1 and 12 or 3)
+  grid_led(16, 8, state.faders_h[15] > 0 and 12 or 3)
   grid_refresh()
 end
 
 -- ---- dispatch ----
 local _route = {}
-_route[0 + 0*W] = handle_faders
-_route[1 + 0*W] = handle_faders
-_route[2 + 0*W] = handle_faders
-_route[3 + 0*W] = handle_faders
-_route[4 + 0*W] = handle_faders
-_route[5 + 0*W] = handle_faders
-_route[6 + 0*W] = handle_faders
-_route[7 + 0*W] = handle_faders
-_route[8 + 0*W] = handle_faders
-_route[9 + 0*W] = handle_faders
-_route[10 + 0*W] = handle_faders
-_route[11 + 0*W] = handle_faders
-_route[12 + 0*W] = handle_faders
-_route[13 + 0*W] = handle_faders
-_route[14 + 0*W] = handle_faders
-_route[15 + 0*W] = handle_faders
-_route[0 + 1*W] = handle_faders
 _route[1 + 1*W] = handle_faders
 _route[2 + 1*W] = handle_faders
 _route[3 + 1*W] = handle_faders
@@ -322,7 +305,7 @@ _route[12 + 1*W] = handle_faders
 _route[13 + 1*W] = handle_faders
 _route[14 + 1*W] = handle_faders
 _route[15 + 1*W] = handle_faders
-_route[0 + 2*W] = handle_faders
+_route[16 + 1*W] = handle_faders
 _route[1 + 2*W] = handle_faders
 _route[2 + 2*W] = handle_faders
 _route[3 + 2*W] = handle_faders
@@ -338,7 +321,7 @@ _route[12 + 2*W] = handle_faders
 _route[13 + 2*W] = handle_faders
 _route[14 + 2*W] = handle_faders
 _route[15 + 2*W] = handle_faders
-_route[0 + 3*W] = handle_faders
+_route[16 + 2*W] = handle_faders
 _route[1 + 3*W] = handle_faders
 _route[2 + 3*W] = handle_faders
 _route[3 + 3*W] = handle_faders
@@ -354,7 +337,7 @@ _route[12 + 3*W] = handle_faders
 _route[13 + 3*W] = handle_faders
 _route[14 + 3*W] = handle_faders
 _route[15 + 3*W] = handle_faders
-_route[0 + 4*W] = handle_faders
+_route[16 + 3*W] = handle_faders
 _route[1 + 4*W] = handle_faders
 _route[2 + 4*W] = handle_faders
 _route[3 + 4*W] = handle_faders
@@ -370,7 +353,7 @@ _route[12 + 4*W] = handle_faders
 _route[13 + 4*W] = handle_faders
 _route[14 + 4*W] = handle_faders
 _route[15 + 4*W] = handle_faders
-_route[0 + 5*W] = handle_faders
+_route[16 + 4*W] = handle_faders
 _route[1 + 5*W] = handle_faders
 _route[2 + 5*W] = handle_faders
 _route[3 + 5*W] = handle_faders
@@ -386,7 +369,7 @@ _route[12 + 5*W] = handle_faders
 _route[13 + 5*W] = handle_faders
 _route[14 + 5*W] = handle_faders
 _route[15 + 5*W] = handle_faders
-_route[0 + 6*W] = handle_faders
+_route[16 + 5*W] = handle_faders
 _route[1 + 6*W] = handle_faders
 _route[2 + 6*W] = handle_faders
 _route[3 + 6*W] = handle_faders
@@ -402,7 +385,7 @@ _route[12 + 6*W] = handle_faders
 _route[13 + 6*W] = handle_faders
 _route[14 + 6*W] = handle_faders
 _route[15 + 6*W] = handle_faders
-_route[0 + 7*W] = handle_faders
+_route[16 + 6*W] = handle_faders
 _route[1 + 7*W] = handle_faders
 _route[2 + 7*W] = handle_faders
 _route[3 + 7*W] = handle_faders
@@ -418,6 +401,23 @@ _route[12 + 7*W] = handle_faders
 _route[13 + 7*W] = handle_faders
 _route[14 + 7*W] = handle_faders
 _route[15 + 7*W] = handle_faders
+_route[16 + 7*W] = handle_faders
+_route[1 + 8*W] = handle_faders
+_route[2 + 8*W] = handle_faders
+_route[3 + 8*W] = handle_faders
+_route[4 + 8*W] = handle_faders
+_route[5 + 8*W] = handle_faders
+_route[6 + 8*W] = handle_faders
+_route[7 + 8*W] = handle_faders
+_route[8 + 8*W] = handle_faders
+_route[9 + 8*W] = handle_faders
+_route[10 + 8*W] = handle_faders
+_route[11 + 8*W] = handle_faders
+_route[12 + 8*W] = handle_faders
+_route[13 + 8*W] = handle_faders
+_route[14 + 8*W] = handle_faders
+_route[15 + 8*W] = handle_faders
+_route[16 + 8*W] = handle_faders
 
 function event_grid(x, y, z)
   local h = _route[x + y*W]

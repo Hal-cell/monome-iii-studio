@@ -17,10 +17,10 @@ local state = {
 
 -- ---- region: pads ----
 local _pads_idx = {}
-_pads_idx[0 + 0*W] = 0
-_pads_idx[1 + 0*W] = 1
-_pads_idx[2 + 0*W] = 2
-_pads_idx[3 + 0*W] = 3
+_pads_idx[1 + 1*W] = 0
+_pads_idx[2 + 1*W] = 1
+_pads_idx[3 + 1*W] = 2
+_pads_idx[4 + 1*W] = 3
 
 local function handle_pads(x, y, z)
   local idx = _pads_idx[x + y*W]
@@ -35,36 +35,36 @@ end
 
 -- ---- region: faders ----
 local _faders_col = {}
-_faders_col[0 + 2*W] = 0
-_faders_col[0 + 3*W] = 0
-_faders_col[0 + 4*W] = 0
-_faders_col[0 + 5*W] = 0
-_faders_col[0 + 6*W] = 0
-_faders_col[0 + 7*W] = 0
-_faders_col[1 + 2*W] = 1
-_faders_col[1 + 3*W] = 1
-_faders_col[1 + 4*W] = 1
-_faders_col[1 + 5*W] = 1
-_faders_col[1 + 6*W] = 1
-_faders_col[1 + 7*W] = 1
-_faders_col[2 + 2*W] = 2
-_faders_col[2 + 3*W] = 2
-_faders_col[2 + 4*W] = 2
-_faders_col[2 + 5*W] = 2
-_faders_col[2 + 6*W] = 2
-_faders_col[2 + 7*W] = 2
-_faders_col[3 + 2*W] = 3
-_faders_col[3 + 3*W] = 3
-_faders_col[3 + 4*W] = 3
-_faders_col[3 + 5*W] = 3
-_faders_col[3 + 6*W] = 3
-_faders_col[3 + 7*W] = 3
+_faders_col[1 + 3*W] = 0
+_faders_col[1 + 4*W] = 0
+_faders_col[1 + 5*W] = 0
+_faders_col[1 + 6*W] = 0
+_faders_col[1 + 7*W] = 0
+_faders_col[1 + 8*W] = 0
+_faders_col[2 + 3*W] = 1
+_faders_col[2 + 4*W] = 1
+_faders_col[2 + 5*W] = 1
+_faders_col[2 + 6*W] = 1
+_faders_col[2 + 7*W] = 1
+_faders_col[2 + 8*W] = 1
+_faders_col[3 + 3*W] = 2
+_faders_col[3 + 4*W] = 2
+_faders_col[3 + 5*W] = 2
+_faders_col[3 + 6*W] = 2
+_faders_col[3 + 7*W] = 2
+_faders_col[3 + 8*W] = 2
+_faders_col[4 + 3*W] = 3
+_faders_col[4 + 4*W] = 3
+_faders_col[4 + 5*W] = 3
+_faders_col[4 + 6*W] = 3
+_faders_col[4 + 7*W] = 3
+_faders_col[4 + 8*W] = 3
 local _faders_values = {[0]=0, [1]=21, [2]=42, [3]=63, [4]=84, [5]=105, [6]=127}
 
 local function handle_faders(x, y, z)
   if z ~= 1 then return end
   local col = _faders_col[x + y*W]
-  local h = 6 - (y - 2)
+  local h = 6 - (y - 3)
   state.faders_h[col] = h
   midi_cc(16 + col, _faders_values[h], 1)
 end
@@ -73,68 +73,68 @@ end
 local function redraw()
   grid_led_all(0)
   -- region: pads
-  grid_led(0, 0, state.pads_held[0 + 0*W] and 12 or 3)
-  grid_led(1, 0, state.pads_held[1 + 0*W] and 12 or 3)
-  grid_led(2, 0, state.pads_held[2 + 0*W] and 12 or 3)
-  grid_led(3, 0, state.pads_held[3 + 0*W] and 12 or 3)
+  grid_led(1, 1, state.pads_held[1 + 1*W] and 12 or 3)
+  grid_led(2, 1, state.pads_held[2 + 1*W] and 12 or 3)
+  grid_led(3, 1, state.pads_held[3 + 1*W] and 12 or 3)
+  grid_led(4, 1, state.pads_held[4 + 1*W] and 12 or 3)
   -- region: faders
-  grid_led(0, 2, state.faders_h[0] > 5 and 12 or 3)
-  grid_led(0, 3, state.faders_h[0] > 4 and 12 or 3)
-  grid_led(0, 4, state.faders_h[0] > 3 and 12 or 3)
-  grid_led(0, 5, state.faders_h[0] > 2 and 12 or 3)
-  grid_led(0, 6, state.faders_h[0] > 1 and 12 or 3)
-  grid_led(0, 7, state.faders_h[0] > 0 and 12 or 3)
-  grid_led(1, 2, state.faders_h[1] > 5 and 12 or 3)
-  grid_led(1, 3, state.faders_h[1] > 4 and 12 or 3)
-  grid_led(1, 4, state.faders_h[1] > 3 and 12 or 3)
-  grid_led(1, 5, state.faders_h[1] > 2 and 12 or 3)
-  grid_led(1, 6, state.faders_h[1] > 1 and 12 or 3)
-  grid_led(1, 7, state.faders_h[1] > 0 and 12 or 3)
-  grid_led(2, 2, state.faders_h[2] > 5 and 12 or 3)
-  grid_led(2, 3, state.faders_h[2] > 4 and 12 or 3)
-  grid_led(2, 4, state.faders_h[2] > 3 and 12 or 3)
-  grid_led(2, 5, state.faders_h[2] > 2 and 12 or 3)
-  grid_led(2, 6, state.faders_h[2] > 1 and 12 or 3)
-  grid_led(2, 7, state.faders_h[2] > 0 and 12 or 3)
-  grid_led(3, 2, state.faders_h[3] > 5 and 12 or 3)
-  grid_led(3, 3, state.faders_h[3] > 4 and 12 or 3)
-  grid_led(3, 4, state.faders_h[3] > 3 and 12 or 3)
-  grid_led(3, 5, state.faders_h[3] > 2 and 12 or 3)
-  grid_led(3, 6, state.faders_h[3] > 1 and 12 or 3)
-  grid_led(3, 7, state.faders_h[3] > 0 and 12 or 3)
+  grid_led(1, 3, state.faders_h[0] > 5 and 12 or 3)
+  grid_led(1, 4, state.faders_h[0] > 4 and 12 or 3)
+  grid_led(1, 5, state.faders_h[0] > 3 and 12 or 3)
+  grid_led(1, 6, state.faders_h[0] > 2 and 12 or 3)
+  grid_led(1, 7, state.faders_h[0] > 1 and 12 or 3)
+  grid_led(1, 8, state.faders_h[0] > 0 and 12 or 3)
+  grid_led(2, 3, state.faders_h[1] > 5 and 12 or 3)
+  grid_led(2, 4, state.faders_h[1] > 4 and 12 or 3)
+  grid_led(2, 5, state.faders_h[1] > 3 and 12 or 3)
+  grid_led(2, 6, state.faders_h[1] > 2 and 12 or 3)
+  grid_led(2, 7, state.faders_h[1] > 1 and 12 or 3)
+  grid_led(2, 8, state.faders_h[1] > 0 and 12 or 3)
+  grid_led(3, 3, state.faders_h[2] > 5 and 12 or 3)
+  grid_led(3, 4, state.faders_h[2] > 4 and 12 or 3)
+  grid_led(3, 5, state.faders_h[2] > 3 and 12 or 3)
+  grid_led(3, 6, state.faders_h[2] > 2 and 12 or 3)
+  grid_led(3, 7, state.faders_h[2] > 1 and 12 or 3)
+  grid_led(3, 8, state.faders_h[2] > 0 and 12 or 3)
+  grid_led(4, 3, state.faders_h[3] > 5 and 12 or 3)
+  grid_led(4, 4, state.faders_h[3] > 4 and 12 or 3)
+  grid_led(4, 5, state.faders_h[3] > 3 and 12 or 3)
+  grid_led(4, 6, state.faders_h[3] > 2 and 12 or 3)
+  grid_led(4, 7, state.faders_h[3] > 1 and 12 or 3)
+  grid_led(4, 8, state.faders_h[3] > 0 and 12 or 3)
   grid_refresh()
 end
 
 -- ---- dispatch ----
 local _route = {}
-_route[0 + 0*W] = handle_pads
-_route[1 + 0*W] = handle_pads
-_route[2 + 0*W] = handle_pads
-_route[3 + 0*W] = handle_pads
-_route[0 + 2*W] = handle_faders
-_route[1 + 2*W] = handle_faders
-_route[2 + 2*W] = handle_faders
-_route[3 + 2*W] = handle_faders
-_route[0 + 3*W] = handle_faders
+_route[1 + 1*W] = handle_pads
+_route[2 + 1*W] = handle_pads
+_route[3 + 1*W] = handle_pads
+_route[4 + 1*W] = handle_pads
 _route[1 + 3*W] = handle_faders
 _route[2 + 3*W] = handle_faders
 _route[3 + 3*W] = handle_faders
-_route[0 + 4*W] = handle_faders
+_route[4 + 3*W] = handle_faders
 _route[1 + 4*W] = handle_faders
 _route[2 + 4*W] = handle_faders
 _route[3 + 4*W] = handle_faders
-_route[0 + 5*W] = handle_faders
+_route[4 + 4*W] = handle_faders
 _route[1 + 5*W] = handle_faders
 _route[2 + 5*W] = handle_faders
 _route[3 + 5*W] = handle_faders
-_route[0 + 6*W] = handle_faders
+_route[4 + 5*W] = handle_faders
 _route[1 + 6*W] = handle_faders
 _route[2 + 6*W] = handle_faders
 _route[3 + 6*W] = handle_faders
-_route[0 + 7*W] = handle_faders
+_route[4 + 6*W] = handle_faders
 _route[1 + 7*W] = handle_faders
 _route[2 + 7*W] = handle_faders
 _route[3 + 7*W] = handle_faders
+_route[4 + 7*W] = handle_faders
+_route[1 + 8*W] = handle_faders
+_route[2 + 8*W] = handle_faders
+_route[3 + 8*W] = handle_faders
+_route[4 + 8*W] = handle_faders
 
 function event_grid(x, y, z)
   local h = _route[x + y*W]

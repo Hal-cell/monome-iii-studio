@@ -26,28 +26,28 @@ local function redraw()
   -- region: master
   do
     local lit = state.master_on and 15 or 3
-    grid_led(0, 0, lit)
-    grid_led(1, 0, lit)
-    grid_led(2, 0, lit)
-    grid_led(3, 0, lit)
-    grid_led(4, 0, lit)
-    grid_led(5, 0, lit)
-    grid_led(6, 0, lit)
-    grid_led(7, 0, lit)
+    grid_led(1, 1, lit)
+    grid_led(2, 1, lit)
+    grid_led(3, 1, lit)
+    grid_led(4, 1, lit)
+    grid_led(5, 1, lit)
+    grid_led(6, 1, lit)
+    grid_led(7, 1, lit)
+    grid_led(8, 1, lit)
   end
   grid_refresh()
 end
 
 -- ---- dispatch ----
 local _route = {}
-_route[0 + 0*W] = handle_master
-_route[1 + 0*W] = handle_master
-_route[2 + 0*W] = handle_master
-_route[3 + 0*W] = handle_master
-_route[4 + 0*W] = handle_master
-_route[5 + 0*W] = handle_master
-_route[6 + 0*W] = handle_master
-_route[7 + 0*W] = handle_master
+_route[1 + 1*W] = handle_master
+_route[2 + 1*W] = handle_master
+_route[3 + 1*W] = handle_master
+_route[4 + 1*W] = handle_master
+_route[5 + 1*W] = handle_master
+_route[6 + 1*W] = handle_master
+_route[7 + 1*W] = handle_master
+_route[8 + 1*W] = handle_master
 
 function event_grid(x, y, z)
   local h = _route[x + y*W]

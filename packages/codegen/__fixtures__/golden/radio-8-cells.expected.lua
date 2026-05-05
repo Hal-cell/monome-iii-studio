@@ -15,14 +15,14 @@ local state = {
 
 -- ---- region: selector ----
 local _selector_idx = {}
-_selector_idx[0 + 0*W] = 0
-_selector_idx[1 + 0*W] = 1
-_selector_idx[2 + 0*W] = 2
-_selector_idx[3 + 0*W] = 3
-_selector_idx[4 + 0*W] = 4
-_selector_idx[5 + 0*W] = 5
-_selector_idx[6 + 0*W] = 6
-_selector_idx[7 + 0*W] = 7
+_selector_idx[1 + 1*W] = 0
+_selector_idx[2 + 1*W] = 1
+_selector_idx[3 + 1*W] = 2
+_selector_idx[4 + 1*W] = 3
+_selector_idx[5 + 1*W] = 4
+_selector_idx[6 + 1*W] = 5
+_selector_idx[7 + 1*W] = 6
+_selector_idx[8 + 1*W] = 7
 local _selector_values = {[0]=0, [1]=18, [2]=36, [3]=54, [4]=72, [5]=90, [6]=108, [7]=127}
 
 local function handle_selector(x, y, z)
@@ -35,27 +35,27 @@ end
 local function redraw()
   grid_led_all(0)
   -- region: selector
-  grid_led(0, 0, state.selector_index == 0 and 15 or 3)
-  grid_led(1, 0, state.selector_index == 1 and 15 or 3)
-  grid_led(2, 0, state.selector_index == 2 and 15 or 3)
-  grid_led(3, 0, state.selector_index == 3 and 15 or 3)
-  grid_led(4, 0, state.selector_index == 4 and 15 or 3)
-  grid_led(5, 0, state.selector_index == 5 and 15 or 3)
-  grid_led(6, 0, state.selector_index == 6 and 15 or 3)
-  grid_led(7, 0, state.selector_index == 7 and 15 or 3)
+  grid_led(1, 1, state.selector_index == 0 and 15 or 3)
+  grid_led(2, 1, state.selector_index == 1 and 15 or 3)
+  grid_led(3, 1, state.selector_index == 2 and 15 or 3)
+  grid_led(4, 1, state.selector_index == 3 and 15 or 3)
+  grid_led(5, 1, state.selector_index == 4 and 15 or 3)
+  grid_led(6, 1, state.selector_index == 5 and 15 or 3)
+  grid_led(7, 1, state.selector_index == 6 and 15 or 3)
+  grid_led(8, 1, state.selector_index == 7 and 15 or 3)
   grid_refresh()
 end
 
 -- ---- dispatch ----
 local _route = {}
-_route[0 + 0*W] = handle_selector
-_route[1 + 0*W] = handle_selector
-_route[2 + 0*W] = handle_selector
-_route[3 + 0*W] = handle_selector
-_route[4 + 0*W] = handle_selector
-_route[5 + 0*W] = handle_selector
-_route[6 + 0*W] = handle_selector
-_route[7 + 0*W] = handle_selector
+_route[1 + 1*W] = handle_selector
+_route[2 + 1*W] = handle_selector
+_route[3 + 1*W] = handle_selector
+_route[4 + 1*W] = handle_selector
+_route[5 + 1*W] = handle_selector
+_route[6 + 1*W] = handle_selector
+_route[7 + 1*W] = handle_selector
+_route[8 + 1*W] = handle_selector
 
 function event_grid(x, y, z)
   local h = _route[x + y*W]

@@ -15,22 +15,22 @@ local state = {
 
 -- ---- region: keys ----
 local _keys_note = {}
-_keys_note[0 + 4*W] = 51
-_keys_note[1 + 4*W] = 52
-_keys_note[2 + 4*W] = 53
-_keys_note[3 + 4*W] = 54
-_keys_note[0 + 5*W] = 46
-_keys_note[1 + 5*W] = 47
-_keys_note[2 + 5*W] = 48
-_keys_note[3 + 5*W] = 49
-_keys_note[0 + 6*W] = 41
-_keys_note[1 + 6*W] = 42
-_keys_note[2 + 6*W] = 43
-_keys_note[3 + 6*W] = 44
-_keys_note[0 + 7*W] = 36
-_keys_note[1 + 7*W] = 37
-_keys_note[2 + 7*W] = 38
-_keys_note[3 + 7*W] = 39
+_keys_note[1 + 5*W] = 51
+_keys_note[2 + 5*W] = 52
+_keys_note[3 + 5*W] = 53
+_keys_note[4 + 5*W] = 54
+_keys_note[1 + 6*W] = 46
+_keys_note[2 + 6*W] = 47
+_keys_note[3 + 6*W] = 48
+_keys_note[4 + 6*W] = 49
+_keys_note[1 + 7*W] = 41
+_keys_note[2 + 7*W] = 42
+_keys_note[3 + 7*W] = 43
+_keys_note[4 + 7*W] = 44
+_keys_note[1 + 8*W] = 36
+_keys_note[2 + 8*W] = 37
+_keys_note[3 + 8*W] = 38
+_keys_note[4 + 8*W] = 39
 
 local function handle_keys(x, y, z)
   local note = _keys_note[x + y*W]
@@ -48,43 +48,43 @@ end
 local function redraw()
   grid_led_all(0)
   -- region: keys
-  grid_led(0, 4, state.keys_held[0 + 4*W] and 12 or 3)
-  grid_led(1, 4, state.keys_held[1 + 4*W] and 12 or 3)
-  grid_led(2, 4, state.keys_held[2 + 4*W] and 12 or 3)
-  grid_led(3, 4, state.keys_held[3 + 4*W] and 12 or 3)
-  grid_led(0, 5, state.keys_held[0 + 5*W] and 12 or 3)
   grid_led(1, 5, state.keys_held[1 + 5*W] and 12 or 3)
   grid_led(2, 5, state.keys_held[2 + 5*W] and 12 or 3)
   grid_led(3, 5, state.keys_held[3 + 5*W] and 12 or 3)
-  grid_led(0, 6, state.keys_held[0 + 6*W] and 12 or 3)
+  grid_led(4, 5, state.keys_held[4 + 5*W] and 12 or 3)
   grid_led(1, 6, state.keys_held[1 + 6*W] and 12 or 3)
   grid_led(2, 6, state.keys_held[2 + 6*W] and 12 or 3)
   grid_led(3, 6, state.keys_held[3 + 6*W] and 12 or 3)
-  grid_led(0, 7, state.keys_held[0 + 7*W] and 12 or 3)
+  grid_led(4, 6, state.keys_held[4 + 6*W] and 12 or 3)
   grid_led(1, 7, state.keys_held[1 + 7*W] and 12 or 3)
   grid_led(2, 7, state.keys_held[2 + 7*W] and 12 or 3)
   grid_led(3, 7, state.keys_held[3 + 7*W] and 12 or 3)
+  grid_led(4, 7, state.keys_held[4 + 7*W] and 12 or 3)
+  grid_led(1, 8, state.keys_held[1 + 8*W] and 12 or 3)
+  grid_led(2, 8, state.keys_held[2 + 8*W] and 12 or 3)
+  grid_led(3, 8, state.keys_held[3 + 8*W] and 12 or 3)
+  grid_led(4, 8, state.keys_held[4 + 8*W] and 12 or 3)
   grid_refresh()
 end
 
 -- ---- dispatch ----
 local _route = {}
-_route[0 + 4*W] = handle_keys
-_route[1 + 4*W] = handle_keys
-_route[2 + 4*W] = handle_keys
-_route[3 + 4*W] = handle_keys
-_route[0 + 5*W] = handle_keys
 _route[1 + 5*W] = handle_keys
 _route[2 + 5*W] = handle_keys
 _route[3 + 5*W] = handle_keys
-_route[0 + 6*W] = handle_keys
+_route[4 + 5*W] = handle_keys
 _route[1 + 6*W] = handle_keys
 _route[2 + 6*W] = handle_keys
 _route[3 + 6*W] = handle_keys
-_route[0 + 7*W] = handle_keys
+_route[4 + 6*W] = handle_keys
 _route[1 + 7*W] = handle_keys
 _route[2 + 7*W] = handle_keys
 _route[3 + 7*W] = handle_keys
+_route[4 + 7*W] = handle_keys
+_route[1 + 8*W] = handle_keys
+_route[2 + 8*W] = handle_keys
+_route[3 + 8*W] = handle_keys
+_route[4 + 8*W] = handle_keys
 
 function event_grid(x, y, z)
   local h = _route[x + y*W]

@@ -19,10 +19,10 @@ local state = {
 
 -- ---- region: fader ----
 local _fader_idx = {}
-_fader_idx[0 + 0*W] = 0
-_fader_idx[1 + 0*W] = 1
-_fader_idx[2 + 0*W] = 2
-_fader_idx[3 + 0*W] = 3
+_fader_idx[1 + 1*W] = 0
+_fader_idx[2 + 1*W] = 1
+_fader_idx[3 + 1*W] = 2
+_fader_idx[4 + 1*W] = 3
 local _fader_values = {[0]=0, [1]=42, [2]=84, [3]=127}
 
 local function handle_fader(x, y, z)
@@ -53,20 +53,20 @@ local function redraw()
   do
     local set = state.fader_set
     local lo, hi = state.fader_lo, state.fader_hi
-    grid_led(0, 0, set and lo <= 0 and 0 <= hi and 12 or 3)
-    grid_led(1, 0, set and lo <= 1 and 1 <= hi and 12 or 3)
-    grid_led(2, 0, set and lo <= 2 and 2 <= hi and 12 or 3)
-    grid_led(3, 0, set and lo <= 3 and 3 <= hi and 12 or 3)
+    grid_led(1, 1, set and lo <= 0 and 0 <= hi and 12 or 3)
+    grid_led(2, 1, set and lo <= 1 and 1 <= hi and 12 or 3)
+    grid_led(3, 1, set and lo <= 2 and 2 <= hi and 12 or 3)
+    grid_led(4, 1, set and lo <= 3 and 3 <= hi and 12 or 3)
   end
   grid_refresh()
 end
 
 -- ---- dispatch ----
 local _route = {}
-_route[0 + 0*W] = handle_fader
-_route[1 + 0*W] = handle_fader
-_route[2 + 0*W] = handle_fader
-_route[3 + 0*W] = handle_fader
+_route[1 + 1*W] = handle_fader
+_route[2 + 1*W] = handle_fader
+_route[3 + 1*W] = handle_fader
+_route[4 + 1*W] = handle_fader
 
 function event_grid(x, y, z)
   local h = _route[x + y*W]

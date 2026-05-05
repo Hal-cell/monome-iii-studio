@@ -21,14 +21,14 @@ local state = {
 
 -- ---- region: notes ----
 local _notes_idx = {}
-_notes_idx[0 + 7*W] = 0
-_notes_idx[1 + 7*W] = 1
-_notes_idx[2 + 7*W] = 2
-_notes_idx[3 + 7*W] = 3
-_notes_idx[4 + 7*W] = 4
-_notes_idx[5 + 7*W] = 5
-_notes_idx[6 + 7*W] = 6
-_notes_idx[7 + 7*W] = 7
+_notes_idx[1 + 8*W] = 0
+_notes_idx[2 + 8*W] = 1
+_notes_idx[3 + 8*W] = 2
+_notes_idx[4 + 8*W] = 3
+_notes_idx[5 + 8*W] = 4
+_notes_idx[6 + 8*W] = 5
+_notes_idx[7 + 8*W] = 6
+_notes_idx[8 + 8*W] = 7
 
 local function handle_notes(x, y, z)
   local idx = _notes_idx[x + y*W]
@@ -43,10 +43,10 @@ end
 
 -- ---- region: fader ----
 local _fader_idx = {}
-_fader_idx[0 + 0*W] = 0
-_fader_idx[1 + 0*W] = 1
-_fader_idx[2 + 0*W] = 2
-_fader_idx[3 + 0*W] = 3
+_fader_idx[1 + 1*W] = 0
+_fader_idx[2 + 1*W] = 1
+_fader_idx[3 + 1*W] = 2
+_fader_idx[4 + 1*W] = 3
 local _fader_values = {[0]=0, [1]=42, [2]=84, [3]=127}
 
 local function handle_fader(x, y, z)
@@ -74,40 +74,40 @@ end
 local function redraw()
   grid_led_all(0)
   -- region: notes
-  grid_led(0, 7, state.notes_held[0 + 7*W] and 12 or 3)
-  grid_led(1, 7, state.notes_held[1 + 7*W] and 12 or 3)
-  grid_led(2, 7, state.notes_held[2 + 7*W] and 12 or 3)
-  grid_led(3, 7, state.notes_held[3 + 7*W] and 12 or 3)
-  grid_led(4, 7, state.notes_held[4 + 7*W] and 12 or 3)
-  grid_led(5, 7, state.notes_held[5 + 7*W] and 12 or 3)
-  grid_led(6, 7, state.notes_held[6 + 7*W] and 12 or 3)
-  grid_led(7, 7, state.notes_held[7 + 7*W] and 12 or 3)
+  grid_led(1, 8, state.notes_held[1 + 8*W] and 12 or 3)
+  grid_led(2, 8, state.notes_held[2 + 8*W] and 12 or 3)
+  grid_led(3, 8, state.notes_held[3 + 8*W] and 12 or 3)
+  grid_led(4, 8, state.notes_held[4 + 8*W] and 12 or 3)
+  grid_led(5, 8, state.notes_held[5 + 8*W] and 12 or 3)
+  grid_led(6, 8, state.notes_held[6 + 8*W] and 12 or 3)
+  grid_led(7, 8, state.notes_held[7 + 8*W] and 12 or 3)
+  grid_led(8, 8, state.notes_held[8 + 8*W] and 12 or 3)
   -- region: fader
   do
     local set = state.fader_set
     local lo, hi = state.fader_lo, state.fader_hi
-    grid_led(0, 0, set and lo <= 0 and 0 <= hi and 12 or 3)
-    grid_led(1, 0, set and lo <= 1 and 1 <= hi and 12 or 3)
-    grid_led(2, 0, set and lo <= 2 and 2 <= hi and 12 or 3)
-    grid_led(3, 0, set and lo <= 3 and 3 <= hi and 12 or 3)
+    grid_led(1, 1, set and lo <= 0 and 0 <= hi and 12 or 3)
+    grid_led(2, 1, set and lo <= 1 and 1 <= hi and 12 or 3)
+    grid_led(3, 1, set and lo <= 2 and 2 <= hi and 12 or 3)
+    grid_led(4, 1, set and lo <= 3 and 3 <= hi and 12 or 3)
   end
   grid_refresh()
 end
 
 -- ---- dispatch ----
 local _route = {}
-_route[0 + 7*W] = handle_notes
-_route[1 + 7*W] = handle_notes
-_route[2 + 7*W] = handle_notes
-_route[3 + 7*W] = handle_notes
-_route[4 + 7*W] = handle_notes
-_route[5 + 7*W] = handle_notes
-_route[6 + 7*W] = handle_notes
-_route[7 + 7*W] = handle_notes
-_route[0 + 0*W] = handle_fader
-_route[1 + 0*W] = handle_fader
-_route[2 + 0*W] = handle_fader
-_route[3 + 0*W] = handle_fader
+_route[1 + 8*W] = handle_notes
+_route[2 + 8*W] = handle_notes
+_route[3 + 8*W] = handle_notes
+_route[4 + 8*W] = handle_notes
+_route[5 + 8*W] = handle_notes
+_route[6 + 8*W] = handle_notes
+_route[7 + 8*W] = handle_notes
+_route[8 + 8*W] = handle_notes
+_route[1 + 1*W] = handle_fader
+_route[2 + 1*W] = handle_fader
+_route[3 + 1*W] = handle_fader
+_route[4 + 1*W] = handle_fader
 
 function event_grid(x, y, z)
   local h = _route[x + y*W]

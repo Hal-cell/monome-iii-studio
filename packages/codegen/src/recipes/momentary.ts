@@ -4,6 +4,7 @@ import type {
   MomentaryParams,
   Region,
 } from '../types.ts';
+import { luaKey, luaXY } from '../lua-coords.ts';
 
 /**
  * Lua source fragments contributed by a single region.
@@ -28,7 +29,7 @@ export function emitMomentary(region: MomentaryRegion): EmittedFragments {
   const handlerName = `handle_${region.name}`;
 
   const routeAdditions = sortedCells.map(
-    (c) => `_route[${c.x} + ${c.y}*W] = ${handlerName}`,
+    (c) => `_route[${luaKey(c)}] = ${handlerName}`,
   );
 
   const fragments =
@@ -55,7 +56,7 @@ function emitPerCell(
   const idxTable = `_${name}_idx`;
 
   const idxLines = cells
-    .map((c, i) => `${idxTable}[${c.x} + ${c.y}*W] = ${i}`)
+    .map((c, i) => `${idxTable}[${luaKey(c)}] = ${i}`)
     .join('\n');
 
   const handlerBody = perCellHandlerBody(stateSlot, params)
@@ -77,7 +78,7 @@ function emitPerCell(
   const ledLines = cells
     .map(
       (c) =>
-        `  grid_led(${c.x}, ${c.y}, state.${stateSlot}[${c.x} + ${c.y}*W] and ${params.led_held} or ${params.led_idle})`,
+        `  grid_led(${luaXY(c)}, state.${stateSlot}[${luaKey(c)}] and ${params.led_held} or ${params.led_idle})`,
     )
     .join('\n');
 
@@ -148,7 +149,7 @@ function emitGroup(
   ].join('\n');
 
   const ledLines = cells
-    .map((c) => `    grid_led(${c.x}, ${c.y}, lit)`)
+    .map((c) => `    grid_led(${luaXY(c)}, lit)`)
     .join('\n');
 
   const drawBlock = [

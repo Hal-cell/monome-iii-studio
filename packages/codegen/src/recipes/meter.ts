@@ -1,4 +1,5 @@
 import type { Cell, MeterBehavior, Region } from '../types.ts';
+import { lua1, luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type MeterRegion = Region & { behavior: MeterBehavior };
@@ -16,7 +17,7 @@ export function emitMeter(region: MeterRegion): EmittedFragments {
   const colLines = region.cells
     .slice()
     .sort((a, b) => a.x - b.x || a.y - b.y)
-    .map((c) => `${colTable}[${c.x} + ${c.y}*W] = ${columns.indexOf(c.x)}`)
+    .map((c) => `${colTable}[${luaKey(c)}] = ${columns.indexOf(c.x)}`)
     .join('\n');
 
   // Pre-compute the height → CC value table. height=0 → 0;
@@ -38,7 +39,9 @@ export function emitMeter(region: MeterRegion): EmittedFragments {
     `local function ${handlerName}(x, y, z)`,
     '  if z ~= 1 then return end',
     `  local col = ${colTable}[x + y*W]`,
-    `  local h = ${height} - (y - ${yTop})`,
+    // y is 1-indexed at runtime (iii convention). yTop is 0-indexed in
+    // our data model, so shift by +1 to compute the same height value.
+    `  local h = ${height} - (y - ${lua1(yTop)})`,
     `  state.${stateSlot}[col] = h`,
     `  midi_cc(${params.base_cc} + col, ${valuesTable}[h], ${params.channel})`,
     'end',
@@ -54,7 +57,7 @@ export function emitMeter(region: MeterRegion): EmittedFragments {
     .map((c) => {
       const col = columns.indexOf(c.x);
       const distance = yBottom - c.y;
-      return `  grid_led(${c.x}, ${c.y}, state.${stateSlot}[${col}] > ${distance} and ${params.led_on} or ${params.led_off})`;
+      return `  grid_led(${luaXY(c)}, state.${stateSlot}[${col}] > ${distance} and ${params.led_on} or ${params.led_off})`;
     })
     .join('\n');
 
@@ -63,7 +66,7 @@ export function emitMeter(region: MeterRegion): EmittedFragments {
   const routeAdditions = region.cells
     .slice()
     .sort((a, b) => a.y - b.y || a.x - b.x)
-    .map((c) => `_route[${c.x} + ${c.y}*W] = ${handlerName}`);
+    .map((c) => `_route[${luaKey(c)}] = ${handlerName}`);
 
   const stateInit = `${stateSlot} = {${stateInitEntries}},`;
 

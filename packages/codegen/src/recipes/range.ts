@@ -1,4 +1,5 @@
 import type { Cell, RangeBehavior, Region } from '../types.ts';
+import { luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 import { computeRadioValues } from './radio.ts';
 
@@ -17,7 +18,7 @@ export function emitRange(region: RangeRegion): EmittedFragments {
   const valuesTable = `_${region.name}_values`;
 
   const idxLines = sortedCells
-    .map((c, i) => `${idxTable}[${c.x} + ${c.y}*W] = ${i}`)
+    .map((c, i) => `${idxTable}[${luaKey(c)}] = ${i}`)
     .join('\n');
 
   // Reuse Radio's 0..127 mapping. Range and Radio share the same
@@ -56,7 +57,7 @@ export function emitRange(region: RangeRegion): EmittedFragments {
   const ledLines = sortedCells
     .map(
       (c, i) =>
-        `    grid_led(${c.x}, ${c.y}, set and lo <= ${i} and ${i} <= hi and ${params.led_in_range} or ${params.led_out_range})`,
+        `    grid_led(${luaXY(c)}, set and lo <= ${i} and ${i} <= hi and ${params.led_in_range} or ${params.led_out_range})`,
     )
     .join('\n');
 
@@ -70,7 +71,7 @@ export function emitRange(region: RangeRegion): EmittedFragments {
   ].join('\n');
 
   const routeAdditions = sortedCells.map(
-    (c) => `_route[${c.x} + ${c.y}*W] = ${handlerName}`,
+    (c) => `_route[${luaKey(c)}] = ${handlerName}`,
   );
 
   const stateInit = [

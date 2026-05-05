@@ -16,23 +16,23 @@ local state = {
 
 -- ---- region: drum ----
 local _drum_row = {}
-_drum_row[0 + 7*W] = 0
-_drum_row[1 + 7*W] = 0
-_drum_row[2 + 7*W] = 0
-_drum_row[3 + 7*W] = 0
-_drum_row[4 + 7*W] = 0
-_drum_row[5 + 7*W] = 0
-_drum_row[6 + 7*W] = 0
-_drum_row[7 + 7*W] = 0
+_drum_row[1 + 8*W] = 0
+_drum_row[2 + 8*W] = 0
+_drum_row[3 + 8*W] = 0
+_drum_row[4 + 8*W] = 0
+_drum_row[5 + 8*W] = 0
+_drum_row[6 + 8*W] = 0
+_drum_row[7 + 8*W] = 0
+_drum_row[8 + 8*W] = 0
 local _drum_col = {}
-_drum_col[0 + 7*W] = 0
-_drum_col[1 + 7*W] = 1
-_drum_col[2 + 7*W] = 2
-_drum_col[3 + 7*W] = 3
-_drum_col[4 + 7*W] = 4
-_drum_col[5 + 7*W] = 5
-_drum_col[6 + 7*W] = 6
-_drum_col[7 + 7*W] = 7
+_drum_col[1 + 8*W] = 0
+_drum_col[2 + 8*W] = 1
+_drum_col[3 + 8*W] = 2
+_drum_col[4 + 8*W] = 3
+_drum_col[5 + 8*W] = 4
+_drum_col[6 + 8*W] = 5
+_drum_col[7 + 8*W] = 6
+_drum_col[8 + 8*W] = 7
 local _drum_notes = {[0]=36}
 
 local function _drum_tick()
@@ -79,27 +79,27 @@ _drum_metro:start()
 local function redraw()
   grid_led_all(0)
   -- region: drum
-  grid_led(0, 7, _drum_pixel(0, 0))
-  grid_led(1, 7, _drum_pixel(0, 1))
-  grid_led(2, 7, _drum_pixel(0, 2))
-  grid_led(3, 7, _drum_pixel(0, 3))
-  grid_led(4, 7, _drum_pixel(0, 4))
-  grid_led(5, 7, _drum_pixel(0, 5))
-  grid_led(6, 7, _drum_pixel(0, 6))
-  grid_led(7, 7, _drum_pixel(0, 7))
+  grid_led(1, 8, _drum_pixel(0, 0))
+  grid_led(2, 8, _drum_pixel(0, 1))
+  grid_led(3, 8, _drum_pixel(0, 2))
+  grid_led(4, 8, _drum_pixel(0, 3))
+  grid_led(5, 8, _drum_pixel(0, 4))
+  grid_led(6, 8, _drum_pixel(0, 5))
+  grid_led(7, 8, _drum_pixel(0, 6))
+  grid_led(8, 8, _drum_pixel(0, 7))
   grid_refresh()
 end
 
 -- ---- dispatch ----
 local _route = {}
-_route[0 + 7*W] = handle_drum
-_route[1 + 7*W] = handle_drum
-_route[2 + 7*W] = handle_drum
-_route[3 + 7*W] = handle_drum
-_route[4 + 7*W] = handle_drum
-_route[5 + 7*W] = handle_drum
-_route[6 + 7*W] = handle_drum
-_route[7 + 7*W] = handle_drum
+_route[1 + 8*W] = handle_drum
+_route[2 + 8*W] = handle_drum
+_route[3 + 8*W] = handle_drum
+_route[4 + 8*W] = handle_drum
+_route[5 + 8*W] = handle_drum
+_route[6 + 8*W] = handle_drum
+_route[7 + 8*W] = handle_drum
+_route[8 + 8*W] = handle_drum
 
 function event_grid(x, y, z)
   local h = _route[x + y*W]

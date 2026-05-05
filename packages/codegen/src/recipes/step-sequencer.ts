@@ -4,6 +4,7 @@ import type {
   StepSequencerBehavior,
   StepSequencerParams,
 } from '../types.ts';
+import { luaKey, luaXY } from '../lua-coords.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type StepSeqRegion = Region & { behavior: StepSequencerBehavior };
@@ -36,11 +37,13 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     (a, b) => a.y - b.y || a.x - b.x,
   );
 
+  // Lookup tables map cell key → selection-local index. Keys are 1-indexed
+  // (iii convention); values stay 0-indexed (selection-local, never reach iii).
   const rowLines = sortedCells
-    .map((c) => `${rowTable}[${c.x} + ${c.y}*W] = ${c.y - yTop}`)
+    .map((c) => `${rowTable}[${luaKey(c)}] = ${c.y - yTop}`)
     .join('\n');
   const colLines = sortedCells
-    .map((c) => `${colTable}[${c.x} + ${c.y}*W] = ${c.x - xLeft}`)
+    .map((c) => `${colTable}[${luaKey(c)}] = ${c.x - xLeft}`)
     .join('\n');
 
   const valuesEntries = Array.from(
@@ -87,14 +90,14 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     .map((c) => {
       const row = c.y - yTop;
       const col = c.x - xLeft;
-      return `  grid_led(${c.x}, ${c.y}, ${pixelName}(${row}, ${col}))`;
+      return `  grid_led(${luaXY(c)}, ${pixelName}(${row}, ${col}))`;
     })
     .join('\n');
 
   const drawBlock = [`  -- region: ${name}`, ledLines].join('\n');
 
   const routeAdditions = sortedCells.map(
-    (c) => `_route[${c.x} + ${c.y}*W] = ${handlerName}`,
+    (c) => `_route[${luaKey(c)}] = ${handlerName}`,
   );
 
   // State init: step starts at -1 so first tick lands on 0.
