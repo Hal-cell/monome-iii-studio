@@ -59,5 +59,10 @@ function describeBehavior(region: Region): string {
     const p = region.behavior.params;
     return `range group, ch${p.channel} cc ${p.cc_low}/${p.cc_high} → 0..127`;
   }
+  if (region.behavior.kind === 'meter') {
+    const p = region.behavior.params;
+    const numCols = new Set(region.cells.map((c) => c.x)).size;
+    return `meter group, ch${p.channel} cc from ${p.base_cc}, ${numCols} cols → 0..127`;
+  }
   return `${region.behavior.kind} (not yet supported)`;
 }

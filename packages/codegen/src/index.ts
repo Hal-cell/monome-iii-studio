@@ -23,6 +23,8 @@ export type {
   PendingBehavior,
   Region,
   RegionMode,
+  MeterBehavior,
+  MeterParams,
   RadioBehavior,
   RadioParams,
   RangeBehavior,

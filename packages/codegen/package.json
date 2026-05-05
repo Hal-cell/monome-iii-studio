@@ -13,10 +13,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "regen-fixture": "tsx scripts/regen-fixture.ts"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
   }

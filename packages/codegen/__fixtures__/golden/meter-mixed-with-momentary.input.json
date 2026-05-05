@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "tool_version": "0.0.0",
+  "name": "test-meter-mixed",
+  "width": 16,
+  "height": 8,
+  "active_page_index": 0,
+  "pages": [
+    {
+      "id": "p1",
+      "name": "main",
+      "regions": [
+        {
+          "id": "r-pads",
+          "name": "pads",
+          "cells": [
+            {"x": 0, "y": 0},
+            {"x": 1, "y": 0},
+            {"x": 2, "y": 0},
+            {"x": 3, "y": 0}
+          ],
+          "mode": "per_cell",
+          "behavior": {
+            "kind": "momentary",
+            "params": {
+              "output_type": "note",
+              "channel": 1,
+              "note": 60,
+              "velocity": 100,
+              "led_held": 12,
+              "led_idle": 3
+            }
+          }
+        },
+        {
+          "id": "r-faders",
+          "name": "faders",
+          "cells": [
+            {"x": 0, "y": 2}, {"x": 0, "y": 3}, {"x": 0, "y": 4},
+            {"x": 0, "y": 5}, {"x": 0, "y": 6}, {"x": 0, "y": 7},
+            {"x": 1, "y": 2}, {"x": 1, "y": 3}, {"x": 1, "y": 4},
+            {"x": 1, "y": 5}, {"x": 1, "y": 6}, {"x": 1, "y": 7},
+            {"x": 2, "y": 2}, {"x": 2, "y": 3}, {"x": 2, "y": 4},
+            {"x": 2, "y": 5}, {"x": 2, "y": 6}, {"x": 2, "y": 7},
+            {"x": 3, "y": 2}, {"x": 3, "y": 3}, {"x": 3, "y": 4},
+            {"x": 3, "y": 5}, {"x": 3, "y": 6}, {"x": 3, "y": 7}
+          ],
+          "mode": "group",
+          "behavior": {
+            "kind": "meter",
+            "params": {
+              "channel": 1,
+              "base_cc": 16,
+              "led_on": 12,
+              "led_off": 3
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

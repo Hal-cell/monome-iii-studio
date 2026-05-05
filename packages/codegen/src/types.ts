@@ -132,10 +132,41 @@ export type RangeBehavior = {
   params: RangeParams;
 };
 
-// ---------- Pending recipes (Steps 6+) ----------
+// ---------- Meter ----------
+
+/**
+ * Multi-column visual fader. Group-only.
+ *
+ * Selection must be a rectangular block: N contiguous columns × full
+ * column height (the full vertical span of the selection). Each column
+ * is an independent fader with its own height (0..H) and its own CC.
+ *
+ * Press cell (col, y) → that column's height becomes
+ * `selection_height - (y - selection_y_top)`. Top row press = full
+ * height; bottom row press = height 1. There is no way to set
+ * height to 0 after first interaction (matches grid-recipes
+ * "Meters" — minimum height after press is 1). Initial height is 0
+ * (no LED lit, no CC sent).
+ *
+ * Each column sends a CC: `cc = base_cc + col_offset`, value mapped
+ * uniformly: `floor(height * 127 / max_height)`. height=H → 127.
+ */
+export type MeterParams = {
+  channel: number;
+  base_cc: number;
+  led_on: number;
+  led_off: number;
+};
+
+export type MeterBehavior = {
+  kind: 'meter';
+  params: MeterParams;
+};
+
+// ---------- Pending recipes (Steps 7+) ----------
 
 export type PendingBehavior = {
-  kind: 'meter' | 'note_keyboard' | 'step_sequencer';
+  kind: 'note_keyboard' | 'step_sequencer';
   params: unknown;
 };
 
@@ -144,6 +175,7 @@ export type Behavior =
   | ToggleBehavior
   | RadioBehavior
   | RangeBehavior
+  | MeterBehavior
   | PendingBehavior;
 
 // ---------- Region / Page / GridLayout ----------
