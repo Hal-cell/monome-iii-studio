@@ -59,6 +59,22 @@ export type ParamSchema =
 
 // ---------- Recipe meta ----------
 
+/**
+ * Geometry the user's selection must satisfy before the recipe can be
+ * applied. Optional — recipes that work on any non-empty selection
+ * (most of them) leave this off.
+ *
+ * `rectangleRequired` means: the selection's bounding box must be
+ * fully filled (every cell in the rectangle is selected). This matters
+ * for recipes like wake_sequencer that index into (col, row) within
+ * a fixed grid.
+ */
+export type ShapeConstraint = {
+  minCols?: number;
+  minRows?: number;
+  rectangleRequired?: boolean;
+};
+
 export type RecipeMeta = {
   id: BehaviorKind;
   label: string;
@@ -71,6 +87,12 @@ export type RecipeMeta = {
     ctx: ParamContext,
   ) => ParamSchema[];
   build: (mode: RegionMode, values: Record<string, unknown>) => Behavior;
+  /**
+   * Optional selection-shape requirements. The UI checks this before
+   * letting the user click "Add Region" and surfaces an explanatory
+   * notice if the selection doesn't fit.
+   */
+  shape?: ShapeConstraint;
 };
 
 export type ParamContext = {

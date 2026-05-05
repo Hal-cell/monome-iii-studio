@@ -69,6 +69,16 @@ function describeBehavior(region: Region): string {
     const scaleInfo = p.scale === 'chromatic' ? '' : `, ${p.scale}`;
     return `note keyboard per_cell, ch${p.channel} root MIDI ${p.root_note} (row=${p.row_interval}, col=${p.column_interval}${scaleInfo})`;
   }
+  if (region.behavior.kind === 'wake_sequencer') {
+    const p = region.behavior.params;
+    const xs = region.cells.map((c) => c.x);
+    const ys = region.cells.map((c) => c.y);
+    const numCols = Math.max(...xs) - Math.min(...xs) + 1;
+    const numRows = Math.max(...ys) - Math.min(...ys) + 1;
+    const bodyHeight = numRows - 1;
+    const scaleInfo = p.scale === 'chromatic' ? '' : ` ${p.scale}`;
+    return `wake seq, ${numRows}×${numCols} (1 fn + ${bodyHeight} body), ch${p.channel} root MIDI ${p.root_note}${scaleInfo}, ${p.bpm} BPM @ 1/${p.steps_per_beat}`;
+  }
   if (region.behavior.kind === 'step_sequencer') {
     const p = region.behavior.params;
     const xs = region.cells.map((c) => c.x);

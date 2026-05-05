@@ -349,6 +349,52 @@ export type StepSequencerBehavior = {
   params: StepSequencerParams;
 };
 
+// ---------- Wake sequencer ----------
+
+/**
+ * wake-style step sequencer: one note per column, monophonic by
+ * design, with per-step parameters edited via a top-row "page" strip.
+ *
+ * Selection layout:
+ *   - top row of selection = function row (page selectors + dim
+ *     unused cells)
+ *   - remaining `numRows - 1` rows = "body": each column shows the
+ *     current page's value as one lit cell. Top body row = max value;
+ *     bottom body row = value 1; no cell lit = value 0 (silent step
+ *     when on the PITCH page).
+ *
+ * Pages (v1):
+ *   0 PITCH  scale degree (0 = silent, 1..body_height = degree)
+ *   1 OCT    octave shift (0 = none, 1..body_height = +1..+N octaves)
+ *   2 VEL    velocity bucket (0 = silent, 1..body_height = 1..127)
+ *   3 GATE   note length in master ticks (0 = step is silent
+ *            regardless of pitch; 1..body_height = ticks held)
+ *
+ * Live BPM / run-stop / scale switching are NOT in v1 — those need
+ * the CLK page (deferred). For v1, scale + root + bpm are static
+ * params set in the panel.
+ *
+ * Selection constraints (enforced by the UI, not the emitter):
+ *   - rectangle
+ *   - ≥ 4 cols (room for 4 page selectors in the function row)
+ *   - ≥ 2 rows (1 function + ≥ 1 body)
+ */
+export type WakeSequencerParams = {
+  channel: number;
+  /** MIDI note for scale-degree 0 in octave 0. */
+  root_note: number;
+  /** Default 'major'. Determines pitch interpretation on the PITCH page. */
+  scale: import('./scales.ts').ScaleName;
+  bpm: number;
+  /** Subdivision of the beat for the master clock tick. */
+  steps_per_beat: number;
+};
+
+export type WakeSequencerBehavior = {
+  kind: 'wake_sequencer';
+  params: WakeSequencerParams;
+};
+
 // ---------- Behavior union ----------
 //
 // As of Step 8 the v0 catalogue is complete. There is no PendingBehavior
@@ -363,7 +409,8 @@ export type Behavior =
   | RangeBehavior
   | MeterBehavior
   | NoteKeyboardBehavior
-  | StepSequencerBehavior;
+  | StepSequencerBehavior
+  | WakeSequencerBehavior;
 
 // ---------- Region / Page / GridLayout ----------
 

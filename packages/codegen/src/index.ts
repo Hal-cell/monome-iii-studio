@@ -36,4 +36,6 @@ export type {
   StepSequencerParams,
   ToggleBehavior,
   ToggleParams,
+  WakeSequencerBehavior,
+  WakeSequencerParams,
 } from './types.ts';

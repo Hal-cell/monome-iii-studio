@@ -521,6 +521,65 @@ const stepSequencer: RecipeMeta = {
   },
 };
 
+// ---------- Wake sequencer ----------
+
+const wakeSequencer: RecipeMeta = {
+  id: 'wake_sequencer',
+  label: 'Wake sequencer',
+  description: 'per-step parameters across paged "tracks"',
+  modes: [{ id: 'group', label: 'group' }],
+  defaultValues: {
+    channel: 1,
+    root_note: 60,
+    scale: 'major',
+    bpm: 120,
+    steps_per_beat: 4,
+  },
+  // Selection must be a filled rectangle of at least 4 cols (room for
+  // the 4 page selectors in the function row) and 2 rows (1 fn row + at
+  // least 1 body row).
+  shape: { minCols: 4, minRows: 2, rectangleRequired: true },
+  paramsFor: () => [
+    { kind: 'int', key: 'channel', label: 'Channel', min: 1, max: 16, default: 1 },
+    {
+      kind: 'int',
+      key: 'root_note',
+      label: 'Root note',
+      min: 0,
+      max: 127,
+      default: 60,
+      help: 'MIDI note for scale-degree 0 in octave 0',
+    },
+    {
+      kind: 'enum',
+      key: 'scale',
+      label: 'Scale',
+      options: SCALE_OPTIONS,
+      default: 'major',
+    },
+    { kind: 'int', key: 'bpm', label: 'BPM', min: 1, max: 300, default: 120 },
+    {
+      kind: 'int',
+      key: 'steps_per_beat',
+      label: 'Steps per beat',
+      min: 1,
+      max: 16,
+      default: 4,
+      help: '4 = sixteenth notes',
+    },
+  ],
+  build: (_mode, v): Behavior => ({
+    kind: 'wake_sequencer',
+    params: {
+      channel: asInt(v.channel, 1),
+      root_note: asInt(v.root_note, 60),
+      scale: asScale(v.scale),
+      bpm: asInt(v.bpm, 120),
+      steps_per_beat: asInt(v.steps_per_beat, 4),
+    },
+  }),
+};
+
 // ---------- Catalogue ----------
 
 export const RECIPES: Record<BehaviorKind, RecipeMeta> = {
@@ -531,6 +590,7 @@ export const RECIPES: Record<BehaviorKind, RecipeMeta> = {
   meter,
   note_keyboard: noteKeyboard,
   step_sequencer: stepSequencer,
+  wake_sequencer: wakeSequencer,
 };
 
 /**
@@ -545,4 +605,5 @@ export const RECIPE_ORDER: BehaviorKind[] = [
   'meter',
   'note_keyboard',
   'step_sequencer',
+  'wake_sequencer',
 ];

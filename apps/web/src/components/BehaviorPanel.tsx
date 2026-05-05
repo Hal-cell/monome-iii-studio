@@ -70,7 +70,34 @@ export function BehaviorPanel() {
     if (!r) return [];
     return r.paramsFor(values, selectionGeometry());
   };
-  const canAdd = () => selectionSize() > 0 && recipe() !== null;
+
+  /**
+   * Returns null if the selection satisfies the recipe's shape
+   * constraint, or a human-readable explanation if it doesn't. Recipes
+   * with no `shape` field always return null.
+   */
+  const shapeViolation = (): string | null => {
+    const r = recipe();
+    if (!r || !r.shape) return null;
+    if (selectionSize() === 0) return null; // separate "select something" message
+    const { numRows, numCols } = selectionGeometry();
+    const { minCols, minRows, rectangleRequired } = r.shape;
+    if (typeof minCols === 'number' && numCols < minCols) {
+      return `${r.label.toLowerCase()} needs ≥ ${minCols} cols × ${
+        minRows ?? 1
+      } rows (have ${numCols} × ${numRows})`;
+    }
+    if (typeof minRows === 'number' && numRows < minRows) {
+      return `${r.label.toLowerCase()} needs ≥ ${minCols ?? 1} cols × ${minRows} rows (have ${numCols} × ${numRows})`;
+    }
+    if (rectangleRequired && selectionSize() !== numRows * numCols) {
+      return `${r.label.toLowerCase()} needs a filled rectangle (have ${selectionSize()} of ${numRows * numCols} cells)`;
+    }
+    return null;
+  };
+
+  const canAdd = () =>
+    selectionSize() > 0 && recipe() !== null && shapeViolation() === null;
   const canDownload = () => regions().length > 0;
   const downloadName = () => (layoutName().trim() || 'untitled');
 
@@ -273,6 +300,11 @@ export function BehaviorPanel() {
         >
           + Add Region
         </button>
+        <Show when={shapeViolation()}>
+          <p class="text-[10px] text-amber-200/70 italic leading-relaxed">
+            {shapeViolation()}
+          </p>
+        </Show>
         <Show when={notice()}>
           <p class="text-[10px] text-neutral-500 italic leading-relaxed">
             {notice()}

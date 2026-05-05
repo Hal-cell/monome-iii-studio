@@ -8,6 +8,7 @@ import type {
   Region,
   StepSequencerBehavior,
   ToggleBehavior,
+  WakeSequencerBehavior,
 } from './types.ts';
 import { emitHeader } from './header.ts';
 import { emitMeter } from './recipes/meter.ts';
@@ -17,6 +18,7 @@ import { emitRadio } from './recipes/radio.ts';
 import { emitRange } from './recipes/range.ts';
 import { emitStepSequencer } from './recipes/step-sequencer.ts';
 import { emitToggle } from './recipes/toggle.ts';
+import { emitWakeSequencer } from './recipes/wake-sequencer.ts';
 
 /**
  * Compile a GridLayout to an iii Lua script.
@@ -70,6 +72,11 @@ export function emit(layout: GridLayout): string {
       case 'step_sequencer':
         frags = emitStepSequencer(
           region as Region & { behavior: StepSequencerBehavior },
+        );
+        break;
+      case 'wake_sequencer':
+        frags = emitWakeSequencer(
+          region as Region & { behavior: WakeSequencerBehavior },
         );
         break;
       default: {
