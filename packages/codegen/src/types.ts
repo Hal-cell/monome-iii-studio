@@ -49,20 +49,42 @@ export type MomentaryBehavior = {
   params: MomentaryParams;
 };
 
-// ---------- Pending recipes (Steps 3+) ----------
+// ---------- Toggle ----------
+
+/**
+ * Step 3 ships toggle with CC output only. Note output is a Phase 2
+ * stretch (toggling notes requires careful note-off bookkeeping that
+ * goes beyond the toggle primitive). Long-press alt-display variant
+ * also deferred to Phase 2 (needs hardware metro behavior verified).
+ */
+export type ToggleParams = {
+  channel: number;
+  /**
+   * In `per_cell` mode this is the BASE CC (sent: `cc + cell_index`).
+   * In `group` mode this is the SHARED CC (sent: `cc`).
+   */
+  cc: number;
+  /** Value sent when toggled ON. Default 127. */
+  on_value: number;
+  /** Value sent when toggled OFF. Default 0. */
+  off_value: number;
+  led_on: number;
+  led_off: number;
+};
+
+export type ToggleBehavior = {
+  kind: 'toggle';
+  params: ToggleParams;
+};
+
+// ---------- Pending recipes (Steps 4+) ----------
 
 export type PendingBehavior = {
-  kind:
-    | 'toggle'
-    | 'radio'
-    | 'range'
-    | 'meter'
-    | 'note_keyboard'
-    | 'step_sequencer';
+  kind: 'radio' | 'range' | 'meter' | 'note_keyboard' | 'step_sequencer';
   params: unknown;
 };
 
-export type Behavior = MomentaryBehavior | PendingBehavior;
+export type Behavior = MomentaryBehavior | ToggleBehavior | PendingBehavior;
 
 // ---------- Region / Page / GridLayout ----------
 

@@ -1,6 +1,12 @@
-import type { GridLayout, MomentaryBehavior, Region } from './types.ts';
+import type {
+  GridLayout,
+  MomentaryBehavior,
+  Region,
+  ToggleBehavior,
+} from './types.ts';
 import { emitHeader } from './header.ts';
 import { emitMomentary } from './recipes/momentary.ts';
+import { emitToggle } from './recipes/toggle.ts';
 
 /**
  * Compile a GridLayout to an iii Lua script.
@@ -9,8 +15,8 @@ import { emitMomentary } from './recipes/momentary.ts';
  * stability is part of the public contract — see vault
  * `notes/engineering-kickoff.md` "Project-specific addenda".
  *
- * Step 2: only the `momentary` recipe is implemented. emit() throws if it
- * encounters any other behavior kind.
+ * Step 3: `momentary` and `toggle` recipes are implemented. emit() throws
+ * if it encounters any other behavior kind.
  */
 export function emit(layout: GridLayout): string {
   if (layout.pages.length !== 1) {
@@ -26,12 +32,16 @@ export function emit(layout: GridLayout): string {
   const routeLines: string[] = [];
 
   for (const region of page.regions) {
-    if (region.behavior.kind !== 'momentary') {
+    let frags;
+    if (region.behavior.kind === 'momentary') {
+      frags = emitMomentary(region as Region & { behavior: MomentaryBehavior });
+    } else if (region.behavior.kind === 'toggle') {
+      frags = emitToggle(region as Region & { behavior: ToggleBehavior });
+    } else {
       throw new Error(
-        `Step 2: only "momentary" recipe is implemented; got "${region.behavior.kind}" for region "${region.name}"`,
+        `Recipe "${region.behavior.kind}" not yet implemented (region "${region.name}")`,
       );
     }
-    const frags = emitMomentary(region as Region & { behavior: MomentaryBehavior });
     stateInits.push(`  ${frags.stateInit}`);
     declarations.push(frags.declarations);
     drawBlocks.push(frags.drawBlock);

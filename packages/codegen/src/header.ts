@@ -43,7 +43,13 @@ function describeBehavior(region: Region): string {
       const noun = region.mode === 'per_cell' ? 'note from' : 'note';
       return `momentary ${region.mode}, ch${p.channel} ${noun} MIDI ${p.note}`;
     }
-    return `momentary ${region.mode}, ch${p.channel} cc ${p.cc}`;
+    const noun = region.mode === 'per_cell' ? 'cc from' : 'cc';
+    return `momentary ${region.mode}, ch${p.channel} ${noun} ${p.cc}`;
+  }
+  if (region.behavior.kind === 'toggle') {
+    const p = region.behavior.params;
+    const noun = region.mode === 'per_cell' ? 'cc from' : 'cc';
+    return `toggle ${region.mode}, ch${p.channel} ${noun} ${p.cc}`;
   }
   return `${region.behavior.kind} (not yet supported)`;
 }

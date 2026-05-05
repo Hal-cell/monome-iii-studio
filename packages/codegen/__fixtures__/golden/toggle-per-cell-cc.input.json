@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "tool_version": "0.0.0",
+  "name": "test-toggle-per-cell-cc",
+  "width": 8,
+  "height": 8,
+  "active_page_index": 0,
+  "pages": [
+    {
+      "id": "p1",
+      "name": "main",
+      "regions": [
+        {
+          "id": "r-switches",
+          "name": "switches",
+          "cells": [
+            {"x": 0, "y": 0},
+            {"x": 1, "y": 0},
+            {"x": 2, "y": 0},
+            {"x": 3, "y": 0},
+            {"x": 4, "y": 0},
+            {"x": 5, "y": 0},
+            {"x": 6, "y": 0},
+            {"x": 7, "y": 0}
+          ],
+          "mode": "per_cell",
+          "behavior": {
+            "kind": "toggle",
+            "params": {
+              "channel": 1,
+              "cc": 20,
+              "on_value": 127,
+              "off_value": 0,
+              "led_on": 15,
+              "led_off": 3
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -23,4 +23,6 @@ export type {
   PendingBehavior,
   Region,
   RegionMode,
+  ToggleBehavior,
+  ToggleParams,
 } from './types.ts';
