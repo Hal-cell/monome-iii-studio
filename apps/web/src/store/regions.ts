@@ -81,6 +81,33 @@ export function removeRegion(id: string): void {
   _setRegions((prev) => prev.filter((r) => r.id !== id));
 }
 
+/**
+ * Replace the entire region list. Used by session restore and layout
+ * import. Bumps the internal id/name counters past the largest values
+ * present so future auto-named regions don't collide with imported
+ * ones.
+ */
+export function replaceAllRegions(newRegions: SavedRegion[]): void {
+  _setRegions(newRegions);
+  for (const r of newRegions) {
+    const idMatch = /^r-(\d+)$/.exec(r.id);
+    if (idMatch) {
+      _idCounter = Math.max(_idCounter, parseInt(idMatch[1]!, 10) + 1);
+    }
+    const nameMatch = /^region_(\d+)$/.exec(r.name);
+    if (nameMatch) {
+      _nameCounter = Math.max(_nameCounter, parseInt(nameMatch[1]!, 10) + 1);
+    }
+  }
+}
+
+/** Clear the entire region list and reset the auto-name counters. */
+export function clearAllRegions(): void {
+  _setRegions([]);
+  _idCounter = 1;
+  _nameCounter = 1;
+}
+
 export function renameRegion(id: string, name: string): void {
   _setRegions((prev) =>
     prev.map((r) => (r.id === id ? { ...r, name } : r)),

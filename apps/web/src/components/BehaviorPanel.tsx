@@ -31,6 +31,12 @@ import {
   keyToCell,
   selection,
 } from '../store/selection.ts';
+import {
+  loadLayout,
+  newLayout,
+  snapshotLayout,
+} from '../store/session.ts';
+import { exportLayout, importLayoutFile } from '../lib/persist.ts';
 import { ParamEditor } from './ParamEditor.tsx';
 import { RecipeSelector } from './RecipeSelector.tsx';
 
@@ -118,16 +124,79 @@ export function BehaviorPanel() {
     downloadText(`${downloadName()}.lua`, emit(layout));
   }
 
+  let fileInputRef: HTMLInputElement | undefined;
+
+  const hasContent = () => regions().length > 0 || selectionSize() > 0;
+
+  function onExport() {
+    if (regions().length === 0) {
+      setNotice('nothing to export — add a region first');
+      return;
+    }
+    exportLayout(snapshotLayout());
+    setNotice(`exported ${layoutName() || 'untitled'}.layout.json`);
+  }
+
+  function onImportClick() {
+    if (
+      hasContent() &&
+      !confirm('Import will replace your current layout. Continue?')
+    ) {
+      return;
+    }
+    fileInputRef?.click();
+  }
+
+  async function onFileChosen(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    try {
+      const layout = await importLayoutFile(file);
+      loadLayout(layout);
+      setNotice(
+        `imported ${layout.layoutName || 'untitled'} (${layout.regions.length} regions)`,
+      );
+    } catch (err) {
+      setNotice(`import failed: ${(err as Error).message}`);
+    }
+  }
+
+  function onNew() {
+    if (hasContent() && !confirm('Discard the current layout?')) return;
+    newLayout();
+    setNotice('new layout');
+  }
+
   return (
     <div class="flex flex-col gap-6 h-full">
       <Section title="Layout">
-        <input
-          type="text"
-          value={layoutName()}
-          onInput={(e) => setLayoutName(e.currentTarget.value)}
-          placeholder="untitled"
-          class="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm text-neutral-200 font-mono focus:outline-none focus:border-neutral-600"
-        />
+        <div class="space-y-2">
+          <input
+            type="text"
+            value={layoutName()}
+            onInput={(e) => setLayoutName(e.currentTarget.value)}
+            placeholder="untitled"
+            class="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm text-neutral-200 font-mono focus:outline-none focus:border-neutral-600"
+          />
+          <div class="flex gap-1">
+            <SmallButton onClick={onImportClick}>Import</SmallButton>
+            <SmallButton onClick={onExport} disabled={regions().length === 0}>
+              Export
+            </SmallButton>
+            <SmallButton onClick={onNew} disabled={!hasContent()}>
+              New
+            </SmallButton>
+          </div>
+          <input
+            ref={(el) => (fileInputRef = el)}
+            type="file"
+            accept=".json,application/json"
+            onChange={onFileChosen}
+            style={{ display: 'none' }}
+          />
+        </div>
       </Section>
 
       <Section title="Behavior">
@@ -297,5 +366,26 @@ function Section(props: { title: string; children: JSX.Element }) {
       </h2>
       {props.children}
     </div>
+  );
+}
+
+function SmallButton(props: {
+  children: JSX.Element;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      disabled={props.disabled}
+      class={`flex-1 px-2 py-1 text-[10px] uppercase tracking-wider rounded border ${
+        props.disabled
+          ? 'border-neutral-900 text-neutral-700 cursor-not-allowed'
+          : 'border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700'
+      }`}
+    >
+      {props.children}
+    </button>
   );
 }

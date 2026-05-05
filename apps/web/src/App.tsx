@@ -1,10 +1,36 @@
-import type { Component } from 'solid-js';
+import {
+  type Component,
+  createEffect,
+  createSignal,
+  onMount,
+} from 'solid-js';
 import { VERSION as CODEGEN_VERSION } from '@monome-iii-studio/codegen';
 import { BehaviorPanel } from './components/BehaviorPanel.tsx';
 import { GridCanvas } from './components/GridCanvas.tsx';
+import { loadSession, saveSession } from './lib/persist.ts';
+import { restoreSession, snapshotSession } from './store/session.ts';
 import { selection } from './store/selection.ts';
 
 const App: Component = () => {
+  // `hydrated` gates the auto-save effect so it doesn't write the
+  // empty default state over a saved session before restore runs.
+  const [hydrated, setHydrated] = createSignal(false);
+
+  onMount(() => {
+    const saved = loadSession();
+    if (saved) restoreSession(saved);
+    setHydrated(true);
+  });
+
+  // Auto-save on every store change. The createEffect tracks all the
+  // signals snapshotSession() reads, so any user edit triggers a write.
+  // localStorage writes are sync and small (<10 KB even with many
+  // regions), so we don't bother debouncing.
+  createEffect(() => {
+    if (!hydrated()) return;
+    saveSession(snapshotSession());
+  });
+
   return (
     <main class="min-h-screen flex">
       <div class="flex-1 flex flex-col items-center justify-center gap-10 p-8">
