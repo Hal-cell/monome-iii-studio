@@ -48,10 +48,26 @@ export function BehaviorPanel() {
     return k ? RECIPES[k] : null;
   };
   const selectionSize = () => selection().size;
+  const selectionGeometry = () => {
+    let numRows = 0;
+    let numCols = 0;
+    if (selection().size > 0) {
+      const ys = new Set<number>();
+      const xs = new Set<number>();
+      for (const k of selection()) {
+        const c = keyToCell(k);
+        ys.add(c.y);
+        xs.add(c.x);
+      }
+      numRows = ys.size;
+      numCols = xs.size;
+    }
+    return { selectionSize: selection().size, numRows, numCols };
+  };
   const schema = () => {
     const r = recipe();
     if (!r) return [];
-    return r.paramsFor(values, { selectionSize: selectionSize() });
+    return r.paramsFor(values, selectionGeometry());
   };
   const canAdd = () => selectionSize() > 0 && recipe() !== null;
   const canDownload = () => regions().length > 0;

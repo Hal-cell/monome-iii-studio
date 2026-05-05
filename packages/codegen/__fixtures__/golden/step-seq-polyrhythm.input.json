@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool_version": "0.0.0",
-  "name": "test-stepseq-cc-mod",
+  "name": "test-stepseq-polyrhythm",
   "width": 16,
   "height": 8,
   "active_page_index": 0,
@@ -11,159 +11,160 @@
       "name": "main",
       "regions": [
         {
-          "id": "r-mods",
-          "name": "mods",
+          "id": "r-poly",
+          "name": "poly",
           "cells": [
             {
               "x": 0,
-              "y": 0
+              "y": 4
             },
             {
               "x": 1,
-              "y": 0
+              "y": 4
             },
             {
               "x": 2,
-              "y": 0
+              "y": 4
             },
             {
               "x": 3,
-              "y": 0
+              "y": 4
             },
             {
               "x": 4,
-              "y": 0
+              "y": 4
             },
             {
               "x": 5,
-              "y": 0
+              "y": 4
             },
             {
               "x": 6,
-              "y": 0
+              "y": 4
             },
             {
               "x": 7,
-              "y": 0
-            },
-            {
-              "x": 8,
-              "y": 0
-            },
-            {
-              "x": 9,
-              "y": 0
-            },
-            {
-              "x": 10,
-              "y": 0
-            },
-            {
-              "x": 11,
-              "y": 0
-            },
-            {
-              "x": 12,
-              "y": 0
-            },
-            {
-              "x": 13,
-              "y": 0
-            },
-            {
-              "x": 14,
-              "y": 0
-            },
-            {
-              "x": 15,
-              "y": 0
+              "y": 4
             },
             {
               "x": 0,
-              "y": 1
+              "y": 5
             },
             {
               "x": 1,
-              "y": 1
+              "y": 5
             },
             {
               "x": 2,
-              "y": 1
+              "y": 5
             },
             {
               "x": 3,
-              "y": 1
+              "y": 5
             },
             {
               "x": 4,
-              "y": 1
+              "y": 5
             },
             {
               "x": 5,
-              "y": 1
+              "y": 5
             },
             {
               "x": 6,
-              "y": 1
+              "y": 5
             },
             {
               "x": 7,
-              "y": 1
+              "y": 5
             },
             {
-              "x": 8,
-              "y": 1
+              "x": 0,
+              "y": 6
             },
             {
-              "x": 9,
-              "y": 1
+              "x": 1,
+              "y": 6
             },
             {
-              "x": 10,
-              "y": 1
+              "x": 2,
+              "y": 6
             },
             {
-              "x": 11,
-              "y": 1
+              "x": 3,
+              "y": 6
             },
             {
-              "x": 12,
-              "y": 1
+              "x": 4,
+              "y": 6
             },
             {
-              "x": 13,
-              "y": 1
+              "x": 5,
+              "y": 6
             },
             {
-              "x": 14,
-              "y": 1
+              "x": 6,
+              "y": 6
             },
             {
-              "x": 15,
-              "y": 1
+              "x": 7,
+              "y": 6
+            },
+            {
+              "x": 0,
+              "y": 7
+            },
+            {
+              "x": 1,
+              "y": 7
+            },
+            {
+              "x": 2,
+              "y": 7
+            },
+            {
+              "x": 3,
+              "y": 7
+            },
+            {
+              "x": 4,
+              "y": 7
+            },
+            {
+              "x": 5,
+              "y": 7
+            },
+            {
+              "x": 6,
+              "y": 7
+            },
+            {
+              "x": 7,
+              "y": 7
             }
           ],
           "mode": "group",
           "behavior": {
             "kind": "step_sequencer",
             "params": {
-              "output_mode": "cc_per_row",
+              "output_mode": "note_per_row",
               "channel": 1,
-              "base_cc": 20,
-              "on_value": 127,
-              "off_value": 0,
-              "bpm": 100,
-              "steps_per_beat": 2,
-              "led_current_on": 15,
-              "led_current_off": 8,
-              "led_not_current_on": 5,
-              "led_not_current_off": 2,
+              "base_note": 36,
+              "velocity": 100,
+              "bpm": 120,
+              "steps_per_beat": 4,
               "direction": "forward",
               "gate_length": 1,
               "divs": [
                 1,
-                1
-              ]
+                2,
+                3,
+                4
+              ],
+              "led_current_on": 15,
+              "led_current_off": 8,
+              "led_not_current_on": 5,
+              "led_not_current_off": 2
             }
           }
         }

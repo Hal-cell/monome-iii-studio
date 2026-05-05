@@ -247,16 +247,36 @@ export type StepSequencerDirection = 'forward' | 'reverse' | 'pingpong';
 export type StepSequencerCommonParams = {
   channel: number;
   bpm: number;
-  /** Subdivision: 4 = sixteenth notes at the given BPM. */
+  /**
+   * Subdivision: 4 = sixteenth notes at the given BPM. With per-row
+   * divs (see below) this is the MASTER tick rate; effective row step
+   * rate = master_rate × divs[row].
+   */
   steps_per_beat: number;
   direction: StepSequencerDirection;
   /**
-   * Note hold length in step-ticks. 1 = blip (note-off on next step,
-   * matches the gate-style behaviour we used to have). Higher values
-   * sustain notes across multiple steps. If a row's next "on" step
-   * arrives before the gate expires, the note retriggers (off + on).
+   * Note hold length in master ticks. 1 = blip (note-off on next
+   * master tick that this row hits — matches the gate-style behaviour
+   * we used to have). Higher values sustain across multiple steps. If
+   * a row's next "on" step arrives before the gate expires, the note
+   * retriggers (off + on).
    */
   gate_length: number;
+  /**
+   * Per-row clock division. Length = number of rows in the selection.
+   * Each entry is an integer ≥ 1 — how many master ticks elapse
+   * between this row's step advances. Default [1, 1, ...] gives
+   * synchronous play (matches the old single-rate behaviour).
+   *
+   * Different values across rows give polyrhythm — wake's defining
+   * musical feature. e.g. divs=[1, 2, 3, 4] across 4 rows: row 0 hits
+   * every master tick, row 1 every other, row 2 triplet-y, row 3
+   * quarter-note-y.
+   *
+   * Master tick rate = 60 / bpm / steps_per_beat. The emitter pads
+   * shorter arrays with 1 and truncates longer ones to numRows.
+   */
+  divs: number[];
   led_current_on: number;
   led_current_off: number;
   led_not_current_on: number;

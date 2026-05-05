@@ -76,11 +76,18 @@ function describeBehavior(region: Region): string {
     const numRows = Math.max(...ys) - Math.min(...ys) + 1;
     const dirInfo = p.direction === 'forward' ? '' : `, ${p.direction}`;
     const gateInfo = p.gate_length === 1 ? '' : `, gate ${p.gate_length}`;
+    // Show divs only when polyrhythmic (not all 1s). Display as e.g. [1,2,3,4].
+    const divsResolved = Array.from({ length: numRows }, (_, r) => {
+      const v = p.divs?.[r];
+      return typeof v === 'number' && v >= 1 ? v : 1;
+    });
+    const isPoly = divsResolved.some((d) => d !== 1);
+    const divsInfo = isPoly ? `, divs=[${divsResolved.join(',')}]` : '';
     const head =
       p.output_mode === 'note_per_row'
         ? `ch${p.channel} note from ${p.base_note}`
         : `ch${p.channel} cc from ${p.base_cc}`;
-    return `step seq group, ${numRows}×${numCols}, ${head}, ${p.bpm} BPM @ 1/${p.steps_per_beat}${dirInfo}${gateInfo}`;
+    return `step seq group, ${numRows}×${numCols}, ${head}, ${p.bpm} BPM @ 1/${p.steps_per_beat}${divsInfo}${dirInfo}${gateInfo}`;
   }
   // Exhaustive: every behavior kind handled above.
   return '';

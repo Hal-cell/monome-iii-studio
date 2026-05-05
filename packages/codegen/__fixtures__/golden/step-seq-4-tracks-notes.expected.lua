@@ -10,10 +10,11 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
-  tracks_step = -1,
+  tracks_step = {[0]=-1, [1]=-1, [2]=-1, [3]=-1},
   tracks_on = {[0]={}, [1]={}, [2]={}, [3]={}},
   tracks_gate = {[0]=0, [1]=0, [2]=0, [3]=0},
-  tracks_dir = 1,
+  tracks_dir = {[0]=1, [1]=1, [2]=1, [3]=1},
+  tracks_tick = {[0]=1, [1]=1, [2]=1, [3]=1},
 }
 
 -- ---- differential LED writes ----
@@ -110,30 +111,33 @@ _tracks_col[6 + 8*W] = 5
 _tracks_col[7 + 8*W] = 6
 _tracks_col[8 + 8*W] = 7
 local _tracks_notes = {[0]=36, [1]=37, [2]=38, [3]=39}
+local _tracks_divs = {[0]=1, [1]=1, [2]=1, [3]=1}
 
 local function _tracks_tick()
-  -- 1. tick down each row's gate; close any that just expired
+  -- master tick: each row independently checks gate + advances on its own div
   for r = 0, 3 do
+    -- 1. tick the row's gate (open notes); close any that just expired
     if state.tracks_gate[r] > 0 then
       state.tracks_gate[r] = state.tracks_gate[r] - 1
       if state.tracks_gate[r] == 0 then
         midi_note_off(_tracks_notes[r], 0, 1)
       end
     end
-  end
-  -- 2. advance the playhead
-  state.tracks_step = (state.tracks_step + 1) % 8
-  -- 3. fire any rows that are on at the new step (retrigger if the gate is still open)
-  for r = 0, 3 do
-    if state.tracks_on[r][state.tracks_step] then
-      if state.tracks_gate[r] > 0 then
-        midi_note_off(_tracks_notes[r], 0, 1)
+    -- 2. tick the row's div countdown; advance + fire only when it hits 0
+    state.tracks_tick[r] = state.tracks_tick[r] - 1
+    if state.tracks_tick[r] <= 0 then
+      state.tracks_tick[r] = _tracks_divs[r]
+      state.tracks_step[r] = (state.tracks_step[r] + 1) % 8
+      if state.tracks_on[r][state.tracks_step[r]] then
+        if state.tracks_gate[r] > 0 then
+          midi_note_off(_tracks_notes[r], 0, 1)
+        end
+        midi_note_on(_tracks_notes[r], 100, 1)
+        state.tracks_gate[r] = 1
       end
-      midi_note_on(_tracks_notes[r], 100, 1)
-      state.tracks_gate[r] = 1
     end
   end
-  -- 4. repaint so the playhead position is visible on the grid
+  -- repaint so each row's playhead is visible
   redraw()
 end
 
@@ -145,7 +149,7 @@ local function handle_tracks(x, y, z)
 end
 
 local function _tracks_pixel(row, col)
-  local is_step = col == state.tracks_step
+  local is_step = col == state.tracks_step[row]
   local is_on = state.tracks_on[row][col]
   if is_step then
     return is_on and 15 or 8

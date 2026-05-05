@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js';
-import type { ParamSchema } from '../recipes/types.ts';
+import type { IntArrayParamSchema, ParamSchema } from '../recipes/types.ts';
 
 type Props = {
   schema: ParamSchema[];
@@ -35,9 +35,21 @@ export function ParamEditor(props: Props) {
                 onChange={(v) => props.onChange(field.key, v)}
               />
             </Show>
+            <Show when={field.kind === 'int_array'}>
+              <IntArrayField
+                field={field as IntArrayParamSchema}
+                value={props.values[field.key]}
+                onChange={(v) => props.onChange(field.key, v)}
+              />
+            </Show>
             <Show when={field.kind === 'int' && (field as Extract<ParamSchema, { kind: 'int' }>).help}>
               <p class="text-[10px] text-neutral-600 leading-relaxed">
                 {(field as Extract<ParamSchema, { kind: 'int' }>).help}
+              </p>
+            </Show>
+            <Show when={field.kind === 'int_array' && (field as IntArrayParamSchema).help}>
+              <p class="text-[10px] text-neutral-600 leading-relaxed">
+                {(field as IntArrayParamSchema).help}
               </p>
             </Show>
           </div>
@@ -66,6 +78,48 @@ function IntField(props: {
       }}
       class="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm text-neutral-200 font-mono focus:outline-none focus:border-neutral-600"
     />
+  );
+}
+
+function IntArrayField(props: {
+  field: IntArrayParamSchema;
+  value: unknown;
+  onChange: (next: number[]) => void;
+}) {
+  const length = () => props.field.length;
+  const arr = () => (Array.isArray(props.value) ? (props.value as number[]) : []);
+  function setIndex(i: number, n: number) {
+    const cur = arr();
+    const next: number[] = [];
+    for (let k = 0; k < length(); k++) {
+      next[k] = typeof cur[k] === 'number' ? (cur[k] as number) : props.field.default;
+    }
+    next[i] = n;
+    props.onChange(next);
+  }
+  return (
+    <div class="flex gap-1 flex-wrap">
+      <For each={Array.from({ length: length() }, (_, i) => i)}>
+        {(i) => (
+          <input
+            type="number"
+            min={props.field.min}
+            max={props.field.max}
+            value={
+              typeof arr()[i] === 'number'
+                ? (arr()[i] as number)
+                : props.field.default
+            }
+            onInput={(e) => {
+              const n = Number((e.currentTarget as HTMLInputElement).value);
+              if (Number.isFinite(n)) setIndex(i, n);
+            }}
+            class="w-10 bg-neutral-900 border border-neutral-800 rounded px-1 py-1 text-xs text-neutral-200 font-mono text-center focus:outline-none focus:border-neutral-600"
+            title={`row ${i}`}
+          />
+        )}
+      </For>
+    </div>
   );
 }
 

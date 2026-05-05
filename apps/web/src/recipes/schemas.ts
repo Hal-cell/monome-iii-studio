@@ -316,12 +316,16 @@ const stepSequencer: RecipeMeta = {
     steps_per_beat: 4,
     direction: 'forward',
     gate_length: 1,
+    // Pre-fill enough entries for a full-grid selection so the value
+    // store has a concrete array on day one. The emitter pads anyway,
+    // but this keeps the UI store predictable.
+    divs: [1, 1, 1, 1, 1, 1, 1, 1],
     led_current_on: 15,
     led_current_off: 8,
     led_not_current_on: 5,
     led_not_current_off: 2,
   },
-  paramsFor: (values) => {
+  paramsFor: (values, ctx) => {
     const head: ParamSchema[] = [
       {
         kind: 'enum',
@@ -360,12 +364,26 @@ const stepSequencer: RecipeMeta = {
       {
         kind: 'int',
         key: 'gate_length',
-        label: 'Gate length (steps)',
+        label: 'Gate length (master ticks)',
         min: 1,
         max: 16,
         default: 1,
-        help: '1 = note for one step; higher values sustain across steps with retrigger',
+        help: '1 = blip; higher values sustain across multiple master ticks (retriggers if same row hits again before gate expires)',
       },
+      ...(ctx.numRows > 0
+        ? ([
+            {
+              kind: 'int_array' as const,
+              key: 'divs',
+              label: 'Per-row div',
+              min: 1,
+              max: 16,
+              default: 1,
+              length: ctx.numRows,
+              help: 'master ticks per step, per row. all 1s = synchronous; different values = polyrhythm',
+            },
+          ] satisfies ParamSchema[])
+        : []),
       { kind: 'int', key: 'led_current_on', label: 'LED step+on', min: 0, max: 15, default: 15 },
       { kind: 'int', key: 'led_current_off', label: 'LED step+off', min: 0, max: 15, default: 8 },
       { kind: 'int', key: 'led_not_current_on', label: 'LED on', min: 0, max: 15, default: 5 },
@@ -393,12 +411,17 @@ const stepSequencer: RecipeMeta = {
       directionRaw === 'reverse' || directionRaw === 'pingpong'
         ? directionRaw
         : 'forward';
+    const rawDivs = Array.isArray(v.divs) ? (v.divs as unknown[]) : [];
+    const divs = rawDivs.map((d) =>
+      typeof d === 'number' && d >= 1 ? Math.floor(d) : 1,
+    );
     const common = {
       channel: asInt(v.channel, 1),
       bpm: asInt(v.bpm, 120),
       steps_per_beat: asInt(v.steps_per_beat, 4),
       direction,
       gate_length: asInt(v.gate_length, 1),
+      divs,
       led_current_on: asInt(v.led_current_on, 15),
       led_current_off: asInt(v.led_current_off, 8),
       led_not_current_on: asInt(v.led_not_current_on, 5),

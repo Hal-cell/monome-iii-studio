@@ -20,10 +20,12 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
   const pixelName = `_${name}_pixel`;
   const rowTable = `_${name}_row`;
   const colTable = `_${name}_col`;
+  const divsTable = `_${name}_divs`;
   const stepSlot = `${name}_step`;
   const onSlot = `${name}_on`;
   const gateSlot = `${name}_gate`;
   const dirSlot = `${name}_dir`;
+  const tickSlot = `${name}_tick`;
   const metroVar = `_${name}_metro`;
   const valuesTable =
     params.output_mode === 'note_per_row'
@@ -32,7 +34,15 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
   const baseValue =
     params.output_mode === 'note_per_row' ? params.base_note : params.base_cc;
 
-  const tickSeconds = 60 / params.bpm / params.steps_per_beat;
+  // Master tick rate. Per-row divs slow individual rows down from this.
+  const masterTickSeconds = 60 / params.bpm / params.steps_per_beat;
+
+  // Pad / truncate the user-supplied divs array to exactly numRows.
+  // Missing entries default to 1 (synchronous play).
+  const divs = Array.from({ length: numRows }, (_, r) => {
+    const v = params.divs?.[r];
+    return typeof v === 'number' && v >= 1 ? v : 1;
+  });
 
   // Sort cells row-major for emission consistency.
   const sortedCells = [...region.cells].sort(
@@ -51,12 +61,15 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     (_, r) => `[${r}]=${baseValue + r}`,
   ).join(', ');
 
+  const divsEntries = divs.map((d, r) => `[${r}]=${d}`).join(', ');
+
   const tickBody = buildTickBody(
     params,
     numRows,
     numCols,
     name,
     valuesTable,
+    divsTable,
   );
 
   const declarations = [
@@ -66,6 +79,7 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     `local ${colTable} = {}`,
     colLines,
     `local ${valuesTable} = {${valuesEntries}}`,
+    `local ${divsTable} = {${divsEntries}}`,
     '',
     `local function ${tickName}()`,
     ...tickBody.map((l) => `  ${l}`),
@@ -78,8 +92,9 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     `  state.${onSlot}[r][c] = not state.${onSlot}[r][c]`,
     'end',
     '',
+    // Per-row playhead now: pixel reads state.X_step[row]
     `local function ${pixelName}(row, col)`,
-    `  local is_step = col == state.${stepSlot}`,
+    `  local is_step = col == state.${stepSlot}[row]`,
     `  local is_on = state.${onSlot}[row][col]`,
     '  if is_step then',
     `    return is_on and ${params.led_current_on} or ${params.led_current_off}`,
@@ -88,7 +103,7 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     '  end',
     'end',
     '',
-    `local ${metroVar} = metro.init(${tickName}, ${tickSeconds})`,
+    `local ${metroVar} = metro.init(${tickName}, ${masterTickSeconds})`,
     `${metroVar}:start()`,
   ].join('\n');
 
@@ -107,25 +122,26 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
   );
 
   // State init:
-  //   step:  -1 so first forward tick lands on 0; reverse on numCols-1
-  //   on:    nested per-row table, cells default to nil = off
-  //   gate:  per-row remaining-ticks counter (0 = no note playing)
-  //   dir:   pingpong walk direction (always +1 initially; unused for
-  //          forward/reverse but harmless)
-  const onTableInit = `{${Array.from(
-    { length: numRows },
-    (_, r) => `[${r}]={}`,
-  ).join(', ')}}`;
-  const gateTableInit = `{${Array.from(
-    { length: numRows },
-    (_, r) => `[${r}]=0`,
-  ).join(', ')}}`;
+  //   step:  per-row playhead. -1 so first forward tick lands on 0;
+  //          reverse on numCols-1.
+  //   on:    nested per-row table, cells default to nil = off.
+  //   gate:  per-row remaining-ticks counter (0 = no note playing).
+  //   dir:   per-row pingpong direction (always +1 initially; unused
+  //          for forward/reverse but harmless).
+  //   tick:  per-row div countdown. When <= 0 the row advances and
+  //          the countdown resets to that row's div.
+  const stepTableInit = `{${range(numRows, '-1').join(', ')}}`;
+  const onTableInit = `{${range(numRows, '{}').join(', ')}}`;
+  const gateTableInit = `{${range(numRows, '0').join(', ')}}`;
+  const dirTableInit = `{${range(numRows, '1').join(', ')}}`;
+  const tickTableInit = `{${divs.map((d, r) => `[${r}]=${d}`).join(', ')}}`;
 
   const stateInit = [
-    `${stepSlot} = -1,`,
+    `${stepSlot} = ${stepTableInit},`,
     `${onSlot} = ${onTableInit},`,
     `${gateSlot} = ${gateTableInit},`,
-    `${dirSlot} = 1,`,
+    `${dirSlot} = ${dirTableInit},`,
+    `${tickSlot} = ${tickTableInit},`,
   ].join('\n');
 
   return {
@@ -136,17 +152,23 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
   };
 }
 
+function range(n: number, value: string): string[] {
+  return Array.from({ length: n }, (_, i) => `[${i}]=${value}`);
+}
+
 function buildTickBody(
   params: StepSequencerParams,
   numRows: number,
   numCols: number,
   name: string,
   valuesTable: string,
+  divsTable: string,
 ): string[] {
   const stepSlot = `${name}_step`;
   const onSlot = `${name}_on`;
   const gateSlot = `${name}_gate`;
   const dirSlot = `${name}_dir`;
+  const tickSlot = `${name}_tick`;
 
   const closeCall =
     params.output_mode === 'note_per_row'
@@ -161,28 +183,30 @@ function buildTickBody(
   const advance = buildAdvance(params.direction, numCols, stepSlot, dirSlot);
 
   return [
-    '-- 1. tick down each row\'s gate; close any that just expired',
+    '-- master tick: each row independently checks gate + advances on its own div',
     `for r = 0, ${numRows - 1} do`,
+    "  -- 1. tick the row's gate (open notes); close any that just expired",
     `  if state.${gateSlot}[r] > 0 then`,
     `    state.${gateSlot}[r] = state.${gateSlot}[r] - 1`,
     `    if state.${gateSlot}[r] == 0 then`,
     `      ${closeCall}`,
     '    end',
     '  end',
-    'end',
-    '-- 2. advance the playhead',
-    ...advance,
-    '-- 3. fire any rows that are on at the new step (retrigger if the gate is still open)',
-    `for r = 0, ${numRows - 1} do`,
-    `  if state.${onSlot}[r][state.${stepSlot}] then`,
-    `    if state.${gateSlot}[r] > 0 then`,
-    `      ${closeCall}`,
+    "  -- 2. tick the row's div countdown; advance + fire only when it hits 0",
+    `  state.${tickSlot}[r] = state.${tickSlot}[r] - 1`,
+    `  if state.${tickSlot}[r] <= 0 then`,
+    `    state.${tickSlot}[r] = ${divsTable}[r]`,
+    ...advance.map((l) => '    ' + l),
+    `    if state.${onSlot}[r][state.${stepSlot}[r]] then`,
+    `      if state.${gateSlot}[r] > 0 then`,
+    `        ${closeCall}`,
+    '      end',
+    `      ${openCall}`,
+    `      state.${gateSlot}[r] = ${params.gate_length}`,
     '    end',
-    `    ${openCall}`,
-    `    state.${gateSlot}[r] = ${params.gate_length}`,
     '  end',
     'end',
-    '-- 4. repaint so the playhead position is visible on the grid',
+    '-- repaint so each row\'s playhead is visible',
     'redraw()',
   ];
 }
@@ -196,24 +220,24 @@ function buildAdvance(
   switch (direction) {
     case 'reverse':
       return [
-        `state.${stepSlot} = state.${stepSlot} - 1`,
-        `if state.${stepSlot} < 0 then state.${stepSlot} = ${numCols - 1} end`,
+        `state.${stepSlot}[r] = state.${stepSlot}[r] - 1`,
+        `if state.${stepSlot}[r] < 0 then state.${stepSlot}[r] = ${numCols - 1} end`,
       ];
     case 'pingpong':
       return [
-        `state.${stepSlot} = state.${stepSlot} + state.${dirSlot}`,
-        `if state.${stepSlot} >= ${numCols} then`,
-        `  state.${stepSlot} = ${numCols - 2}`,
-        `  state.${dirSlot} = -1`,
-        `elseif state.${stepSlot} < 0 then`,
-        `  state.${stepSlot} = 1`,
-        `  state.${dirSlot} = 1`,
+        `state.${stepSlot}[r] = state.${stepSlot}[r] + state.${dirSlot}[r]`,
+        `if state.${stepSlot}[r] >= ${numCols} then`,
+        `  state.${stepSlot}[r] = ${numCols - 2}`,
+        `  state.${dirSlot}[r] = -1`,
+        `elseif state.${stepSlot}[r] < 0 then`,
+        `  state.${stepSlot}[r] = 1`,
+        `  state.${dirSlot}[r] = 1`,
         'end',
       ];
     case 'forward':
     default:
       return [
-        `state.${stepSlot} = (state.${stepSlot} + 1) % ${numCols}`,
+        `state.${stepSlot}[r] = (state.${stepSlot}[r] + 1) % ${numCols}`,
       ];
   }
 }

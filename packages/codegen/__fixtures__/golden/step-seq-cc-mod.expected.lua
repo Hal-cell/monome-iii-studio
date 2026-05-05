@@ -10,10 +10,11 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
-  mods_step = -1,
+  mods_step = {[0]=-1, [1]=-1},
   mods_on = {[0]={}, [1]={}},
   mods_gate = {[0]=0, [1]=0},
-  mods_dir = 1,
+  mods_dir = {[0]=1, [1]=1},
+  mods_tick = {[0]=1, [1]=1},
 }
 
 -- ---- differential LED writes ----
@@ -110,30 +111,33 @@ _mods_col[14 + 2*W] = 13
 _mods_col[15 + 2*W] = 14
 _mods_col[16 + 2*W] = 15
 local _mods_ccs = {[0]=20, [1]=21}
+local _mods_divs = {[0]=1, [1]=1}
 
 local function _mods_tick()
-  -- 1. tick down each row's gate; close any that just expired
+  -- master tick: each row independently checks gate + advances on its own div
   for r = 0, 1 do
+    -- 1. tick the row's gate (open notes); close any that just expired
     if state.mods_gate[r] > 0 then
       state.mods_gate[r] = state.mods_gate[r] - 1
       if state.mods_gate[r] == 0 then
         midi_cc(_mods_ccs[r], 0, 1)
       end
     end
-  end
-  -- 2. advance the playhead
-  state.mods_step = (state.mods_step + 1) % 16
-  -- 3. fire any rows that are on at the new step (retrigger if the gate is still open)
-  for r = 0, 1 do
-    if state.mods_on[r][state.mods_step] then
-      if state.mods_gate[r] > 0 then
-        midi_cc(_mods_ccs[r], 0, 1)
+    -- 2. tick the row's div countdown; advance + fire only when it hits 0
+    state.mods_tick[r] = state.mods_tick[r] - 1
+    if state.mods_tick[r] <= 0 then
+      state.mods_tick[r] = _mods_divs[r]
+      state.mods_step[r] = (state.mods_step[r] + 1) % 16
+      if state.mods_on[r][state.mods_step[r]] then
+        if state.mods_gate[r] > 0 then
+          midi_cc(_mods_ccs[r], 0, 1)
+        end
+        midi_cc(_mods_ccs[r], 127, 1)
+        state.mods_gate[r] = 1
       end
-      midi_cc(_mods_ccs[r], 127, 1)
-      state.mods_gate[r] = 1
     end
   end
-  -- 4. repaint so the playhead position is visible on the grid
+  -- repaint so each row's playhead is visible
   redraw()
 end
 
@@ -145,7 +149,7 @@ local function handle_mods(x, y, z)
 end
 
 local function _mods_pixel(row, col)
-  local is_step = col == state.mods_step
+  local is_step = col == state.mods_step[row]
   local is_on = state.mods_on[row][col]
   if is_step then
     return is_on and 15 or 8

@@ -33,7 +33,29 @@ export type EnumParamSchema = {
   default: string;
 };
 
-export type ParamSchema = IntParamSchema | EnumParamSchema;
+/**
+ * A horizontal row of bounded ints. Length is resolved at paramsFor()
+ * time (not part of the static schema) — recipes that want one entry
+ * per row in the user's selection compute `length: ctx.numRows` there.
+ *
+ * Storage in the values store is a plain `number[]`. ParamEditor builds
+ * a fresh array on every edit so unset slots fill with `default`.
+ */
+export type IntArrayParamSchema = {
+  kind: 'int_array';
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  default: number;
+  length: number;
+  help?: string;
+};
+
+export type ParamSchema =
+  | IntParamSchema
+  | EnumParamSchema
+  | IntArrayParamSchema;
 
 // ---------- Recipe meta ----------
 
@@ -46,9 +68,17 @@ export type RecipeMeta = {
   defaultValues: Record<string, unknown>;
   paramsFor: (
     values: Record<string, unknown>,
-    ctx: { selectionSize: number },
+    ctx: ParamContext,
   ) => ParamSchema[];
   build: (mode: RegionMode, values: Record<string, unknown>) => Behavior;
+};
+
+export type ParamContext = {
+  selectionSize: number;
+  /** Number of distinct y values in the current selection. */
+  numRows: number;
+  /** Number of distinct x values in the current selection. */
+  numCols: number;
 };
 
 // ---------- Helpers for builders ----------

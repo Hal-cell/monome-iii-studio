@@ -10,10 +10,11 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
-  drum_step = -1,
+  drum_step = {[0]=-1},
   drum_on = {[0]={}},
   drum_gate = {[0]=0},
-  drum_dir = 1,
+  drum_dir = {[0]=1},
+  drum_tick = {[0]=1},
 }
 
 -- ---- differential LED writes ----
@@ -62,30 +63,33 @@ _drum_col[6 + 8*W] = 5
 _drum_col[7 + 8*W] = 6
 _drum_col[8 + 8*W] = 7
 local _drum_notes = {[0]=36}
+local _drum_divs = {[0]=1}
 
 local function _drum_tick()
-  -- 1. tick down each row's gate; close any that just expired
+  -- master tick: each row independently checks gate + advances on its own div
   for r = 0, 0 do
+    -- 1. tick the row's gate (open notes); close any that just expired
     if state.drum_gate[r] > 0 then
       state.drum_gate[r] = state.drum_gate[r] - 1
       if state.drum_gate[r] == 0 then
         midi_note_off(_drum_notes[r], 0, 1)
       end
     end
-  end
-  -- 2. advance the playhead
-  state.drum_step = (state.drum_step + 1) % 8
-  -- 3. fire any rows that are on at the new step (retrigger if the gate is still open)
-  for r = 0, 0 do
-    if state.drum_on[r][state.drum_step] then
-      if state.drum_gate[r] > 0 then
-        midi_note_off(_drum_notes[r], 0, 1)
+    -- 2. tick the row's div countdown; advance + fire only when it hits 0
+    state.drum_tick[r] = state.drum_tick[r] - 1
+    if state.drum_tick[r] <= 0 then
+      state.drum_tick[r] = _drum_divs[r]
+      state.drum_step[r] = (state.drum_step[r] + 1) % 8
+      if state.drum_on[r][state.drum_step[r]] then
+        if state.drum_gate[r] > 0 then
+          midi_note_off(_drum_notes[r], 0, 1)
+        end
+        midi_note_on(_drum_notes[r], 100, 1)
+        state.drum_gate[r] = 1
       end
-      midi_note_on(_drum_notes[r], 100, 1)
-      state.drum_gate[r] = 1
     end
   end
-  -- 4. repaint so the playhead position is visible on the grid
+  -- repaint so each row's playhead is visible
   redraw()
 end
 
@@ -97,7 +101,7 @@ local function handle_drum(x, y, z)
 end
 
 local function _drum_pixel(row, col)
-  local is_step = col == state.drum_step
+  local is_step = col == state.drum_step[row]
   local is_on = state.drum_on[row][col]
   if is_step then
     return is_on and 15 or 8
