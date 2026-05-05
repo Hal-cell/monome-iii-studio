@@ -61,6 +61,14 @@ export type DeviceStatus =
   | { kind: 'error'; message: string };
 
 let _port: SerialPort | null = null;
+// Shared writer for the lifetime of the connection. Acquired lazily on
+// first write, released on disconnect or after a failed write. Holding
+// one writer (rather than acquire/release per call) avoids the
+// "Cannot create writer when WritableStream is locked" race we get if
+// two paths — say uploadAndRun in flight, FileManager refresh firing —
+// both call getWriter() at once. WritableStreamDefaultWriter.write()
+// already queues internally, so concurrent callers serialise safely.
+let _writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
 let _readerLoopAbort: AbortController | null = null;
 let _readListeners: ((line: string) => void)[] = [];
 let _readBuffer = '';
@@ -184,10 +192,22 @@ function installDisconnectHandler(): void {
   navigator.serial.addEventListener('disconnect', handler);
 }
 
+function releaseWriter(): void {
+  if (_writer) {
+    try {
+      _writer.releaseLock();
+    } catch {
+      /* writer is already detached; nothing to do */
+    }
+    _writer = null;
+  }
+}
+
 async function handleDisconnect(staleSince: SerialPort): Promise<void> {
   // Idempotency: if another disconnect already fired we just keep
   // whatever state the prior call settled on.
   if (_port !== staleSince && _port !== null) return;
+  releaseWriter();
   _port = null;
   if (_readerLoopAbort) {
     _readerLoopAbort.abort();
@@ -251,6 +271,7 @@ export async function disconnectDevice(): Promise<void> {
     _readerLoopAbort.abort();
     _readerLoopAbort = null;
   }
+  releaseWriter();
   if (_port) {
     try {
       await _port.close();
@@ -264,32 +285,38 @@ export async function disconnectDevice(): Promise<void> {
 
 // -------- writing helpers --------
 
-async function writeRaw(payload: string): Promise<void> {
+/**
+ * Lazily acquire the per-connection writer. Throws if the port isn't
+ * open. Subsequent calls reuse the same writer until releaseWriter()
+ * is called (on error or disconnect).
+ */
+function getOrCreateWriter(): WritableStreamDefaultWriter<Uint8Array> {
+  if (_writer) return _writer;
   if (!_port?.writable) {
     throw new Error('not connected to iii device');
   }
+  _writer = _port.writable.getWriter();
+  return _writer;
+}
+
+async function writeRaw(payload: string): Promise<void> {
   // diii pads buffers that are exactly 64 bytes long with an extra
   // newline to avoid USB packet boundary edge-cases. Mirror that.
   let body = payload;
   if (body.length % 64 === 0) body += '\n';
-  const writer = _port.writable.getWriter();
+  const writer = getOrCreateWriter();
   try {
     await writer.write(new TextEncoder().encode(body));
-  } finally {
-    writer.releaseLock();
+  } catch (err) {
+    // The writer is now in an errored state — drop it so the next
+    // write reacquires a fresh one (or fails cleanly if the port is
+    // gone). Without this, subsequent writes silently fail forever.
+    releaseWriter();
+    throw err;
   }
 }
 
 const writeLineRaw = (line: string) => writeRaw(line + '\n');
-
-async function writeLineHeld(
-  writer: WritableStreamDefaultWriter<Uint8Array>,
-  line: string,
-): Promise<void> {
-  let body = line + '\n';
-  if (body.length % 64 === 0) body += '\n';
-  await writer.write(new TextEncoder().encode(body));
-}
 
 /**
  * Send a single command and collect everything the device prints in
@@ -333,52 +360,43 @@ export async function uploadAndRun(
   lua: string,
 ): Promise<void> {
   if (!_port) throw new Error('not connected to iii device');
-  const writable = _port.writable;
-  if (!writable) throw new Error('iii port is not writable (closed or locked)');
   _setStatus({ kind: 'busy', action: 'uploading' });
 
-  const writer = writable.getWriter();
   try {
     // Outer "select file" priming (cli.py does this before upload()).
-    await writeLineHeld(writer, '^^s');
+    await writeLineRaw('^^s');
     await sleep(CMD_DELAY_MS);
-    await writeLineHeld(writer, filename);
+    await writeLineRaw(filename);
     await sleep(CMD_DELAY_MS);
-    await writeLineHeld(writer, '^^f');
+    await writeLineRaw('^^f');
     await sleep(CMD_DELAY_MS);
     // Inner upload (mirrors iii.py upload()).
-    await writeLineHeld(writer, '^^s');
+    await writeLineRaw('^^s');
     await sleep(CMD_DELAY_MS);
-    await writeLineHeld(writer, filename);
+    await writeLineRaw(filename);
     await sleep(CMD_DELAY_MS);
-    await writeLineHeld(writer, '^^f');
+    await writeLineRaw('^^f');
     await sleep(CMD_DELAY_MS);
-    await writeLineHeld(writer, '^^s');
+    await writeLineRaw('^^s');
     await sleep(CMD_DELAY_MS);
 
     const lines = lua.split('\n').map((l) => l.replace(/\r$/, ''));
     for (const line of lines) {
-      await writeLineHeld(writer, line);
+      await writeLineRaw(line);
       if (LINE_DELAY_MS > 0) await sleep(LINE_DELAY_MS);
     }
     await sleep(CMD_DELAY_MS);
 
-    await writeLineHeld(writer, '^^w');
+    await writeLineRaw('^^w');
     await sleep(FINAL_FLUSH_MS);
 
     _setStatus({ kind: 'busy', action: 'running' });
-    await writeLineHeld(writer, `first("${filename}")`);
+    await writeLineRaw(`first("${filename}")`);
     await sleep(CMD_DELAY_MS);
   } catch (err) {
     const msg = (err as Error).message ?? String(err);
     _setStatus({ kind: 'error', message: msg });
     throw err;
-  } finally {
-    try {
-      writer.releaseLock();
-    } catch {
-      /* noop */
-    }
   }
   // first() typically triggers a USB re-enum. Hand off to the
   // disconnect / reconnect path so the status flips through
