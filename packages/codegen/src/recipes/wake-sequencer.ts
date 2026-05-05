@@ -4,11 +4,13 @@ import { noteAtDegree } from '../scales.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 /**
- * v1 page set. Indices match `state.<region>_page` and
- * `state.<region>_data[page]`.
+ * v1 page set. Indices match `state.<region>_page`. Pages 0..3 use
+ * `state.<region>_data[page][col]`; page 4 (LENGTH) uses the separate
+ * scalar `state.<region>_length`.
  */
-const NUM_PAGES = 4;
-// 0 = PITCH, 1 = OCT, 2 = VEL, 3 = DURATION
+const NUM_PAGES = 5;
+// 0 = PITCH, 1 = OCT, 2 = VEL, 3 = DURATION, 4 = LENGTH
+const PAGE_LENGTH = 4;
 
 /**
  * Sub-step resolution. The metro runs `STEP_TICKS` times per step so the
@@ -25,6 +27,7 @@ const LED_FN_INACTIVE = 6;
 const LED_FN_EXTRA = 1;
 const LED_VALUE = 12;
 const LED_VALUE_ON_PLAYHEAD = 15;
+const LED_VALUE_INACTIVE = 4; // lit body cell in a column past the active length
 const LED_PLAYHEAD = 4;
 const LED_OFF = 0;
 
@@ -49,6 +52,7 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
   const stepSlot = `${name}_step`;
   const pageSlot = `${name}_page`;
   const dataSlot = `${name}_data`;
+  const lengthSlot = `${name}_length`;
   const activeNoteSlot = `${name}_active_note`;
   const activeDurSlot = `${name}_active_dur`;
   const subTickSlot = `${name}_sub`;
@@ -125,8 +129,10 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
   //                 rationale as VEL.
   const PAGE_DEFAULTS = [0, octaveCenter, bodyHeight, bodyHeight];
 
-  // data: 4 pages, each page is a {col → value 0..bodyHeight} table.
-  const dataInit = Array.from({ length: NUM_PAGES }, (_, p) => {
+  // data: 4 pages (PITCH/OCT/VEL/DUR), each is a {col → value
+  // 0..bodyHeight} table. Page 4 (LENGTH) is stored separately as a
+  // scalar in `state.<region>_length`, not in this table.
+  const dataInit = Array.from({ length: PAGE_LENGTH }, (_, p) => {
     const def = PAGE_DEFAULTS[p];
     const cols = Array.from(
       { length: numCols },
@@ -139,6 +145,9 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `${stepSlot} = -1,`,
     `${pageSlot} = 0,`,
     `${dataSlot} = {${dataInit}},`,
+    // active step count. Defaults to numCols (the whole region plays);
+    // the user can shorten it on the LENGTH page (page 4).
+    `${lengthSlot} = ${numCols},`,
     `${activeNoteSlot} = -1,`,
     `${activeDurSlot} = 0,`,
     // sub-tick counter: how many master ticks since the last step
@@ -172,7 +181,9 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `  state.${subTickSlot} = state.${subTickSlot} + 1`,
     `  if state.${subTickSlot} < ${STEP_TICKS} then return end`,
     `  state.${subTickSlot} = 0`,
-    `  state.${stepSlot} = (state.${stepSlot} + 1) % ${numCols}`,
+    "  -- playhead wraps at the user-controlled length (LENGTH page),",
+    "  -- not the static numCols, so columns past length never play",
+    `  state.${stepSlot} = (state.${stepSlot} + 1) % state.${lengthSlot}`,
     "  -- 3. compute and fire the new step's note (if it has one)",
     `  local pitch = state.${dataSlot}[0][state.${stepSlot}]`,
     `  local oct = state.${dataSlot}[1][state.${stepSlot}]`,
@@ -204,18 +215,28 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `      state.${pageSlot} = c`,
     '    end',
     '  else',
-    "    -- body cell: set / clear data[page][col]",
-    `    local body_row = rr - 1`,
-    `    local value = ${bodyHeight} - body_row`,
-    `    local cur = state.${dataSlot}[state.${pageSlot}][c]`,
-    "    -- OCT (page 1) is centred and must always show one cell lit;",
-    "    -- pressing the lit cell is a no-op rather than a toggle-off.",
-    `    if state.${pageSlot} == 1 then`,
-    `      state.${dataSlot}[1][c] = value`,
-    '    elseif cur == value then',
-    `      state.${dataSlot}[state.${pageSlot}][c] = 0`,
+    "    -- body cell. Behaviour depends on which page is active.",
+    `    if state.${pageSlot} == ${PAGE_LENGTH} then`,
+    "      -- LENGTH page: any body row of column c sets active step",
+    "      -- count to c+1 (1..numCols). Clamp the playhead so it",
+    "      -- doesn't render in a now-inactive column for one frame.",
+    `      state.${lengthSlot} = c + 1`,
+    `      if state.${stepSlot} >= state.${lengthSlot} then`,
+    `        state.${stepSlot} = -1`,
+    '      end',
     '    else',
-    `      state.${dataSlot}[state.${pageSlot}][c] = value`,
+    `      local body_row = rr - 1`,
+    `      local value = ${bodyHeight} - body_row`,
+    `      local cur = state.${dataSlot}[state.${pageSlot}][c]`,
+    "      -- OCT (page 1) is centred and must always show one cell",
+    "      -- lit; pressing the lit cell is a no-op (no toggle-off).",
+    `      if state.${pageSlot} == 1 then`,
+    `        state.${dataSlot}[1][c] = value`,
+    '      elseif cur == value then',
+    `        state.${dataSlot}[state.${pageSlot}][c] = 0`,
+    '      else',
+    `        state.${dataSlot}[state.${pageSlot}][c] = value`,
+    '      end',
     '    end',
     '  end',
     'end',
@@ -228,12 +249,27 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `    return (state.${pageSlot} == col) and ${LED_FN_ACTIVE} or ${LED_FN_INACTIVE}`,
     '  end',
     "  -- body row",
+    `  local active_col = (col < state.${lengthSlot})`,
+    `  local on_step = (col == state.${stepSlot})`,
+    `  if state.${pageSlot} == ${PAGE_LENGTH} then`,
+    "    -- LENGTH page: every body cell of an active column is lit",
+    "    -- (whole-column meter); inactive columns are dark.",
+    '    if active_col then',
+    `      return on_step and ${LED_VALUE_ON_PLAYHEAD} or ${LED_VALUE}`,
+    '    end',
+    `    return ${LED_OFF}`,
+    '  end',
+    "  -- normal value pages: single lit cell per column for the data",
+    "  -- value, dimmed if the column is past the active length so the",
+    "  -- user can see which programmed notes won't fire.",
     `  local body_row = rr - 1`,
     `  local target = ${bodyHeight} - body_row`,
     `  local v = state.${dataSlot}[state.${pageSlot}][col]`,
-    `  local on_step = (col == state.${stepSlot})`,
     '  if v == target then',
-    `    return on_step and ${LED_VALUE_ON_PLAYHEAD} or ${LED_VALUE}`,
+    '    if active_col then',
+    `      return on_step and ${LED_VALUE_ON_PLAYHEAD} or ${LED_VALUE}`,
+    '    end',
+    `    return ${LED_VALUE_INACTIVE}`,
     '  end',
     `  return on_step and ${LED_PLAYHEAD} or ${LED_OFF}`,
     'end',

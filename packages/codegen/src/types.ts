@@ -384,6 +384,13 @@ export type StepSequencerBehavior = {
  *           mono sequences will clamp longer values to the next-firing
  *           time — that's a property of monophonic playback, not of
  *           the curve.
+ *   4 LENGTH active step count. Pressing any body cell of column c
+ *           sets the loop length to c+1 (1..numCols). Display is a
+ *           whole-column highlight: cols < length are fully lit, cols
+ *           ≥ length are dark. Programmed notes in cols ≥ length are
+ *           shown dimmed on the value pages so the user can see which
+ *           steps are silenced. Default = numCols (all steps play).
+ *           The playhead wraps at length, not numCols.
  *
  * Live BPM / run-stop / scale switching are NOT in v1 — those need
  * the CLK page (deferred). For v1, scale + root + bpm are static
@@ -391,7 +398,7 @@ export type StepSequencerBehavior = {
  *
  * Selection constraints (enforced by the UI, not the emitter):
  *   - rectangle
- *   - ≥ 4 cols (room for 4 page selectors in the function row)
+ *   - ≥ 5 cols (room for 5 page selectors in the function row)
  *   - ≥ 2 rows (1 function + ≥ 1 body)
  */
 export type WakeSequencerParams = {

@@ -13,6 +13,7 @@ local state = {
   wake_step = -1,
   wake_page = 0,
   wake_data = {[0]={[0]=0, [1]=0, [2]=0, [3]=0, [4]=0, [5]=0, [6]=0, [7]=0}, [1]={[0]=4, [1]=4, [2]=4, [3]=4, [4]=4, [5]=4, [6]=4, [7]=4}, [2]={[0]=7, [1]=7, [2]=7, [3]=7, [4]=7, [5]=7, [6]=7, [7]=7}, [3]={[0]=7, [1]=7, [2]=7, [3]=7, [4]=7, [5]=7, [6]=7, [7]=7}},
+  wake_length = 8,
   wake_active_note = -1,
   wake_active_dur = 0,
   wake_sub = 0,
@@ -192,7 +193,9 @@ local function _wake_tick()
   state.wake_sub = state.wake_sub + 1
   if state.wake_sub < 8 then return end
   state.wake_sub = 0
-  state.wake_step = (state.wake_step + 1) % 8
+  -- playhead wraps at the user-controlled length (LENGTH page),
+  -- not the static numCols, so columns past length never play
+  state.wake_step = (state.wake_step + 1) % state.wake_length
   -- 3. compute and fire the new step's note (if it has one)
   local pitch = state.wake_data[0][state.wake_step]
   local oct = state.wake_data[1][state.wake_step]
@@ -219,22 +222,32 @@ local function handle_wake(x, y, z)
   local rr = _wake_rr[x + y*W]
   if rr == 0 then
     -- function row: page select (extra cells beyond NUM_PAGES are ignored)
-    if c < 4 then
+    if c < 5 then
       state.wake_page = c
     end
   else
-    -- body cell: set / clear data[page][col]
-    local body_row = rr - 1
-    local value = 7 - body_row
-    local cur = state.wake_data[state.wake_page][c]
-    -- OCT (page 1) is centred and must always show one cell lit;
-    -- pressing the lit cell is a no-op rather than a toggle-off.
-    if state.wake_page == 1 then
-      state.wake_data[1][c] = value
-    elseif cur == value then
-      state.wake_data[state.wake_page][c] = 0
+    -- body cell. Behaviour depends on which page is active.
+    if state.wake_page == 4 then
+      -- LENGTH page: any body row of column c sets active step
+      -- count to c+1 (1..numCols). Clamp the playhead so it
+      -- doesn't render in a now-inactive column for one frame.
+      state.wake_length = c + 1
+      if state.wake_step >= state.wake_length then
+        state.wake_step = -1
+      end
     else
-      state.wake_data[state.wake_page][c] = value
+      local body_row = rr - 1
+      local value = 7 - body_row
+      local cur = state.wake_data[state.wake_page][c]
+      -- OCT (page 1) is centred and must always show one cell
+      -- lit; pressing the lit cell is a no-op (no toggle-off).
+      if state.wake_page == 1 then
+        state.wake_data[1][c] = value
+      elseif cur == value then
+        state.wake_data[state.wake_page][c] = 0
+      else
+        state.wake_data[state.wake_page][c] = value
+      end
     end
   end
 end
@@ -242,16 +255,31 @@ end
 local function _wake_pixel(col, rr)
   if rr == 0 then
     -- function row
-    if col >= 4 then return 1 end
+    if col >= 5 then return 1 end
     return (state.wake_page == col) and 12 or 6
   end
   -- body row
+  local active_col = (col < state.wake_length)
+  local on_step = (col == state.wake_step)
+  if state.wake_page == 4 then
+    -- LENGTH page: every body cell of an active column is lit
+    -- (whole-column meter); inactive columns are dark.
+    if active_col then
+      return on_step and 15 or 12
+    end
+    return 0
+  end
+  -- normal value pages: single lit cell per column for the data
+  -- value, dimmed if the column is past the active length so the
+  -- user can see which programmed notes won't fire.
   local body_row = rr - 1
   local target = 7 - body_row
   local v = state.wake_data[state.wake_page][col]
-  local on_step = (col == state.wake_step)
   if v == target then
-    return on_step and 15 or 12
+    if active_col then
+      return on_step and 15 or 12
+    end
+    return 4
   end
   return on_step and 4 or 0
 end
