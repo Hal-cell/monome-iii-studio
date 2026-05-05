@@ -352,8 +352,22 @@ async function sendAndCollect(
 // -------- public commands --------
 
 /**
- * Upload `lua` to the device under `filename` and start it via
- * `first(...)`. `filename` should NOT include a path.
+ * Upload `lua` to the device under `filename` and run it.
+ *
+ * iii firmware semantics (per codeberg.org/tehn/iii):
+ *   - ^^w (REPL_CMD_END_WRITE) only persists the buffer to flash —
+ *     it does NOT execute the script.
+ *   - first(name) is a Lua function defined in lib.lua that writes
+ *     `init.lua` containing `fs_run_file('name')`. Just sets the
+ *     next-init script — also does NOT execute anything.
+ *   - Actually starting the script requires re-initialising the VM
+ *     so init.lua runs again. The soft path is ^^i (REPL_CMD_INIT),
+ *     which calls vm_deinit(); vm_init(true). The hard path is
+ *     ^^r (watchdog_reboot), which replays the boot animation —
+ *     we deliberately avoid that here.
+ *
+ * So the right sequence is upload + first() + ^^i: write the file,
+ * point init.lua at it, then re-init the VM cleanly.
  */
 export async function uploadAndRun(
   filename: string,
@@ -391,17 +405,19 @@ export async function uploadAndRun(
     await sleep(FINAL_FLUSH_MS);
 
     _setStatus({ kind: 'busy', action: 'running' });
+    // Set as boot script, then soft re-init the Lua VM so it actually
+    // runs. ^^i tears down the old VM (clearing accumulated metros /
+    // handlers) and runs lib.lua + init.lua in a fresh state — same
+    // semantics as runFile, no hardware reboot, no boot animation.
     await writeLineRaw(`first("${filename}")`);
+    await sleep(CMD_DELAY_MS);
+    await writeLineRaw('^^i');
     await sleep(CMD_DELAY_MS);
   } catch (err) {
     const msg = (err as Error).message ?? String(err);
     _setStatus({ kind: 'error', message: msg });
     throw err;
   }
-  // first() typically triggers a USB re-enum. Hand off to the
-  // disconnect / reconnect path so the status flips through
-  // "reconnecting" and back to "connected" automatically. If the
-  // device DIDN'T re-enum, just keep the connected status.
   if (deviceStatus().kind === 'busy') {
     _setStatus({ kind: 'connected' });
   }
