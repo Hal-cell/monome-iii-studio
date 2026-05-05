@@ -358,6 +358,7 @@ const stepSequencer: RecipeMeta = {
     steps_per_beat: 4,
     direction: 'forward',
     gate_length: 1,
+    mono: 'poly',
     // Pre-fill enough entries for a full-grid selection so the value
     // store has a concrete array on day one. The emitter pads anyway,
     // but this keeps the UI store predictable.
@@ -459,6 +460,16 @@ const stepSequencer: RecipeMeta = {
         default: 'chromatic',
       },
       { kind: 'int', key: 'velocity', label: 'Velocity', min: 0, max: 127, default: 100 },
+      {
+        kind: 'enum',
+        key: 'mono',
+        label: 'Polyphony',
+        options: [
+          { value: 'poly', label: 'Poly' },
+          { value: 'mono', label: 'Mono' },
+        ],
+        default: 'poly',
+      },
       ...tail,
     ];
   },
@@ -503,6 +514,7 @@ const stepSequencer: RecipeMeta = {
         base_note: asInt(v.base_note, 36),
         scale: asScale(v.scale),
         velocity: asInt(v.velocity, 100),
+        mono: asString(v.mono, 'poly') === 'mono',
         ...common,
       },
     };

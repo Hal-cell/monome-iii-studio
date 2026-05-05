@@ -396,6 +396,10 @@ function regionSummary(region: SavedRegion): string {
     if (v.output_mode === 'note_per_row') {
       const scale = typeof v.scale === 'string' ? v.scale : 'chromatic';
       if (scale !== 'chromatic') tags.push(scale);
+      // mono is stored as a string enum 'poly'/'mono' in the editor
+      // values; the codegen normalises to boolean. Either form means
+      // mono for tagging purposes.
+      if (v.mono === 'mono' || v.mono === true) tags.push('mono');
     }
     if (typeof v.direction === 'string' && v.direction !== 'forward') {
       tags.push(v.direction);

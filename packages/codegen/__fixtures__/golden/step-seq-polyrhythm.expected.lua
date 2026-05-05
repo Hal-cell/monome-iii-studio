@@ -12,9 +12,9 @@ local W, H = grid_size_x(), grid_size_y()
 local state = {
   poly_step = {[0]=-1, [1]=-1, [2]=-1, [3]=-1},
   poly_on = {[0]={}, [1]={}, [2]={}, [3]={}},
-  poly_gate = {[0]=0, [1]=0, [2]=0, [3]=0},
   poly_dir = {[0]=1, [1]=1, [2]=1, [3]=1},
   poly_tick = {[0]=1, [1]=2, [2]=3, [3]=4},
+  poly_gate = {[0]=0, [1]=0, [2]=0, [3]=0},
 }
 
 -- ---- differential LED writes ----
@@ -114,7 +114,7 @@ local _poly_notes = {[0]=39, [1]=38, [2]=37, [3]=36}
 local _poly_divs = {[0]=1, [1]=2, [2]=3, [3]=4}
 
 local function _poly_tick()
-  -- master tick: each row independently checks gate + advances on its own div
+  -- master tick (poly): each row independently gates + fires; voices overlap
   for r = 0, 3 do
     -- 1. tick the row's gate (open notes); close any that just expired
     if state.poly_gate[r] > 0 then

@@ -12,9 +12,9 @@ local W, H = grid_size_x(), grid_size_y()
 local state = {
   mods_step = {[0]=-1, [1]=-1},
   mods_on = {[0]={}, [1]={}},
-  mods_gate = {[0]=0, [1]=0},
   mods_dir = {[0]=1, [1]=1},
   mods_tick = {[0]=1, [1]=1},
+  mods_gate = {[0]=0, [1]=0},
 }
 
 -- ---- differential LED writes ----
@@ -114,7 +114,7 @@ local _mods_ccs = {[0]=20, [1]=21}
 local _mods_divs = {[0]=1, [1]=1}
 
 local function _mods_tick()
-  -- master tick: each row independently checks gate + advances on its own div
+  -- master tick (poly): each row independently gates + fires; voices overlap
   for r = 0, 1 do
     -- 1. tick the row's gate (open notes); close any that just expired
     if state.mods_gate[r] > 0 then

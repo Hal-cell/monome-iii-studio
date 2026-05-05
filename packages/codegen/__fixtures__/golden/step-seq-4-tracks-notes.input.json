@@ -165,7 +165,8 @@
                 1,
                 1
               ],
-              "scale": "chromatic"
+              "scale": "chromatic",
+              "mono": false
             }
           }
         }

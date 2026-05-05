@@ -12,9 +12,9 @@ local W, H = grid_size_x(), grid_size_y()
 local state = {
   drum_step = {[0]=-1},
   drum_on = {[0]={}},
-  drum_gate = {[0]=0},
   drum_dir = {[0]=1},
   drum_tick = {[0]=1},
+  drum_gate = {[0]=0},
 }
 
 -- ---- differential LED writes ----
@@ -66,7 +66,7 @@ local _drum_notes = {[0]=36}
 local _drum_divs = {[0]=1}
 
 local function _drum_tick()
-  -- master tick: each row independently checks gate + advances on its own div
+  -- master tick (poly): each row independently gates + fires; voices overlap
   for r = 0, 0 do
     -- 1. tick the row's gate (open notes); close any that just expired
     if state.drum_gate[r] > 0 then

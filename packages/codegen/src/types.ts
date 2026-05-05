@@ -318,6 +318,18 @@ export type StepSequencerNoteParams = StepSequencerCommonParams & {
    * so every row lands on a scale tone.
    */
   scale: import('./scales.ts').ScaleName;
+  /**
+   * Polyphony mode. `false` (default): each row's note plays
+   * independently — overlapping rows make chords. `true`: only one
+   * voice sounds at a time; whichever row fires last steals the
+   * voice (sends note-off for the previous row's note before
+   * note-on for the new one). Same-row consecutive hits retrigger
+   * regardless of mode.
+   *
+   * No effect in `cc_per_row` mode (CCs aren't pitched and can run
+   * in parallel without "voice-stealing").
+   */
+  mono: boolean;
 };
 
 export type StepSequencerCCParams = StepSequencerCommonParams & {

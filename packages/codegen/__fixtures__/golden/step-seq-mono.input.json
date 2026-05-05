@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool_version": "0.0.0",
-  "name": "test-stepseq-major",
+  "name": "test-stepseq-mono",
   "width": 16,
   "height": 8,
   "active_page_index": 0,
@@ -11,8 +11,8 @@
       "name": "main",
       "regions": [
         {
-          "id": "r-major",
-          "name": "major",
+          "id": "r-mono",
+          "name": "mono",
           "cells": [
             {
               "x": 0,
@@ -152,6 +152,7 @@
               "base_note": 60,
               "scale": "major",
               "velocity": 100,
+              "mono": true,
               "bpm": 120,
               "steps_per_beat": 4,
               "direction": "forward",
@@ -165,8 +166,7 @@
               "led_current_on": 15,
               "led_current_off": 8,
               "led_not_current_on": 5,
-              "led_not_current_off": 2,
-              "mono": false
+              "led_not_current_off": 2
             }
           }
         }

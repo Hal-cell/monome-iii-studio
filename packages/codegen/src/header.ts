@@ -85,13 +85,15 @@ function describeBehavior(region: Region): string {
     const isPoly = divsResolved.some((d) => d !== 1);
     const divsInfo = isPoly ? `, divs=[${divsResolved.join(',')}]` : '';
     let head: string;
+    let monoInfo = '';
     if (p.output_mode === 'note_per_row') {
       const scaleInfo = p.scale === 'chromatic' ? '' : ` ${p.scale}`;
       head = `ch${p.channel} note from ${p.base_note}${scaleInfo}`;
+      if (p.mono) monoInfo = ', mono';
     } else {
       head = `ch${p.channel} cc from ${p.base_cc}`;
     }
-    return `step seq group, ${numRows}×${numCols}, ${head}, ${p.bpm} BPM @ 1/${p.steps_per_beat}${divsInfo}${dirInfo}${gateInfo}`;
+    return `step seq group, ${numRows}×${numCols}, ${head}, ${p.bpm} BPM @ 1/${p.steps_per_beat}${divsInfo}${dirInfo}${gateInfo}${monoInfo}`;
   }
   // Exhaustive: every behavior kind handled above.
   return '';
