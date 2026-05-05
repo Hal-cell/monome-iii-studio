@@ -147,7 +147,14 @@ local function handle_mono(x, y, z)
   if z ~= 1 then return end
   local r = _mono_row[x + y*W]
   local c = _mono_col[x + y*W]
-  state.mono_on[r][c] = not state.mono_on[r][c]
+  if state.mono_on[r][c] then
+    state.mono_on[r][c] = false
+  else
+    for rr = 0, 3 do
+      state.mono_on[rr][c] = false
+    end
+    state.mono_on[r][c] = true
+  end
 end
 
 local function _mono_pixel(row, col)

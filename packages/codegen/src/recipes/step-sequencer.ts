@@ -77,6 +77,36 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     ? buildMonoTickBody(params, numRows, numCols, name, valuesTable, divsTable)
     : buildPolyTickBody(params, numRows, numCols, name, valuesTable, divsTable);
 
+  // Press handler. In poly mode each cell toggles independently. In
+  // mono mode only one row may be "on" per column at a time —
+  // pressing a new cell clears any other on-cell in the same column,
+  // so the grid visually mirrors the "single voice per step" rule
+  // and the tick logic never has to choose between siblings.
+  const handlerLines = isMono
+    ? [
+        `local function ${handlerName}(x, y, z)`,
+        '  if z ~= 1 then return end',
+        `  local r = ${rowTable}[x + y*W]`,
+        `  local c = ${colTable}[x + y*W]`,
+        `  if state.${onSlot}[r][c] then`,
+        `    state.${onSlot}[r][c] = false`,
+        '  else',
+        `    for rr = 0, ${numRows - 1} do`,
+        `      state.${onSlot}[rr][c] = false`,
+        '    end',
+        `    state.${onSlot}[r][c] = true`,
+        '  end',
+        'end',
+      ]
+    : [
+        `local function ${handlerName}(x, y, z)`,
+        '  if z ~= 1 then return end',
+        `  local r = ${rowTable}[x + y*W]`,
+        `  local c = ${colTable}[x + y*W]`,
+        `  state.${onSlot}[r][c] = not state.${onSlot}[r][c]`,
+        'end',
+      ];
+
   const declarations = [
     `-- ---- region: ${name} ----`,
     `local ${rowTable} = {}`,
@@ -90,12 +120,7 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     ...tickBody.map((l) => `  ${l}`),
     'end',
     '',
-    `local function ${handlerName}(x, y, z)`,
-    '  if z ~= 1 then return end',
-    `  local r = ${rowTable}[x + y*W]`,
-    `  local c = ${colTable}[x + y*W]`,
-    `  state.${onSlot}[r][c] = not state.${onSlot}[r][c]`,
-    'end',
+    ...handlerLines,
     '',
     `local function ${pixelName}(row, col)`,
     `  local is_step = col == state.${stepSlot}[row]`,
