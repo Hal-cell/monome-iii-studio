@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "tool_version": "0.0.0",
+  "name": "test-stepseq-4tracks",
+  "width": 16,
+  "height": 8,
+  "active_page_index": 0,
+  "pages": [
+    {
+      "id": "p1",
+      "name": "main",
+      "regions": [
+        {
+          "id": "r-tracks",
+          "name": "tracks",
+          "cells": [
+            {
+              "x": 0,
+              "y": 4
+            },
+            {
+              "x": 1,
+              "y": 4
+            },
+            {
+              "x": 2,
+              "y": 4
+            },
+            {
+              "x": 3,
+              "y": 4
+            },
+            {
+              "x": 4,
+              "y": 4
+            },
+            {
+              "x": 5,
+              "y": 4
+            },
+            {
+              "x": 6,
+              "y": 4
+            },
+            {
+              "x": 7,
+              "y": 4
+            },
+            {
+              "x": 0,
+              "y": 5
+            },
+            {
+              "x": 1,
+              "y": 5
+            },
+            {
+              "x": 2,
+              "y": 5
+            },
+            {
+              "x": 3,
+              "y": 5
+            },
+            {
+              "x": 4,
+              "y": 5
+            },
+            {
+              "x": 5,
+              "y": 5
+            },
+            {
+              "x": 6,
+              "y": 5
+            },
+            {
+              "x": 7,
+              "y": 5
+            },
+            {
+              "x": 0,
+              "y": 6
+            },
+            {
+              "x": 1,
+              "y": 6
+            },
+            {
+              "x": 2,
+              "y": 6
+            },
+            {
+              "x": 3,
+              "y": 6
+            },
+            {
+              "x": 4,
+              "y": 6
+            },
+            {
+              "x": 5,
+              "y": 6
+            },
+            {
+              "x": 6,
+              "y": 6
+            },
+            {
+              "x": 7,
+              "y": 6
+            },
+            {
+              "x": 0,
+              "y": 7
+            },
+            {
+              "x": 1,
+              "y": 7
+            },
+            {
+              "x": 2,
+              "y": 7
+            },
+            {
+              "x": 3,
+              "y": 7
+            },
+            {
+              "x": 4,
+              "y": 7
+            },
+            {
+              "x": 5,
+              "y": 7
+            },
+            {
+              "x": 6,
+              "y": 7
+            },
+            {
+              "x": 7,
+              "y": 7
+            }
+          ],
+          "mode": "group",
+          "behavior": {
+            "kind": "step_sequencer",
+            "params": {
+              "output_mode": "note_per_row",
+              "channel": 1,
+              "base_note": 36,
+              "velocity": 100,
+              "bpm": 120,
+              "steps_per_beat": 4,
+              "led_current_on": 15,
+              "led_current_off": 8,
+              "led_not_current_on": 5,
+              "led_not_current_off": 2
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

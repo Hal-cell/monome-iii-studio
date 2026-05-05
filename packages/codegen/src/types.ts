@@ -202,12 +202,83 @@ export type NoteKeyboardBehavior = {
   params: NoteKeyboardParams;
 };
 
-// ---------- Pending recipes (Step 8) ----------
+// ---------- Step sequencer ----------
 
-export type PendingBehavior = {
-  kind: 'step_sequencer';
-  params: unknown;
+/**
+ * Step sequencer. Group-only. Selection must be a rectangular block:
+ * N rows × M columns, where each row is an independent track (sharing
+ * the same playhead) and each column is a step.
+ *
+ * Output:
+ *   - `note_per_row`: row R fires note `base_note + R`. Top row = R 0
+ *     = base_note. Velocity is the configured `velocity` param.
+ *   - `cc_per_row`: row R sends CC `base_cc + R`. Step "on" sends
+ *     `on_value`; step "off" (when leaving an on cell) sends
+ *     `off_value`.
+ *
+ * Timing: a metro fires every `60/bpm/steps_per_beat` seconds. Each
+ * tick advances the playhead one column (wrapping at the end). At the
+ * tick:
+ *   1. Send "off" messages for any tracks whose previous step was on
+ *      (gate-style note-off / CC release).
+ *   2. Advance playhead.
+ *   3. Send "on" messages for any tracks whose new step is on.
+ *
+ * Initial state: all cells off, playhead at -1 (first tick lands on 0).
+ *
+ * LED: four-level brightness enum
+ *   - led_current_on    : on-cell at the playhead
+ *   - led_current_off   : off-cell at the playhead (playhead indicator)
+ *   - led_not_current_on : on-cell not at the playhead (armed)
+ *   - led_not_current_off: off-cell not at the playhead (idle)
+ *
+ * Hardware: each region uses 1 of iii's 15 available metros.
+ */
+export type StepSequencerNoteParams = {
+  output_mode: 'note_per_row';
+  channel: number;
+  /** Top row plays this note. Row R plays `base_note + R`. */
+  base_note: number;
+  velocity: number;
+  bpm: number;
+  /** Subdivision: 4 = sixteenth notes at the given BPM. */
+  steps_per_beat: number;
+  led_current_on: number;
+  led_current_off: number;
+  led_not_current_on: number;
+  led_not_current_off: number;
 };
+
+export type StepSequencerCCParams = {
+  output_mode: 'cc_per_row';
+  channel: number;
+  /** Top row sends this CC. Row R sends CC `base_cc + R`. */
+  base_cc: number;
+  on_value: number;
+  off_value: number;
+  bpm: number;
+  steps_per_beat: number;
+  led_current_on: number;
+  led_current_off: number;
+  led_not_current_on: number;
+  led_not_current_off: number;
+};
+
+export type StepSequencerParams =
+  | StepSequencerNoteParams
+  | StepSequencerCCParams;
+
+export type StepSequencerBehavior = {
+  kind: 'step_sequencer';
+  params: StepSequencerParams;
+};
+
+// ---------- Behavior union ----------
+//
+// As of Step 8 the v0 catalogue is complete. There is no PendingBehavior
+// fallback; emit.ts uses an exhaustive switch with a `never` check that
+// will fail TypeScript compilation if a new behavior kind is introduced
+// without a matching case.
 
 export type Behavior =
   | MomentaryBehavior
@@ -216,7 +287,7 @@ export type Behavior =
   | RangeBehavior
   | MeterBehavior
   | NoteKeyboardBehavior
-  | PendingBehavior;
+  | StepSequencerBehavior;
 
 // ---------- Region / Page / GridLayout ----------
 

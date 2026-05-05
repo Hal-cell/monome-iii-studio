@@ -6,6 +6,7 @@ import type {
   RadioBehavior,
   RangeBehavior,
   Region,
+  StepSequencerBehavior,
   ToggleBehavior,
 } from './types.ts';
 import { emitHeader } from './header.ts';
@@ -14,6 +15,7 @@ import { emitMomentary } from './recipes/momentary.ts';
 import { emitNoteKeyboard } from './recipes/note-keyboard.ts';
 import { emitRadio } from './recipes/radio.ts';
 import { emitRange } from './recipes/range.ts';
+import { emitStepSequencer } from './recipes/step-sequencer.ts';
 import { emitToggle } from './recipes/toggle.ts';
 
 /**
@@ -23,9 +25,10 @@ import { emitToggle } from './recipes/toggle.ts';
  * stability is part of the public contract — see vault
  * `notes/engineering-kickoff.md` "Project-specific addenda".
  *
- * Step 7: `momentary`, `toggle`, `radio`, `range`, `meter`, and
- * `note_keyboard` recipes are implemented. emit() throws if it
- * encounters any other behavior kind.
+ * Step 8 (v0 complete): all seven recipes are implemented —
+ *   momentary, toggle, radio, range, meter, note_keyboard, step_sequencer
+ * The dispatch is an exhaustive switch with a `never` check, so adding
+ * a new behavior kind without a matching case fails type-check.
  */
 export function emit(layout: GridLayout): string {
   if (layout.pages.length !== 1) {
@@ -42,24 +45,40 @@ export function emit(layout: GridLayout): string {
 
   for (const region of page.regions) {
     let frags;
-    if (region.behavior.kind === 'momentary') {
-      frags = emitMomentary(region as Region & { behavior: MomentaryBehavior });
-    } else if (region.behavior.kind === 'toggle') {
-      frags = emitToggle(region as Region & { behavior: ToggleBehavior });
-    } else if (region.behavior.kind === 'radio') {
-      frags = emitRadio(region as Region & { behavior: RadioBehavior });
-    } else if (region.behavior.kind === 'range') {
-      frags = emitRange(region as Region & { behavior: RangeBehavior });
-    } else if (region.behavior.kind === 'meter') {
-      frags = emitMeter(region as Region & { behavior: MeterBehavior });
-    } else if (region.behavior.kind === 'note_keyboard') {
-      frags = emitNoteKeyboard(
-        region as Region & { behavior: NoteKeyboardBehavior },
-      );
-    } else {
-      throw new Error(
-        `Recipe "${region.behavior.kind}" not yet implemented (region "${region.name}")`,
-      );
+    switch (region.behavior.kind) {
+      case 'momentary':
+        frags = emitMomentary(region as Region & { behavior: MomentaryBehavior });
+        break;
+      case 'toggle':
+        frags = emitToggle(region as Region & { behavior: ToggleBehavior });
+        break;
+      case 'radio':
+        frags = emitRadio(region as Region & { behavior: RadioBehavior });
+        break;
+      case 'range':
+        frags = emitRange(region as Region & { behavior: RangeBehavior });
+        break;
+      case 'meter':
+        frags = emitMeter(region as Region & { behavior: MeterBehavior });
+        break;
+      case 'note_keyboard':
+        frags = emitNoteKeyboard(
+          region as Region & { behavior: NoteKeyboardBehavior },
+        );
+        break;
+      case 'step_sequencer':
+        frags = emitStepSequencer(
+          region as Region & { behavior: StepSequencerBehavior },
+        );
+        break;
+      default: {
+        // Exhaustive check — adding a new behavior kind without a case
+        // here fails type-check.
+        const _exhaustive: never = region.behavior;
+        throw new Error(
+          `Unhandled behavior kind: ${(_exhaustive as { kind: string }).kind}`,
+        );
+      }
     }
     // stateInit may be multi-line (Range needs 5 state fields).
     // Indent each line for the state table.

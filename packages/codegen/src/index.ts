@@ -20,7 +20,6 @@ export type {
   MomentaryNoteParams,
   MomentaryParams,
   Page,
-  PendingBehavior,
   Region,
   RegionMode,
   MeterBehavior,
@@ -31,6 +30,10 @@ export type {
   RadioParams,
   RangeBehavior,
   RangeParams,
+  StepSequencerBehavior,
+  StepSequencerCCParams,
+  StepSequencerNoteParams,
+  StepSequencerParams,
   ToggleBehavior,
   ToggleParams,
 } from './types.ts';

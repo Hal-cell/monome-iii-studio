@@ -68,5 +68,17 @@ function describeBehavior(region: Region): string {
     const p = region.behavior.params;
     return `note keyboard per_cell, ch${p.channel} root MIDI ${p.root_note} (row=${p.row_interval}, col=${p.column_interval})`;
   }
-  return `${region.behavior.kind} (not yet supported)`;
+  if (region.behavior.kind === 'step_sequencer') {
+    const p = region.behavior.params;
+    const xs = region.cells.map((c) => c.x);
+    const ys = region.cells.map((c) => c.y);
+    const numCols = Math.max(...xs) - Math.min(...xs) + 1;
+    const numRows = Math.max(...ys) - Math.min(...ys) + 1;
+    if (p.output_mode === 'note_per_row') {
+      return `step seq group, ${numRows}×${numCols}, ch${p.channel} note from ${p.base_note}, ${p.bpm} BPM @ 1/${p.steps_per_beat}`;
+    }
+    return `step seq group, ${numRows}×${numCols}, ch${p.channel} cc from ${p.base_cc}, ${p.bpm} BPM @ 1/${p.steps_per_beat}`;
+  }
+  // Exhaustive: every behavior kind handled above.
+  return '';
 }
