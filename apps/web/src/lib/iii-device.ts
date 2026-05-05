@@ -409,20 +409,21 @@ export async function uploadAndRun(
 }
 
 /**
- * Run an existing file on the device by setting it as the boot script
- * and rebooting. Reboot is the only clean way to start a fresh Lua VM
- * — calling `require(file)` from the REPL piles a new metro / event
- * handler on top of whatever is already running, so the LED writes
- * collide and the grid appears to flicker as if the script is firing
- * many times at once.
+ * Run an existing file on the device. We set it as the boot script
+ * via `first(...)` and then issue `^^i` (REPL_CMD_INIT in iii's
+ * repl.c — `vm_deinit(); vm_init(true);`) to re-init the Lua VM and
+ * launch the boot script. This is a *soft* reset: it tears down the
+ * old VM (so we don't pile new metros / handlers on top of whatever
+ * was running) but does NOT trigger the hardware watchdog reboot
+ * (^^r / ^^reboot), which would replay the boot animation.
  *
- * `first(file)` (next-boot script) + `^^reboot` (the diii REPL command
- * to reboot the device, per the III_COMMANDS list in monome/diii's
- * src/diii/repl.py) gives the same clean-VM semantics as the
- * post-upload `^^w` flow.
+ * Source for the command set: codeberg.org/tehn/iii repl.c
+ *   REPL_CMD_CLEAN = 'C'  -- vm_deinit(); vm_init(false)
+ *   REPL_CMD_INIT  = 'I'  -- vm_deinit(); vm_init(true)   ← what we want
+ *   REPL_CMD_RESET = 'R'  -- watchdog_reboot() (full HW reboot)
  *
- * The reboot triggers a USB re-enumeration; the disconnect / reconnect
- * loop in this module brings the connection back automatically.
+ * The VM re-init may briefly drop USB; the existing reconnect loop
+ * picks the device back up automatically.
  */
 export async function runFile(filename: string): Promise<void> {
   if (!_port) throw new Error('not connected to iii device');
@@ -430,7 +431,7 @@ export async function runFile(filename: string): Promise<void> {
   try {
     await writeLineRaw(`first("${filename}")`);
     await sleep(CMD_DELAY_MS);
-    await writeLineRaw('^^reboot');
+    await writeLineRaw('^^i');
     await sleep(CMD_DELAY_MS);
   } finally {
     if (deviceStatus().kind === 'busy') {
