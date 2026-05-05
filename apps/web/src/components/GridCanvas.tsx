@@ -1,5 +1,10 @@
 import { For } from 'solid-js';
 import {
+  ACTIVE_FILL,
+  findRegionForCell,
+  regionColor,
+} from '../store/regions.ts';
+import {
   COLS,
   ROWS,
   commitDrag,
@@ -10,8 +15,10 @@ import {
   updateDrag,
 } from '../store/selection.ts';
 
-// Visual constants. monome aesthetic: matte black background, warm
-// amber-white "lit" cells, dark gray "unlit" cells. No borders.
+// Visual constants. monome aesthetic: matte black background. Cells are
+// either dim (idle, #1a1a1a) or warm-amber (active editing). Saved
+// regions get their own pastel palette colour so the user can see at a
+// glance which cells belong to which region.
 const CELL_SIZE = 36;
 const CELL_GAP = 4;
 const CELL_RADIUS = 4;
@@ -19,7 +26,6 @@ const CELL_RADIUS = 4;
 const SVG_W = COLS * CELL_SIZE + (COLS - 1) * CELL_GAP;
 const SVG_H = ROWS * CELL_SIZE + (ROWS - 1) * CELL_GAP;
 
-// Pre-compute the cell list (static for v0).
 const CELLS: { x: number; y: number }[] = [];
 for (let y = 0; y < ROWS; y++) {
   for (let x = 0; x < COLS; x++) {
@@ -28,26 +34,34 @@ for (let y = 0; y < ROWS; y++) {
 }
 
 const FILL_IDLE = '#1a1a1a';
-const FILL_SELECTED = '#fbf2d4';
 const FILL_DRAG_PREVIEW = '#5a5240';
 
-function fillFor(selected: boolean, inDrag: boolean, dragShift: boolean): string {
-  if (inDrag) {
-    if (dragShift) {
-      // Additive preview: cells already selected stay bright; others
-      // glow midway to suggest "will be added".
-      return selected ? FILL_SELECTED : FILL_DRAG_PREVIEW;
+function fillFor(x: number, y: number): string {
+  // 1. Drag preview (highest priority while a gesture is in progress).
+  const d = drag();
+  if (d && isCellInDrag(x, y)) {
+    if (d.shift) {
+      // Additive gesture: already-selected cells stay amber; cells
+      // about to be added glow medium so the preview is distinguishable.
+      return isCellSelected(x, y) ? ACTIVE_FILL : FILL_DRAG_PREVIEW;
     }
-    // Non-shift drag previews the rect as the new selection.
-    return FILL_SELECTED;
+    return ACTIVE_FILL;
   }
-  return selected ? FILL_SELECTED : FILL_IDLE;
+  // 2. Active editing selection (overrides saved regions so the user
+  //    can see what they're working on, even if some cells overlap a
+  //    saved region — those will be auto-excluded on Add Region).
+  if (isCellSelected(x, y)) {
+    return ACTIVE_FILL;
+  }
+  // 3. Saved region — the cell shows its region's palette colour.
+  const region = findRegionForCell(x, y);
+  if (region) {
+    return regionColor(region);
+  }
+  return FILL_IDLE;
 }
 
 export function GridCanvas() {
-  // Commit the gesture on any pointer release. Also commit if the
-  // pointer leaves the SVG entirely so a half-completed gesture does
-  // not linger when the user releases outside.
   const onUp = () => commitDrag();
 
   return (
@@ -73,11 +87,7 @@ export function GridCanvas() {
               height={CELL_SIZE}
               rx={CELL_RADIUS}
               ry={CELL_RADIUS}
-              fill={fillFor(
-                isCellSelected(c.x, c.y),
-                isCellInDrag(c.x, c.y),
-                drag()?.shift ?? false,
-              )}
+              fill={fillFor(c.x, c.y)}
               onPointerDown={(e) => {
                 e.preventDefault();
                 startDrag(c.x, c.y, e.shiftKey);
