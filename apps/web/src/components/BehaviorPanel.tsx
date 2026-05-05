@@ -38,6 +38,13 @@ import {
   snapshotLayout,
 } from '../store/session.ts';
 import { exportLayout, importLayoutFile } from '../lib/persist.ts';
+import {
+  connectDevice,
+  deviceStatus,
+  disconnectDevice,
+  isSerialSupported,
+  uploadAndRun,
+} from '../lib/iii-device.ts';
 import { ParamEditor } from './ParamEditor.tsx';
 import { RecipeSelector } from './RecipeSelector.tsx';
 
@@ -146,8 +153,7 @@ export function BehaviorPanel() {
     clearSelection();
   }
 
-  function onDownload() {
-    if (!canDownload()) return;
+  function buildLayout(): GridLayout {
     const regionList: Region[] = regions().map((r) => {
       const cells = Array.from(r.cellKeys)
         .map(keyToCell)
@@ -161,7 +167,7 @@ export function BehaviorPanel() {
         behavior: meta.build(r.mode, r.values),
       };
     });
-    const layout: GridLayout = {
+    return {
       version: 1,
       tool_version: '0.0.0',
       name: downloadName(),
@@ -170,7 +176,37 @@ export function BehaviorPanel() {
       active_page_index: 0,
       pages: [{ id: 'p1', name: 'main', regions: regionList }],
     };
-    downloadText(`${downloadName()}.lua`, emit(layout));
+  }
+
+  function onDownload() {
+    if (!canDownload()) return;
+    downloadText(`${downloadName()}.lua`, emit(buildLayout()));
+  }
+
+  async function onRun() {
+    if (!canDownload()) return;
+    const status = deviceStatus();
+    if (status.kind !== 'connected') return;
+    const filename = `${downloadName()}.lua`;
+    try {
+      setNotice(`uploading ${filename}…`);
+      await uploadAndRun(filename, emit(buildLayout()));
+      setNotice(`running ${filename} on iii`);
+    } catch (err) {
+      setNotice(`upload failed: ${(err as Error).message}`);
+    }
+  }
+
+  async function onConnect() {
+    await connectDevice();
+    const s = deviceStatus();
+    if (s.kind === 'error') setNotice(`connect failed: ${s.message}`);
+    else if (s.kind === 'connected') setNotice('connected to iii');
+  }
+
+  async function onDisconnect() {
+    await disconnectDevice();
+    setNotice('disconnected from iii');
   }
 
   let fileInputRef: HTMLInputElement | undefined;
@@ -321,13 +357,33 @@ export function BehaviorPanel() {
       </Show>
 
       <div class="mt-auto pt-4 border-t border-neutral-900 space-y-2">
+        <DeviceRow
+          onConnect={onConnect}
+          onDisconnect={onDisconnect}
+        />
+        <Show when={deviceStatus().kind === 'connected'}>
+          <button
+            type="button"
+            onClick={onRun}
+            disabled={!canDownload() || deviceStatus().kind !== 'connected'}
+            class={`w-full py-2 text-sm rounded border font-mono tracking-wider ${
+              canDownload()
+                ? 'border-amber-200/60 bg-amber-100/10 text-amber-100 hover:bg-amber-100/20'
+                : 'border-neutral-900 text-neutral-700 cursor-not-allowed'
+            }`}
+          >
+            ▶ Run on iii
+          </button>
+        </Show>
         <button
           type="button"
           onClick={onDownload}
           disabled={!canDownload()}
           class={`w-full py-2 text-sm rounded border font-mono tracking-wider ${
             canDownload()
-              ? 'border-amber-200/40 bg-amber-100/5 text-amber-100 hover:bg-amber-100/10'
+              ? deviceStatus().kind === 'connected'
+                ? 'border-neutral-700 bg-neutral-950 text-neutral-300 hover:bg-neutral-900'
+                : 'border-amber-200/40 bg-amber-100/5 text-amber-100 hover:bg-amber-100/10'
               : 'border-neutral-900 text-neutral-700 cursor-not-allowed'
           }`}
         >
@@ -448,6 +504,68 @@ function Section(props: { title: string; children: JSX.Element }) {
         {props.title}
       </h2>
       {props.children}
+    </div>
+  );
+}
+
+function DeviceRow(props: {
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  const status = deviceStatus;
+  const label = () => {
+    const s = status();
+    switch (s.kind) {
+      case 'unsupported':
+        return 'web serial unsupported';
+      case 'disconnected':
+        return 'iii not connected';
+      case 'connecting':
+        return 'connecting…';
+      case 'connected':
+        return 'iii connected';
+      case 'busy':
+        return s.action;
+      case 'error':
+        return s.message;
+    }
+  };
+  const dot = () => {
+    const k = status().kind;
+    if (k === 'connected') return 'bg-amber-200';
+    if (k === 'busy') return 'bg-amber-200 animate-pulse';
+    if (k === 'connecting') return 'bg-neutral-400 animate-pulse';
+    if (k === 'error') return 'bg-rose-400';
+    return 'bg-neutral-700';
+  };
+  const showConnect = () =>
+    status().kind === 'disconnected' || status().kind === 'error';
+  const showDisconnect = () => status().kind === 'connected';
+  const supported = isSerialSupported();
+  return (
+    <div class="flex items-center gap-2 text-[10px]">
+      <span class={`w-2 h-2 rounded-full flex-shrink-0 ${dot()}`} />
+      <span class="flex-1 text-neutral-500 font-mono truncate">
+        {label()}
+      </span>
+      <Show when={supported && showConnect()}>
+        <button
+          type="button"
+          onClick={props.onConnect}
+          class="px-2 py-1 text-[10px] uppercase tracking-wider rounded border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700"
+        >
+          Connect
+        </button>
+      </Show>
+      <Show when={showDisconnect()}>
+        <button
+          type="button"
+          onClick={props.onDisconnect}
+          class="px-2 py-1 text-[10px] uppercase tracking-wider rounded border border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700"
+        >
+          Disconnect
+        </button>
+      </Show>
     </div>
   );
 }

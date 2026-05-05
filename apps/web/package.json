@@ -11,11 +11,12 @@
     "test": "echo 'no UI tests yet' && exit 0"
   },
   "dependencies": {
-    "solid-js": "^1.9.3",
-    "@monome-iii-studio/codegen": "workspace:*"
+    "@monome-iii-studio/codegen": "workspace:*",
+    "solid-js": "^1.9.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
+    "@types/w3c-web-serial": "^1.0.8",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.1",
