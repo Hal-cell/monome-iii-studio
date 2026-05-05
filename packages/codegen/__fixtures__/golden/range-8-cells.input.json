@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "tool_version": "0.0.0",
+  "name": "test-range-8",
+  "width": 8,
+  "height": 8,
+  "active_page_index": 0,
+  "pages": [
+    {
+      "id": "p1",
+      "name": "main",
+      "regions": [
+        {
+          "id": "r-fader",
+          "name": "fader",
+          "cells": [
+            {"x": 0, "y": 0},
+            {"x": 1, "y": 0},
+            {"x": 2, "y": 0},
+            {"x": 3, "y": 0},
+            {"x": 4, "y": 0},
+            {"x": 5, "y": 0},
+            {"x": 6, "y": 0},
+            {"x": 7, "y": 0}
+          ],
+          "mode": "group",
+          "behavior": {
+            "kind": "range",
+            "params": {
+              "channel": 1,
+              "cc_low": 40,
+              "cc_high": 41,
+              "led_in_range": 12,
+              "led_out_range": 3
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -25,6 +25,8 @@ export type {
   RegionMode,
   RadioBehavior,
   RadioParams,
+  RangeBehavior,
+  RangeParams,
   ToggleBehavior,
   ToggleParams,
 } from './types.ts';

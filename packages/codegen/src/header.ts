@@ -55,5 +55,9 @@ function describeBehavior(region: Region): string {
     const p = region.behavior.params;
     return `radio group, ch${p.channel} cc ${p.cc} → 0..127`;
   }
+  if (region.behavior.kind === 'range') {
+    const p = region.behavior.params;
+    return `range group, ch${p.channel} cc ${p.cc_low}/${p.cc_high} → 0..127`;
+  }
   return `${region.behavior.kind} (not yet supported)`;
 }

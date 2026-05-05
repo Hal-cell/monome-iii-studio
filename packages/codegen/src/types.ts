@@ -105,10 +105,37 @@ export type RadioBehavior = {
   params: RadioParams;
 };
 
-// ---------- Pending recipes (Steps 5+) ----------
+// ---------- Range ----------
+
+/**
+ * Two-point selection on a single row. Group-only.
+ *
+ * Press cells to define a range; releases never alter lo/hi (decision
+ * (a) — "maintain on release"). New press after all-released starts a
+ * fresh range from the new cell. Multi-cell holds extend the range.
+ *
+ * Sends two CCs (cc_low, cc_high) with values mapped uniformly to
+ * 0..127 across the selection's width — same mapping as Radio. No CC
+ * is sent until the user makes a first press (LED stays in the
+ * `led_out_range` state until then).
+ */
+export type RangeParams = {
+  channel: number;
+  cc_low: number;
+  cc_high: number;
+  led_in_range: number;
+  led_out_range: number;
+};
+
+export type RangeBehavior = {
+  kind: 'range';
+  params: RangeParams;
+};
+
+// ---------- Pending recipes (Steps 6+) ----------
 
 export type PendingBehavior = {
-  kind: 'range' | 'meter' | 'note_keyboard' | 'step_sequencer';
+  kind: 'meter' | 'note_keyboard' | 'step_sequencer';
   params: unknown;
 };
 
@@ -116,6 +143,7 @@ export type Behavior =
   | MomentaryBehavior
   | ToggleBehavior
   | RadioBehavior
+  | RangeBehavior
   | PendingBehavior;
 
 // ---------- Region / Page / GridLayout ----------

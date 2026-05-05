@@ -2,12 +2,14 @@ import type {
   GridLayout,
   MomentaryBehavior,
   RadioBehavior,
+  RangeBehavior,
   Region,
   ToggleBehavior,
 } from './types.ts';
 import { emitHeader } from './header.ts';
 import { emitMomentary } from './recipes/momentary.ts';
 import { emitRadio } from './recipes/radio.ts';
+import { emitRange } from './recipes/range.ts';
 import { emitToggle } from './recipes/toggle.ts';
 
 /**
@@ -17,8 +19,8 @@ import { emitToggle } from './recipes/toggle.ts';
  * stability is part of the public contract — see vault
  * `notes/engineering-kickoff.md` "Project-specific addenda".
  *
- * Step 4: `momentary`, `toggle`, and `radio` recipes are implemented.
- * emit() throws if it encounters any other behavior kind.
+ * Step 5: `momentary`, `toggle`, `radio`, and `range` recipes are
+ * implemented. emit() throws if it encounters any other behavior kind.
  */
 export function emit(layout: GridLayout): string {
   if (layout.pages.length !== 1) {
@@ -41,12 +43,21 @@ export function emit(layout: GridLayout): string {
       frags = emitToggle(region as Region & { behavior: ToggleBehavior });
     } else if (region.behavior.kind === 'radio') {
       frags = emitRadio(region as Region & { behavior: RadioBehavior });
+    } else if (region.behavior.kind === 'range') {
+      frags = emitRange(region as Region & { behavior: RangeBehavior });
     } else {
       throw new Error(
         `Recipe "${region.behavior.kind}" not yet implemented (region "${region.name}")`,
       );
     }
-    stateInits.push(`  ${frags.stateInit}`);
+    // stateInit may be multi-line (Range needs 5 state fields).
+    // Indent each line for the state table.
+    stateInits.push(
+      frags.stateInit
+        .split('\n')
+        .map((l) => `  ${l}`)
+        .join('\n'),
+    );
     declarations.push(frags.declarations);
     drawBlocks.push(frags.drawBlock);
     routeLines.push(...frags.routeAdditions);
