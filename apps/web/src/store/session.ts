@@ -8,7 +8,7 @@
  * Sets (cellKeys, selection) marshal as plain arrays in JSON.
  */
 
-import { reconcile } from 'solid-js/store';
+import { reconcile, unwrap } from 'solid-js/store';
 import {
   type LayoutExport,
   type SavedRegionJSON,
@@ -63,7 +63,9 @@ export function snapshotSession(): SessionState {
     selection: Array.from(selection()),
     recipeKind: recipeKind(),
     mode: mode(),
-    values: { ...values },
+    // Deep clone via unwrap (drop proxy) + structuredClone (independent copy).
+    // localStorage doesn't care, but keeping this consistent with addRegion.
+    values: structuredClone(unwrap(values)),
   };
 }
 

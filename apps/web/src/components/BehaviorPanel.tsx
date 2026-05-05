@@ -1,4 +1,5 @@
 import { For, Show, type JSX, createSignal } from 'solid-js';
+import { unwrap } from 'solid-js/store';
 import type { GridLayout, Region } from '@monome-iii-studio/codegen';
 import { emit } from '@monome-iii-studio/codegen';
 import { downloadText } from '../lib/download.ts';
@@ -100,7 +101,12 @@ export function BehaviorPanel() {
       cellKeys: new Set(fresh),
       mode: mode(),
       recipeKind: r.id,
-      values: { ...values }, // snapshot
+      // Deep snapshot. `{ ...values }` is a shallow copy of a Solid store
+      // proxy — array params (like `divs`) and any nested object would be
+      // shared by reference, so a later edit to the editor's state would
+      // silently mutate the saved region's params. unwrap() peels the
+      // proxy; structuredClone() deep-copies the plain data underneath.
+      values: structuredClone(unwrap(values)),
     });
 
     if (claimed > 0) {
@@ -360,7 +366,7 @@ function RegionRow(props: { region: SavedRegion }) {
         />
       </Show>
       <span class="text-[10px] text-neutral-600 font-mono whitespace-nowrap">
-        {RECIPES[props.region.recipeKind].label.toLowerCase()} · {props.region.cellKeys.size}
+        {regionSummary(props.region)}
       </span>
       <button
         type="button"
@@ -372,6 +378,31 @@ function RegionRow(props: { region: SavedRegion }) {
       </button>
     </div>
   );
+}
+
+function regionSummary(region: SavedRegion): string {
+  const recipe = RECIPES[region.recipeKind].label.toLowerCase();
+  const v = region.values;
+  // Surface settings the user can't tell apart at a glance from the
+  // grid colour alone: scale (note keyboard, step seq note mode),
+  // direction (step seq), output mode (step seq).
+  const tags: string[] = [];
+  if (region.recipeKind === 'note_keyboard') {
+    const scale = typeof v.scale === 'string' ? v.scale : 'chromatic';
+    if (scale !== 'chromatic') tags.push(scale);
+  }
+  if (region.recipeKind === 'step_sequencer') {
+    if (v.output_mode === 'cc_per_row') tags.push('cc');
+    if (v.output_mode === 'note_per_row') {
+      const scale = typeof v.scale === 'string' ? v.scale : 'chromatic';
+      if (scale !== 'chromatic') tags.push(scale);
+    }
+    if (typeof v.direction === 'string' && v.direction !== 'forward') {
+      tags.push(v.direction);
+    }
+  }
+  const tagStr = tags.length > 0 ? ` ${tags.join('/')}` : '';
+  return `${recipe}${tagStr} · ${region.cellKeys.size}`;
 }
 
 function Section(props: { title: string; children: JSX.Element }) {
