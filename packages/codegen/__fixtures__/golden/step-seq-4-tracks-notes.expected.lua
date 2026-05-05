@@ -12,6 +12,8 @@ local W, H = grid_size_x(), grid_size_y()
 local state = {
   tracks_step = -1,
   tracks_on = {[0]={}, [1]={}, [2]={}, [3]={}},
+  tracks_gate = {[0]=0, [1]=0, [2]=0, [3]=0},
+  tracks_dir = 1,
 }
 
 -- ---- differential LED writes ----
@@ -101,23 +103,29 @@ _tracks_col[8 + 8*W] = 7
 local _tracks_notes = {[0]=36, [1]=37, [2]=38, [3]=39}
 
 local function _tracks_tick()
-  -- close out the step we are leaving (gate-style)
-  local leaving = state.tracks_step
-  if leaving >= 0 then
-    for r = 0, 3 do
-      if state.tracks_on[r][leaving] then
+  -- 1. tick down each row's gate; close any that just expired
+  for r = 0, 3 do
+    if state.tracks_gate[r] > 0 then
+      state.tracks_gate[r] = state.tracks_gate[r] - 1
+      if state.tracks_gate[r] == 0 then
         midi_note_off(_tracks_notes[r], 0, 1)
       end
     end
   end
-  -- advance playhead
+  -- 2. advance the playhead
   state.tracks_step = (state.tracks_step + 1) % 8
-  -- open up the new step
+  -- 3. fire any rows that are on at the new step (retrigger if the gate is still open)
   for r = 0, 3 do
     if state.tracks_on[r][state.tracks_step] then
+      if state.tracks_gate[r] > 0 then
+        midi_note_off(_tracks_notes[r], 0, 1)
+      end
       midi_note_on(_tracks_notes[r], 100, 1)
+      state.tracks_gate[r] = 1
     end
   end
+  -- 4. repaint so the playhead position is visible on the grid
+  redraw()
 end
 
 local function handle_tracks(x, y, z)

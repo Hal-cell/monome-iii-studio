@@ -12,6 +12,8 @@ local W, H = grid_size_x(), grid_size_y()
 local state = {
   mods_step = -1,
   mods_on = {[0]={}, [1]={}},
+  mods_gate = {[0]=0, [1]=0},
+  mods_dir = 1,
 }
 
 -- ---- differential LED writes ----
@@ -101,23 +103,29 @@ _mods_col[16 + 2*W] = 15
 local _mods_ccs = {[0]=20, [1]=21}
 
 local function _mods_tick()
-  -- close out the step we are leaving (gate-style)
-  local leaving = state.mods_step
-  if leaving >= 0 then
-    for r = 0, 1 do
-      if state.mods_on[r][leaving] then
+  -- 1. tick down each row's gate; close any that just expired
+  for r = 0, 1 do
+    if state.mods_gate[r] > 0 then
+      state.mods_gate[r] = state.mods_gate[r] - 1
+      if state.mods_gate[r] == 0 then
         midi_cc(_mods_ccs[r], 0, 1)
       end
     end
   end
-  -- advance playhead
+  -- 2. advance the playhead
   state.mods_step = (state.mods_step + 1) % 16
-  -- open up the new step
+  -- 3. fire any rows that are on at the new step (retrigger if the gate is still open)
   for r = 0, 1 do
     if state.mods_on[r][state.mods_step] then
+      if state.mods_gate[r] > 0 then
+        midi_cc(_mods_ccs[r], 0, 1)
+      end
       midi_cc(_mods_ccs[r], 127, 1)
+      state.mods_gate[r] = 1
     end
   end
+  -- 4. repaint so the playhead position is visible on the grid
+  redraw()
 end
 
 local function handle_mods(x, y, z)

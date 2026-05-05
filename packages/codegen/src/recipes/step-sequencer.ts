@@ -22,6 +22,8 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
   const colTable = `_${name}_col`;
   const stepSlot = `${name}_step`;
   const onSlot = `${name}_on`;
+  const gateSlot = `${name}_gate`;
+  const dirSlot = `${name}_dir`;
   const metroVar = `_${name}_metro`;
   const valuesTable =
     params.output_mode === 'note_per_row'
@@ -37,8 +39,6 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     (a, b) => a.y - b.y || a.x - b.x,
   );
 
-  // Lookup tables map cell key → selection-local index. Keys are 1-indexed
-  // (iii convention); values stay 0-indexed (selection-local, never reach iii).
   const rowLines = sortedCells
     .map((c) => `${rowTable}[${luaKey(c)}] = ${c.y - yTop}`)
     .join('\n');
@@ -51,7 +51,13 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     (_, r) => `[${r}]=${baseValue + r}`,
   ).join(', ');
 
-  const tickBody = buildTickBody(params, numRows, numCols, name, valuesTable);
+  const tickBody = buildTickBody(
+    params,
+    numRows,
+    numCols,
+    name,
+    valuesTable,
+  );
 
   const declarations = [
     `-- ---- region: ${name} ----`,
@@ -100,17 +106,26 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     (c) => `_route[${luaKey(c)}] = ${handlerName}`,
   );
 
-  // State init: step starts at -1 so first tick lands on 0.
-  // <name>_on is a nested table: row R is its own sub-table
-  // (cells default to nil = off).
+  // State init:
+  //   step:  -1 so first forward tick lands on 0; reverse on numCols-1
+  //   on:    nested per-row table, cells default to nil = off
+  //   gate:  per-row remaining-ticks counter (0 = no note playing)
+  //   dir:   pingpong walk direction (always +1 initially; unused for
+  //          forward/reverse but harmless)
   const onTableInit = `{${Array.from(
     { length: numRows },
     (_, r) => `[${r}]={}`,
+  ).join(', ')}}`;
+  const gateTableInit = `{${Array.from(
+    { length: numRows },
+    (_, r) => `[${r}]=0`,
   ).join(', ')}}`;
 
   const stateInit = [
     `${stepSlot} = -1,`,
     `${onSlot} = ${onTableInit},`,
+    `${gateSlot} = ${gateTableInit},`,
+    `${dirSlot} = 1,`,
   ].join('\n');
 
   return {
@@ -130,6 +145,8 @@ function buildTickBody(
 ): string[] {
   const stepSlot = `${name}_step`;
   const onSlot = `${name}_on`;
+  const gateSlot = `${name}_gate`;
+  const dirSlot = `${name}_dir`;
 
   const closeCall =
     params.output_mode === 'note_per_row'
@@ -141,25 +158,64 @@ function buildTickBody(
       ? `midi_note_on(${valuesTable}[r], ${params.velocity}, ${params.channel})`
       : `midi_cc(${valuesTable}[r], ${params.on_value}, ${params.channel})`;
 
+  const advance = buildAdvance(params.direction, numCols, stepSlot, dirSlot);
+
   return [
-    '-- close out the step we are leaving (gate-style)',
-    `local leaving = state.${stepSlot}`,
-    'if leaving >= 0 then',
-    `  for r = 0, ${numRows - 1} do`,
-    `    if state.${onSlot}[r][leaving] then`,
+    '-- 1. tick down each row\'s gate; close any that just expired',
+    `for r = 0, ${numRows - 1} do`,
+    `  if state.${gateSlot}[r] > 0 then`,
+    `    state.${gateSlot}[r] = state.${gateSlot}[r] - 1`,
+    `    if state.${gateSlot}[r] == 0 then`,
     `      ${closeCall}`,
     '    end',
     '  end',
     'end',
-    '-- advance playhead',
-    `state.${stepSlot} = (state.${stepSlot} + 1) % ${numCols}`,
-    '-- open up the new step',
+    '-- 2. advance the playhead',
+    ...advance,
+    '-- 3. fire any rows that are on at the new step (retrigger if the gate is still open)',
     `for r = 0, ${numRows - 1} do`,
     `  if state.${onSlot}[r][state.${stepSlot}] then`,
+    `    if state.${gateSlot}[r] > 0 then`,
+    `      ${closeCall}`,
+    '    end',
     `    ${openCall}`,
+    `    state.${gateSlot}[r] = ${params.gate_length}`,
     '  end',
     'end',
+    '-- 4. repaint so the playhead position is visible on the grid',
+    'redraw()',
   ];
+}
+
+function buildAdvance(
+  direction: StepSequencerParams['direction'],
+  numCols: number,
+  stepSlot: string,
+  dirSlot: string,
+): string[] {
+  switch (direction) {
+    case 'reverse':
+      return [
+        `state.${stepSlot} = state.${stepSlot} - 1`,
+        `if state.${stepSlot} < 0 then state.${stepSlot} = ${numCols - 1} end`,
+      ];
+    case 'pingpong':
+      return [
+        `state.${stepSlot} = state.${stepSlot} + state.${dirSlot}`,
+        `if state.${stepSlot} >= ${numCols} then`,
+        `  state.${stepSlot} = ${numCols - 2}`,
+        `  state.${dirSlot} = -1`,
+        `elseif state.${stepSlot} < 0 then`,
+        `  state.${stepSlot} = 1`,
+        `  state.${dirSlot} = 1`,
+        'end',
+      ];
+    case 'forward':
+    default:
+      return [
+        `state.${stepSlot} = (state.${stepSlot} + 1) % ${numCols}`,
+      ];
+  }
 }
 
 function analyzeRect(cells: Cell[]): {

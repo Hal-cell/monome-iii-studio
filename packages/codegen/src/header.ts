@@ -74,10 +74,13 @@ function describeBehavior(region: Region): string {
     const ys = region.cells.map((c) => c.y);
     const numCols = Math.max(...xs) - Math.min(...xs) + 1;
     const numRows = Math.max(...ys) - Math.min(...ys) + 1;
-    if (p.output_mode === 'note_per_row') {
-      return `step seq group, ${numRows}×${numCols}, ch${p.channel} note from ${p.base_note}, ${p.bpm} BPM @ 1/${p.steps_per_beat}`;
-    }
-    return `step seq group, ${numRows}×${numCols}, ch${p.channel} cc from ${p.base_cc}, ${p.bpm} BPM @ 1/${p.steps_per_beat}`;
+    const dirInfo = p.direction === 'forward' ? '' : `, ${p.direction}`;
+    const gateInfo = p.gate_length === 1 ? '' : `, gate ${p.gate_length}`;
+    const head =
+      p.output_mode === 'note_per_row'
+        ? `ch${p.channel} note from ${p.base_note}`
+        : `ch${p.channel} cc from ${p.base_cc}`;
+    return `step seq group, ${numRows}×${numCols}, ${head}, ${p.bpm} BPM @ 1/${p.steps_per_beat}${dirInfo}${gateInfo}`;
   }
   // Exhaustive: every behavior kind handled above.
   return '';

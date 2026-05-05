@@ -60,7 +60,9 @@
               "led_current_on": 15,
               "led_current_off": 8,
               "led_not_current_on": 5,
-              "led_not_current_off": 2
+              "led_not_current_off": 2,
+              "direction": "forward",
+              "gate_length": 1
             }
           }
         }

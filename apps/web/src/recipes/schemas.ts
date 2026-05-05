@@ -314,6 +314,8 @@ const stepSequencer: RecipeMeta = {
     off_value: 0,
     bpm: 120,
     steps_per_beat: 4,
+    direction: 'forward',
+    gate_length: 1,
     led_current_on: 15,
     led_current_off: 8,
     led_not_current_on: 5,
@@ -344,6 +346,26 @@ const stepSequencer: RecipeMeta = {
         default: 4,
         help: '4 = sixteenth notes',
       },
+      {
+        kind: 'enum',
+        key: 'direction',
+        label: 'Direction',
+        options: [
+          { value: 'forward', label: 'Forward' },
+          { value: 'reverse', label: 'Reverse' },
+          { value: 'pingpong', label: 'Pingpong' },
+        ],
+        default: 'forward',
+      },
+      {
+        kind: 'int',
+        key: 'gate_length',
+        label: 'Gate length (steps)',
+        min: 1,
+        max: 16,
+        default: 1,
+        help: '1 = note for one step; higher values sustain across steps with retrigger',
+      },
       { kind: 'int', key: 'led_current_on', label: 'LED step+on', min: 0, max: 15, default: 15 },
       { kind: 'int', key: 'led_current_off', label: 'LED step+off', min: 0, max: 15, default: 8 },
       { kind: 'int', key: 'led_not_current_on', label: 'LED on', min: 0, max: 15, default: 5 },
@@ -366,10 +388,17 @@ const stepSequencer: RecipeMeta = {
     ];
   },
   build: (_mode, v): Behavior => {
+    const directionRaw = asString(v.direction, 'forward');
+    const direction: 'forward' | 'reverse' | 'pingpong' =
+      directionRaw === 'reverse' || directionRaw === 'pingpong'
+        ? directionRaw
+        : 'forward';
     const common = {
       channel: asInt(v.channel, 1),
       bpm: asInt(v.bpm, 120),
       steps_per_beat: asInt(v.steps_per_beat, 4),
+      direction,
+      gate_length: asInt(v.gate_length, 1),
       led_current_on: asInt(v.led_current_on, 15),
       led_current_off: asInt(v.led_current_off, 8),
       led_not_current_on: asInt(v.led_not_current_on, 5),

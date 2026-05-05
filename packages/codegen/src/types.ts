@@ -241,34 +241,41 @@ export type NoteKeyboardBehavior = {
  *
  * Hardware: each region uses 1 of iii's 15 available metros.
  */
-export type StepSequencerNoteParams = {
-  output_mode: 'note_per_row';
+/** Playhead traversal mode. */
+export type StepSequencerDirection = 'forward' | 'reverse' | 'pingpong';
+
+export type StepSequencerCommonParams = {
   channel: number;
-  /** Top row plays this note. Row R plays `base_note + R`. */
-  base_note: number;
-  velocity: number;
   bpm: number;
   /** Subdivision: 4 = sixteenth notes at the given BPM. */
   steps_per_beat: number;
+  direction: StepSequencerDirection;
+  /**
+   * Note hold length in step-ticks. 1 = blip (note-off on next step,
+   * matches the gate-style behaviour we used to have). Higher values
+   * sustain notes across multiple steps. If a row's next "on" step
+   * arrives before the gate expires, the note retriggers (off + on).
+   */
+  gate_length: number;
   led_current_on: number;
   led_current_off: number;
   led_not_current_on: number;
   led_not_current_off: number;
 };
 
-export type StepSequencerCCParams = {
+export type StepSequencerNoteParams = StepSequencerCommonParams & {
+  output_mode: 'note_per_row';
+  /** Top row plays this note. Row R plays `base_note + R`. */
+  base_note: number;
+  velocity: number;
+};
+
+export type StepSequencerCCParams = StepSequencerCommonParams & {
   output_mode: 'cc_per_row';
-  channel: number;
   /** Top row sends this CC. Row R sends CC `base_cc + R`. */
   base_cc: number;
   on_value: number;
   off_value: number;
-  bpm: number;
-  steps_per_beat: number;
-  led_current_on: number;
-  led_current_off: number;
-  led_not_current_on: number;
-  led_not_current_off: number;
 };
 
 export type StepSequencerParams =
