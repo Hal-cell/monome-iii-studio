@@ -32,8 +32,13 @@ const App: Component = () => {
   });
 
   return (
-    <main class="min-h-screen flex">
-      <div class="flex-1 flex flex-col items-center justify-center gap-10 p-8">
+    // h-screen + overflow-hidden on the outer flex pins both columns
+    // to the viewport so they scroll INDEPENDENTLY rather than growing
+    // the whole page. The grid panel rarely overflows, but does on
+    // small windows; the behavior panel almost always overflows when
+    // a region is being edited and the file manager is open.
+    <main class="h-screen flex overflow-hidden">
+      <div class="flex-1 flex flex-col items-center justify-center gap-10 p-8 overflow-y-auto">
         <h1 class="text-2xl font-light tracking-[0.2em] text-neutral-300">
           monome-iii-studio
         </h1>
@@ -56,11 +61,11 @@ const App: Component = () => {
         </section>
       </div>
 
-      <aside class="w-80 border-l border-neutral-900 p-6 overflow-y-auto">
+      <aside class="w-80 shrink-0 border-l border-neutral-900 p-6 overflow-y-auto">
         <BehaviorPanel />
       </aside>
 
-      <p class="absolute bottom-2 left-4 text-[10px] text-neutral-700 font-mono">
+      <p class="absolute bottom-2 left-4 text-[10px] text-neutral-700 font-mono pointer-events-none">
         codegen v{CODEGEN_VERSION}
       </p>
     </main>

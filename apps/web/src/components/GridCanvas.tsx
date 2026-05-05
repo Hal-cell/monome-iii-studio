@@ -19,9 +19,9 @@ import {
 // either dim (idle, #1a1a1a) or warm-amber (active editing). Saved
 // regions get their own pastel palette colour so the user can see at a
 // glance which cells belong to which region.
-const CELL_SIZE = 36;
-const CELL_GAP = 4;
-const CELL_RADIUS = 4;
+const CELL_SIZE = 48;
+const CELL_GAP = 5;
+const CELL_RADIUS = 5;
 
 const SVG_W = COLS * CELL_SIZE + (COLS - 1) * CELL_GAP;
 const SVG_H = ROWS * CELL_SIZE + (ROWS - 1) * CELL_GAP;
