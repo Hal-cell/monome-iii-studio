@@ -50,11 +50,16 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     'end',
   ].join('\n');
 
+  // Pre-compute each cell's idle brightness: `led_octave` if the cell
+  // shares the root's pitch class, otherwise `led_idle`. The decision
+  // is fully compile-time so the runtime LED line stays a single
+  // expression with no extra arithmetic per redraw.
   const ledLines = inRange
-    .map(
-      ({ cell }) =>
-        `  grid_led(${luaXY(cell)}, state.${stateSlot}[${luaKey(cell)}] and ${params.led_held} or ${params.led_idle})`,
-    )
+    .map(({ cell, note }) => {
+      const isOctaveMarker = (note - params.root_note) % 12 === 0;
+      const idleVal = isOctaveMarker ? params.led_octave : params.led_idle;
+      return `  grid_led(${luaXY(cell)}, state.${stateSlot}[${luaKey(cell)}] and ${params.led_held} or ${idleVal})`;
+    })
     .join('\n');
 
   const drawBlock = [`  -- region: ${region.name}`, ledLines].join('\n');

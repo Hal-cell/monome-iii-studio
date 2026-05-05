@@ -246,6 +246,7 @@ const noteKeyboard: RecipeMeta = {
     velocity: 100,
     led_held: 12,
     led_idle: 3,
+    led_octave: 6,
   },
   paramsFor: () => [
     { kind: 'int', key: 'channel', label: 'Channel', min: 1, max: 16, default: 1 },
@@ -271,6 +272,15 @@ const noteKeyboard: RecipeMeta = {
     { kind: 'int', key: 'velocity', label: 'Velocity', min: 0, max: 127, default: 100 },
     { kind: 'int', key: 'led_held', label: 'LED held', min: 0, max: 15, default: 12 },
     { kind: 'int', key: 'led_idle', label: 'LED idle', min: 0, max: 15, default: 3 },
+    {
+      kind: 'int',
+      key: 'led_octave',
+      label: 'LED octave marker',
+      min: 0,
+      max: 15,
+      default: 6,
+      help: 'cells whose note shares the root pitch class (every 12 semitones); set equal to LED idle to disable',
+    },
   ],
   build: (_mode, v): Behavior => ({
     kind: 'note_keyboard',
@@ -282,6 +292,7 @@ const noteKeyboard: RecipeMeta = {
       velocity: asInt(v.velocity, 100),
       led_held: asInt(v.led_held, 12),
       led_idle: asInt(v.led_idle, 3),
+      led_octave: asInt(v.led_octave, 6),
     },
   }),
 };

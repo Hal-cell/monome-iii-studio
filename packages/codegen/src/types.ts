@@ -195,6 +195,13 @@ export type NoteKeyboardParams = {
   velocity: number;
   led_held: number;
   led_idle: number;
+  /**
+   * Brightness for cells whose note shares the root's pitch class
+   * (i.e. note ≡ root_note mod 12). These are the "octave markers"
+   * that let the player navigate by sight. Default 6 (between idle
+   * and held). Set equal to `led_idle` to disable highlighting.
+   */
+  led_octave: number;
 };
 
 export type NoteKeyboardBehavior = {

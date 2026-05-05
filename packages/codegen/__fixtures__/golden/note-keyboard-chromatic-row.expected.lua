@@ -56,7 +56,7 @@ end
 -- ---- LED draw ----
 local function redraw()
   -- region: keys
-  grid_led(1, 8, state.keys_held[1 + 8*W] and 12 or 3)
+  grid_led(1, 8, state.keys_held[1 + 8*W] and 12 or 6)
   grid_led(2, 8, state.keys_held[2 + 8*W] and 12 or 3)
   grid_led(3, 8, state.keys_held[3 + 8*W] and 12 or 3)
   grid_led(4, 8, state.keys_held[4 + 8*W] and 12 or 3)
