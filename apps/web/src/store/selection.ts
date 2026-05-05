@@ -77,6 +77,13 @@ export function dragRectCells(d: DragState): Cell[] {
 }
 
 export function startDrag(x: number, y: number, shift: boolean): void {
+  // Replace-mode drag: clear the previous selection immediately so the
+  // in-progress drag rect isn't visually mixed with leftover amber
+  // cells from a prior commit. Shift-mode keeps the previous selection
+  // intact (additive / toggle).
+  if (!shift) {
+    setSelection(new Set<string>());
+  }
   setDrag({ start: { x, y }, current: { x, y }, shift });
 }
 

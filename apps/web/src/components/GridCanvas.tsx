@@ -1,4 +1,4 @@
-import { For } from 'solid-js';
+import { For, onCleanup } from 'solid-js';
 import {
   ACTIVE_FILL,
   findRegionForCell,
@@ -62,15 +62,24 @@ function fillFor(x: number, y: number): string {
 }
 
 export function GridCanvas() {
-  const onUp = () => commitDrag();
+  // Commit the drag on pointer up *anywhere* on the page — listening
+  // on the window, not the wrapper, means the gesture survives the
+  // user briefly leaving the grid (and re-entering) mid-drag, and
+  // still finishes cleanly if they release the mouse outside.
+  // Cancellation events (pointercancel) also commit; the in-progress
+  // rect snapshot is what we want to keep in that case anyway.
+  const onWindowUp = () => {
+    if (drag()) commitDrag();
+  };
+  window.addEventListener('pointerup', onWindowUp);
+  window.addEventListener('pointercancel', onWindowUp);
+  onCleanup(() => {
+    window.removeEventListener('pointerup', onWindowUp);
+    window.removeEventListener('pointercancel', onWindowUp);
+  });
 
   return (
-    <div
-      class="select-none touch-none"
-      onPointerUp={onUp}
-      onPointerLeave={onUp}
-      onPointerCancel={onUp}
-    >
+    <div class="select-none touch-none">
       <svg
         width={SVG_W}
         height={SVG_H}
