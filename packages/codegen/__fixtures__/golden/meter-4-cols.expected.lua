@@ -10,7 +10,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
-  faders_h = {[0]=0, [1]=0, [2]=0, [3]=0},
+  faders_h = {[0]=1, [1]=1, [2]=1, [3]=1},
 }
 
 -- ---- differential LED writes ----
@@ -155,4 +155,8 @@ end
 
 -- ---- init ----
 grid_led_all(0)
+midi_cc(16, _faders_values[1], 1)
+midi_cc(17, _faders_values[1], 1)
+midi_cc(18, _faders_values[1], 1)
+midi_cc(19, _faders_values[1], 1)
 redraw()

@@ -20,6 +20,14 @@ export type EmittedFragments = {
   drawBlock: string;
   /** `_route[…] = handle_<name>` lines, one per cell */
   routeAdditions: string[];
+  /**
+   * Lines to run once at script load, after declarations + state init
+   * but before the first `redraw()`. Used by recipes that need to
+   * publish an initial MIDI value to the DAW so the host's parameter
+   * matches the LED state at boot (currently: meter, which lights its
+   * bottom row at height=1).
+   */
+  initLines?: string[];
 };
 
 type MomentaryRegion = Region & { behavior: MomentaryBehavior };

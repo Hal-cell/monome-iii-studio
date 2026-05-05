@@ -26,9 +26,13 @@ export function emitMeter(region: MeterRegion): EmittedFragments {
   const values = computeMeterValues(height);
   const valuesEntries = values.map((v, i) => `[${i}]=${v}`).join(', ');
 
-  // Initial state: all columns at height 0.
+  // Initial state: all columns at height 1 (the bottom row of each
+  // column lights up at script load, giving the user a visible baseline
+  // before any interaction). The matching MIDI CC is also sent at init
+  // so the DAW's parameter agrees with the LED state — see initLines
+  // below.
   const stateInitEntries = columns
-    .map((_, i) => `[${i}]=0`)
+    .map((_, i) => `[${i}]=1`)
     .join(', ');
 
   const declarations = [
@@ -71,11 +75,19 @@ export function emitMeter(region: MeterRegion): EmittedFragments {
 
   const stateInit = `${stateSlot} = {${stateInitEntries}},`;
 
+  // Init MIDI: publish the height=1 CC for every column so the DAW's
+  // parameter matches the visual state at boot.
+  const initLines = columns.map(
+    (_, i) =>
+      `midi_cc(${params.base_cc + i}, ${valuesTable}[1], ${params.channel})`,
+  );
+
   return {
     stateInit,
     declarations,
     drawBlock,
     routeAdditions,
+    initLines,
   };
 }
 

@@ -42,6 +42,7 @@ export function emit(layout: GridLayout): string {
   const declarations: string[] = [];
   const drawBlocks: string[] = [];
   const routeLines: string[] = [];
+  const initLines: string[] = [];
 
   for (const region of page.regions) {
     let frags;
@@ -91,6 +92,7 @@ export function emit(layout: GridLayout): string {
     declarations.push(frags.declarations);
     drawBlocks.push(frags.drawBlock);
     routeLines.push(...frags.routeAdditions);
+    if (frags.initLines) initLines.push(...frags.initLines);
   }
 
   return [
@@ -140,6 +142,7 @@ export function emit(layout: GridLayout): string {
     '',
     '-- ---- init ----',
     'grid_led_all(0)',
+    ...initLines,
     'redraw()',
     '',
   ].join('\n');
