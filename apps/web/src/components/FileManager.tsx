@@ -6,10 +6,12 @@
  * `fs_remove(...)` calls.
  */
 
-import { For, Show, createSignal, onMount } from 'solid-js';
+import { For, Show, createEffect, createSignal, onMount } from 'solid-js';
 import {
   deleteFile,
   deviceStatus,
+  fileListVersion,
+  isProtectedFile,
   listFiles,
   runFile,
   sendCommand,
@@ -52,17 +54,20 @@ export function FileManager() {
 
   async function onDelete(name: string) {
     if (!ready()) return;
+    if (isProtectedFile(name)) return;
     if (!confirm(`Delete "${name}" from the iii device?`)) return;
     setBusy(true);
     setError(null);
     try {
       await deleteFile(name);
-      await refresh();
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
+    // Refresh outside the busy gate so the spinner updates correctly
+    // and we always reflect the post-delete state, even on failure.
+    await refresh();
   }
 
   async function onSendCmd(e: Event) {
@@ -88,6 +93,19 @@ export function FileManager() {
     if (ready()) void refresh();
   });
 
+  // Auto-refresh whenever something else in the app reports the file
+  // list might have changed (Run-on-iii uploads a new file, etc.).
+  // Skip the initial firing — onMount above already covers that.
+  let firstVersion = true;
+  createEffect(() => {
+    fileListVersion();
+    if (firstVersion) {
+      firstVersion = false;
+      return;
+    }
+    if (ready()) void refresh();
+  });
+
   return (
     <div class="space-y-2">
       <div class="flex items-center justify-between">
@@ -109,31 +127,47 @@ export function FileManager() {
       <Show when={files().length > 0}>
         <div class="space-y-1 max-h-48 overflow-y-auto pr-1">
           <For each={files()}>
-            {(name) => (
-              <div class="flex items-center gap-1 px-2 py-1 bg-neutral-900/50 rounded border border-transparent hover:border-neutral-800">
-                <span class="flex-1 text-xs text-neutral-300 font-mono truncate">
-                  {name}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onRun(name)}
-                  disabled={busy()}
-                  class="px-1.5 py-0.5 text-[10px] uppercase tracking-wider rounded border border-amber-200/30 text-amber-100 hover:bg-amber-100/10 disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={`first("${name}")`}
-                >
-                  Run
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(name)}
-                  disabled={busy()}
-                  class="text-neutral-700 hover:text-rose-400 text-base leading-none px-1 disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={`delete ${name}`}
-                >
-                  ×
-                </button>
-              </div>
-            )}
+            {(name) => {
+              const protectedFile = isProtectedFile(name);
+              return (
+                <div class="flex items-center gap-1 px-2 py-1 bg-neutral-900/50 rounded border border-transparent hover:border-neutral-800">
+                  <span
+                    class={`flex-1 text-xs font-mono truncate ${
+                      protectedFile ? 'text-neutral-500 italic' : 'text-neutral-300'
+                    }`}
+                    title={
+                      protectedFile
+                        ? `${name} — core file, cannot be removed`
+                        : name
+                    }
+                  >
+                    {name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRun(name)}
+                    disabled={busy()}
+                    class="px-1.5 py-0.5 text-[10px] uppercase tracking-wider rounded border border-amber-200/30 text-amber-100 hover:bg-amber-100/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={`first("${name}")`}
+                  >
+                    Run
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(name)}
+                    disabled={busy() || protectedFile}
+                    class="text-neutral-700 hover:text-rose-400 text-base leading-none px-1 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-neutral-700"
+                    title={
+                      protectedFile
+                        ? `${name} is a core file`
+                        : `delete ${name}`
+                    }
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            }}
           </For>
         </div>
       </Show>

@@ -74,6 +74,19 @@ const initialStatus: DeviceStatus =
 const [_status, _setStatus] = createSignal<DeviceStatus>(initialStatus);
 export const deviceStatus = _status;
 
+/**
+ * Bump whenever the device's file list might have changed (after
+ * upload or delete). Components subscribe to this to auto-refresh
+ * their cached lists. We use an integer counter rather than firing the
+ * list itself so subscribers that aren't currently visible don't pay
+ * the cost.
+ */
+const [_fileListVersion, _setFileListVersion] = createSignal(0);
+export const fileListVersion = _fileListVersion;
+function bumpFileList(): void {
+  _setFileListVersion((v) => v + 1);
+}
+
 export function isSerialSupported(): boolean {
   return typeof navigator !== 'undefined' && 'serial' in navigator;
 }
@@ -374,6 +387,7 @@ export async function uploadAndRun(
   if (deviceStatus().kind === 'busy') {
     _setStatus({ kind: 'connected' });
   }
+  bumpFileList();
 }
 
 /**
@@ -394,26 +408,24 @@ export async function runFile(filename: string): Promise<void> {
 }
 
 /**
- * Ask the device for its file list and parse the names out of the
- * response. Sends the same Lua snippet diii's `list` command sends.
+ * Ask the device for its file list. iii exposes the shell-style helper
+ * `ls()` which prints one filename per line; that's what we send.
+ * Source: https://monome.org/docs/iii/code (filesystem section).
  */
 export async function listFiles(): Promise<string[]> {
   if (!_port) throw new Error('not connected to iii device');
-  const cmd = 'for _,x in pairs(fs_list_files()) do print(x) end';
-  const lines = await sendAndCollect(cmd, 400, 3000);
+  const lines = await sendAndCollect('ls()', 400, 3000);
   // The REPL echoes each character of the command back as we type it,
-  // so the response begins with garbled echoes of `cmd`. Filter to
-  // plausible filenames: non-empty, no special markers, not the
-  // command itself.
+  // so the response begins with garbled echoes of "ls()". Filter to
+  // plausible filenames: non-empty, no special markers, no shell-ish
+  // tokens, no spaces.
   const names = new Set<string>();
   for (const raw of lines) {
     const l = raw.trim();
     if (!l) continue;
     if (l.includes('^^')) continue;
-    if (l.includes('fs_list_files')) continue;
-    if (l.startsWith('>') || l.startsWith('for ')) continue;
-    // Filename heuristic: keep things that look like a single token
-    // (no spaces) — iii filenames are usually `something.lua`.
+    if (l === 'ls()' || l.startsWith('ls(')) continue;
+    if (l.startsWith('>')) continue;
     if (/\s/.test(l)) continue;
     names.add(l);
   }
@@ -430,11 +442,26 @@ export async function sendCommand(line: string): Promise<string[]> {
 }
 
 /**
- * Delete a file from the device. iii's filesystem API exposes
- * `fs_remove(name)`; we send that and capture the (usually empty)
- * response.
+ * Names of files the iii firmware treats as core / auto-rebuilt. We
+ * refuse to delete these from the UI side. (`lib.lua` IS technically
+ * removable — iii rebuilds it on the next boot — but removing it
+ * mid-session usually breaks scripts that depend on it.)
+ */
+export const PROTECTED_FILES: readonly string[] = ['init.lua', 'lib.lua'];
+
+export function isProtectedFile(name: string): boolean {
+  return PROTECTED_FILES.includes(name);
+}
+
+/**
+ * Delete a file from the device. iii exposes the shell-style `rm(file)`
+ * helper for this. Refuses to delete protected (core) files.
  */
 export async function deleteFile(filename: string): Promise<void> {
   if (!_port) throw new Error('not connected to iii device');
-  await sendAndCollect(`fs_remove("${filename}")`, 200, 1500);
+  if (isProtectedFile(filename)) {
+    throw new Error(`${filename} is a core file and cannot be removed`);
+  }
+  await sendAndCollect(`rm("${filename}")`, 250, 2000);
+  bumpFileList();
 }
