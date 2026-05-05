@@ -52,7 +52,25 @@ export const layoutName = _layoutName;
 export const setLayoutName = _setLayoutName;
 
 let _idCounter = 1;
-let _nameCounter = 1;
+
+/**
+ * Auto-name the next region. Scans the current region list for default
+ * names matching `region_N` and picks the smallest N not in use, so
+ * deleting a region frees its number for re-use rather than letting the
+ * counter monotonically climb. User-renamed regions still participate
+ * in the scan — we won't shadow `region_5` even if a user renamed
+ * something to that.
+ */
+function nextDefaultName(): string {
+  const used = new Set<number>();
+  for (const r of regions()) {
+    const m = /^region_(\d+)$/.exec(r.name);
+    if (m) used.add(parseInt(m[1]!, 10));
+  }
+  let n = 1;
+  while (used.has(n)) n += 1;
+  return `region_${n}`;
+}
 
 export function addRegion(input: {
   cellKeys: Set<string>;
@@ -66,7 +84,7 @@ export function addRegion(input: {
     // identifier without sanitization. The codegen sanitizes anyway
     // (defensive), but a clean default avoids the surprise of
     // `region-1` becoming `region_1` only after download.
-    name: `region_${_nameCounter++}`,
+    name: nextDefaultName(),
     cellKeys: input.cellKeys,
     mode: input.mode,
     recipeKind: input.recipeKind,
@@ -83,9 +101,9 @@ export function removeRegion(id: string): void {
 
 /**
  * Replace the entire region list. Used by session restore and layout
- * import. Bumps the internal id/name counters past the largest values
- * present so future auto-named regions don't collide with imported
- * ones.
+ * import. Bumps the internal id counter past the largest value present
+ * so future regions don't collide with imported ones. Names auto-fill
+ * gaps so they don't need a counter.
  */
 export function replaceAllRegions(newRegions: SavedRegion[]): void {
   _setRegions(newRegions);
@@ -94,18 +112,13 @@ export function replaceAllRegions(newRegions: SavedRegion[]): void {
     if (idMatch) {
       _idCounter = Math.max(_idCounter, parseInt(idMatch[1]!, 10) + 1);
     }
-    const nameMatch = /^region_(\d+)$/.exec(r.name);
-    if (nameMatch) {
-      _nameCounter = Math.max(_nameCounter, parseInt(nameMatch[1]!, 10) + 1);
-    }
   }
 }
 
-/** Clear the entire region list and reset the auto-name counters. */
+/** Clear the entire region list and reset the id counter. */
 export function clearAllRegions(): void {
   _setRegions([]);
   _idCounter = 1;
-  _nameCounter = 1;
 }
 
 export function renameRegion(id: string, name: string): void {
