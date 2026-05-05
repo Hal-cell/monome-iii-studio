@@ -30,6 +30,15 @@ local function grid_led(x, y, v)
   end
 end
 
+-- ---- forward declaration ----
+-- `redraw` is defined further down but is referenced from metro tick
+-- callbacks inside the region declarations below. Forward-declaring it
+-- here as a local makes each tick closure capture it as an upvalue, so
+-- the tick resolves the reference via the upvalue (which holds the
+-- assigned function once the script finishes loading) instead of
+-- falling through to a non-existent global.
+local redraw
+
 -- ---- region: selector ----
 local _selector_idx = {}
 _selector_idx[1 + 1*W] = 0
@@ -45,7 +54,7 @@ local function handle_selector(x, y, z)
 end
 
 -- ---- LED draw ----
-local function redraw()
+redraw = function()
   -- region: selector
   grid_led(1, 1, state.selector_index == 0 and 15 or 3)
   grid_led(2, 1, state.selector_index == 1 and 15 or 3)

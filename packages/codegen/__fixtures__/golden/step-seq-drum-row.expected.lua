@@ -33,6 +33,15 @@ local function grid_led(x, y, v)
   end
 end
 
+-- ---- forward declaration ----
+-- `redraw` is defined further down but is referenced from metro tick
+-- callbacks inside the region declarations below. Forward-declaring it
+-- here as a local makes each tick closure capture it as an upvalue, so
+-- the tick resolves the reference via the upvalue (which holds the
+-- assigned function once the script finishes loading) instead of
+-- falling through to a non-existent global.
+local redraw
+
 -- ---- region: drum ----
 local _drum_row = {}
 _drum_row[1 + 8*W] = 0
@@ -101,7 +110,7 @@ local _drum_metro = metro.init(_drum_tick, 0.125)
 _drum_metro:start()
 
 -- ---- LED draw ----
-local function redraw()
+redraw = function()
   -- region: drum
   grid_led(1, 8, _drum_pixel(0, 0))
   grid_led(2, 8, _drum_pixel(0, 1))

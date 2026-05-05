@@ -36,6 +36,15 @@ local function grid_led(x, y, v)
   end
 end
 
+-- ---- forward declaration ----
+-- `redraw` is defined further down but is referenced from metro tick
+-- callbacks inside the region declarations below. Forward-declaring it
+-- here as a local makes each tick closure capture it as an upvalue, so
+-- the tick resolves the reference via the upvalue (which holds the
+-- assigned function once the script finishes loading) instead of
+-- falling through to a non-existent global.
+local redraw
+
 -- ---- region: notes ----
 local _notes_idx = {}
 _notes_idx[1 + 8*W] = 0
@@ -88,7 +97,7 @@ local function handle_fader(x, y, z)
 end
 
 -- ---- LED draw ----
-local function redraw()
+redraw = function()
   -- region: notes
   grid_led(1, 8, state.notes_held[1 + 8*W] and 12 or 3)
   grid_led(2, 8, state.notes_held[2 + 8*W] and 12 or 3)
