@@ -8,7 +8,16 @@ import type { EmittedFragments } from './momentary.ts';
  * `state.<region>_data[page]`.
  */
 const NUM_PAGES = 4;
-// 0 = PITCH, 1 = OCT, 2 = VEL, 3 = GATE
+// 0 = PITCH, 1 = OCT, 2 = VEL, 3 = DURATION
+
+/**
+ * Sub-step resolution. The metro runs `STEP_TICKS` times per step so the
+ * DURATION page can express sub-step note lengths (true staccato), not
+ * just multiples of the step duration. With STEP_TICKS=8, V=1 can be a
+ * 1/8-step note while the previous design (one tick per step) made
+ * every value clamp to ≥ 1 step in dense sequences.
+ */
+const STEP_TICKS = 8;
 
 // LED brightness levels:
 const LED_FN_ACTIVE = 12;
@@ -36,14 +45,19 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
   const rrTable = `_${name}_rr`;
   const scaleOffsets = `_${name}_scale`;
   const velocityTable = `_${name}_vel`;
+  const durationTable = `_${name}_dur`;
   const stepSlot = `${name}_step`;
   const pageSlot = `${name}_page`;
   const dataSlot = `${name}_data`;
   const activeNoteSlot = `${name}_active_note`;
-  const activeGateSlot = `${name}_active_gate`;
+  const activeDurSlot = `${name}_active_dur`;
+  const subTickSlot = `${name}_sub`;
   const metroVar = `_${name}_metro`;
 
-  const masterTickSeconds = 60 / params.bpm / params.steps_per_beat;
+  // master tick = a fraction of one step, so duration values can
+  // express sub-step note lengths.
+  const stepSeconds = 60 / params.bpm / params.steps_per_beat;
+  const masterTickSeconds = stepSeconds / STEP_TICKS;
 
   // ---- compile-time tables ----
 
@@ -73,22 +87,32 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     return `[${v}]=${vel}`;
   }).join(', ');
 
-  // Gate mapping: V (1..bodyHeight) → master-tick count. We want the
-  // top cell to be a clearly-audible legato length regardless of BPM /
-  // steps_per_beat / bodyHeight, so we pin the top cell to MAX_GATE_S
-  // seconds and distribute the lower cells linearly in time. ceil()
-  // guarantees ≥ MAX_GATE_S; max(1, …) keeps the smallest cell from
-  // collapsing to a 0-tick (silent) gate when BPM is very fast.
-  // V=0 is "cleared / silent step" and stays at 0 ticks — the tick
-  // never reads it because the firing condition requires g > 0.
-  const MAX_GATE_S = 2;
-  const gateEntries = Array.from({ length: bodyHeight + 1 }, (_, v) => {
+  // Duration mapping: V (1..bodyHeight) → master-tick count, on a
+  // logarithmic curve so each cell is a perceptually-similar jump
+  // (human time perception is log, not linear). V=1 → 1 master tick
+  // (≈ stepSeconds / STEP_TICKS, true sub-step staccato), V=bodyHeight
+  // → MAX_DURATION_S seconds (≥ 2 s). Voice-stealing in dense
+  // sequences will still clamp larger values to the next-firing time,
+  // but at least the small / mid values land below one step duration
+  // and read as audibly distinct.
+  const MAX_DURATION_S = 2;
+  const minTicks = 1;
+  const maxTicks = Math.max(
+    minTicks + 1,
+    Math.ceil(MAX_DURATION_S / masterTickSeconds),
+  );
+  const durationEntries = Array.from({ length: bodyHeight + 1 }, (_, v) => {
     if (v === 0) return `[0]=0`;
-    const targetS = (v / bodyHeight) * MAX_GATE_S;
-    const ticks = Math.max(1, Math.ceil(targetS / masterTickSeconds));
+    if (bodyHeight === 1) return `[1]=${maxTicks}`;
+    // Geometric interpolation between minTicks and maxTicks across
+    // V=1..bodyHeight.
+    const t = (v - 1) / (bodyHeight - 1);
+    const ticks = Math.max(
+      minTicks,
+      Math.round(minTicks * Math.pow(maxTicks / minTicks, t)),
+    );
     return `[${v}]=${ticks}`;
   }).join(', ');
-  const gateTicks = `_${name}_gate`;
 
   // ---- state init ----
 
@@ -99,14 +123,14 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
   const octaveCenter = Math.floor(bodyHeight / 2) + 1;
 
   // Per-page initial value:
-  //   PITCH (0): empty — every step starts silent until the user sets
-  //              a degree.
-  //   OCT   (1): centre — see above.
-  //   VEL   (2): bodyHeight — max velocity, top cell lit. Without this
-  //              every step is silent and the other pages have no
-  //              audible effect.
-  //   GATE  (3): bodyHeight — longest gate. Same rationale — without
-  //              audibly-distinct gate values the page feels inert.
+  //   PITCH    (0): empty — every step starts silent until the user
+  //                 sets a degree.
+  //   OCT      (1): centre — see above.
+  //   VEL      (2): bodyHeight — max velocity, top cell lit. Without
+  //                 this every step is silent and the other pages have
+  //                 no audible effect.
+  //   DURATION (3): bodyHeight — longest duration, top cell lit. Same
+  //                 rationale as VEL.
   const PAGE_DEFAULTS = [0, octaveCenter, bodyHeight, bodyHeight];
 
   // data: 4 pages, each page is a {col → value 0..bodyHeight} table.
@@ -124,7 +148,10 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `${pageSlot} = 0,`,
     `${dataSlot} = {${dataInit}},`,
     `${activeNoteSlot} = -1,`,
-    `${activeGateSlot} = 0,`,
+    `${activeDurSlot} = 0,`,
+    // sub-tick counter: how many master ticks since the last step
+    // advance. Step advances when this reaches STEP_TICKS.
+    `${subTickSlot} = 0,`,
   ].join('\n');
 
   // ---- declarations: helper tables, tick, handler, pixel, metro ----
@@ -137,36 +164,39 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     rrLines,
     `local ${scaleOffsets} = {${scaleEntries}}`,
     `local ${velocityTable} = {${velocityEntries}}`,
-    `local ${gateTicks} = {${gateEntries}}`,
+    `local ${durationTable} = {${durationEntries}}`,
     '',
     // ---- tick ----
     `local function ${tickName}()`,
-    "  -- 1. tick down active gate; close any voice that just expired",
-    `  if state.${activeGateSlot} > 0 then`,
-    `    state.${activeGateSlot} = state.${activeGateSlot} - 1`,
-    `    if state.${activeGateSlot} == 0 and state.${activeNoteSlot} >= 0 then`,
+    "  -- 1. tick down active note duration; close any voice that just expired",
+    `  if state.${activeDurSlot} > 0 then`,
+    `    state.${activeDurSlot} = state.${activeDurSlot} - 1`,
+    `    if state.${activeDurSlot} == 0 and state.${activeNoteSlot} >= 0 then`,
     `      midi_note_off(state.${activeNoteSlot}, 0, ${params.channel})`,
     `      state.${activeNoteSlot} = -1`,
     '    end',
     '  end',
-    "  -- 2. advance the playhead",
+    `  -- 2. only advance the playhead every ${STEP_TICKS} master ticks`,
+    `  state.${subTickSlot} = state.${subTickSlot} + 1`,
+    `  if state.${subTickSlot} < ${STEP_TICKS} then return end`,
+    `  state.${subTickSlot} = 0`,
     `  state.${stepSlot} = (state.${stepSlot} + 1) % ${numCols}`,
     "  -- 3. compute and fire the new step's note (if it has one)",
     `  local pitch = state.${dataSlot}[0][state.${stepSlot}]`,
     `  local oct = state.${dataSlot}[1][state.${stepSlot}]`,
     `  local v = state.${dataSlot}[2][state.${stepSlot}]`,
-    `  local g = state.${dataSlot}[3][state.${stepSlot}]`,
-    "  -- pitch / v / g all > 0 required for the step to sound. v=0",
-    "  -- (cleared on VEL page) and g=0 (cleared on GATE page) both",
-    "  -- silence the step the same way pitch=0 does.",
-    '  if pitch > 0 and v > 0 and g > 0 then',
+    `  local d = state.${dataSlot}[3][state.${stepSlot}]`,
+    "  -- pitch / v / d all > 0 required for the step to sound. v=0",
+    "  -- (cleared on VEL page) and d=0 (cleared on DURATION page)",
+    "  -- both silence the step the same way pitch=0 does.",
+    '  if pitch > 0 and v > 0 and d > 0 then',
     `    if state.${activeNoteSlot} >= 0 then`,
     `      midi_note_off(state.${activeNoteSlot}, 0, ${params.channel})`,
     '    end',
     `    local note = ${params.root_note} + ${scaleOffsets}[pitch] + 12 * (oct - ${octaveCenter})`,
     `    midi_note_on(note, ${velocityTable}[v], ${params.channel})`,
     `    state.${activeNoteSlot} = note`,
-    `    state.${activeGateSlot} = ${gateTicks}[g]`,
+    `    state.${activeDurSlot} = ${durationTable}[d]`,
     '  end',
     '  redraw()',
     'end',

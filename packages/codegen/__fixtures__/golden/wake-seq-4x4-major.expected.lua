@@ -14,7 +14,8 @@ local state = {
   wake_page = 0,
   wake_data = {[0]={[0]=0, [1]=0, [2]=0, [3]=0}, [1]={[0]=2, [1]=2, [2]=2, [3]=2}, [2]={[0]=3, [1]=3, [2]=3, [3]=3}, [3]={[0]=3, [1]=3, [2]=3, [3]=3}},
   wake_active_note = -1,
-  wake_active_gate = 0,
+  wake_active_dur = 0,
+  wake_sub = 0,
 }
 
 -- ---- differential LED writes ----
@@ -80,35 +81,38 @@ _wake_rr[3 + 4*W] = 3
 _wake_rr[4 + 4*W] = 3
 local _wake_scale = {[1]=0, [2]=2, [3]=4}
 local _wake_vel = {[0]=0, [1]=42, [2]=84, [3]=127}
-local _wake_gate = {[0]=0, [1]=6, [2]=11, [3]=16}
+local _wake_dur = {[0]=0, [1]=1, [2]=11, [3]=128}
 
 local function _wake_tick()
-  -- 1. tick down active gate; close any voice that just expired
-  if state.wake_active_gate > 0 then
-    state.wake_active_gate = state.wake_active_gate - 1
-    if state.wake_active_gate == 0 and state.wake_active_note >= 0 then
+  -- 1. tick down active note duration; close any voice that just expired
+  if state.wake_active_dur > 0 then
+    state.wake_active_dur = state.wake_active_dur - 1
+    if state.wake_active_dur == 0 and state.wake_active_note >= 0 then
       midi_note_off(state.wake_active_note, 0, 1)
       state.wake_active_note = -1
     end
   end
-  -- 2. advance the playhead
+  -- 2. only advance the playhead every 8 master ticks
+  state.wake_sub = state.wake_sub + 1
+  if state.wake_sub < 8 then return end
+  state.wake_sub = 0
   state.wake_step = (state.wake_step + 1) % 4
   -- 3. compute and fire the new step's note (if it has one)
   local pitch = state.wake_data[0][state.wake_step]
   local oct = state.wake_data[1][state.wake_step]
   local v = state.wake_data[2][state.wake_step]
-  local g = state.wake_data[3][state.wake_step]
-  -- pitch / v / g all > 0 required for the step to sound. v=0
-  -- (cleared on VEL page) and g=0 (cleared on GATE page) both
-  -- silence the step the same way pitch=0 does.
-  if pitch > 0 and v > 0 and g > 0 then
+  local d = state.wake_data[3][state.wake_step]
+  -- pitch / v / d all > 0 required for the step to sound. v=0
+  -- (cleared on VEL page) and d=0 (cleared on DURATION page)
+  -- both silence the step the same way pitch=0 does.
+  if pitch > 0 and v > 0 and d > 0 then
     if state.wake_active_note >= 0 then
       midi_note_off(state.wake_active_note, 0, 1)
     end
     local note = 60 + _wake_scale[pitch] + 12 * (oct - 2)
     midi_note_on(note, _wake_vel[v], 1)
     state.wake_active_note = note
-    state.wake_active_gate = _wake_gate[g]
+    state.wake_active_dur = _wake_dur[d]
   end
   redraw()
 end
@@ -156,7 +160,7 @@ local function _wake_pixel(col, rr)
   return on_step and 4 or 0
 end
 
-local _wake_metro = metro.init(_wake_tick, 0.125)
+local _wake_metro = metro.init(_wake_tick, 0.015625)
 _wake_metro:start()
 
 -- ---- LED draw ----

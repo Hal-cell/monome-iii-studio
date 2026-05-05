@@ -376,13 +376,14 @@ export type StepSequencerBehavior = {
  *           linearly). Default = body_height (max), so steps fire as
  *           soon as PITCH is set without the user having to touch this
  *           page first.
- *   3 GATE   note length, distributed linearly in TIME from 0..2 s.
- *           Value V (1..body_height) maps to ceil(V/body_height × 2 s
- *           / master_tick) master ticks, so the top cell is always
- *           ≥ 2 s of held note regardless of BPM / steps_per_beat /
- *           body_height. V=0 = silent step. Default = body_height
- *           (longest), so changes on this page are immediately
- *           audible.
+ *   3 DURATION
+ *           note length, distributed on a logarithmic time curve from
+ *           one master tick (≈ stepDuration / STEP_TICKS, true sub-step
+ *           staccato) up to ≥ 2 s. The metro runs `STEP_TICKS` times
+ *           per step so V=1 can express a sub-step note even in dense
+ *           sequences (where every step has a pitch and voice-stealing
+ *           clamps longer values to the next-firing time).
+ *           V=0 = silent step. Default = body_height (longest).
  *
  * Live BPM / run-stop / scale switching are NOT in v1 — those need
  * the CLK page (deferred). For v1, scale + root + bpm are static
