@@ -62,30 +62,13 @@ _keys_note[2 + 8*W] = 61
 _keys_note[3 + 8*W] = 62
 _keys_note[4 + 8*W] = 63
 local _keys_chord_voicing = {}
-_keys_chord_voicing[1] = {{[3 + 6*W]=true, [2 + 5*W]=true, [3 + 7*W]=true}, {[1 + 8*W]=true, [2 + 5*W]=true, [3 + 7*W]=true}}
-_keys_chord_voicing[2] = {{[3 + 8*W]=true, [3 + 5*W]=true}, {[3 + 8*W]=true, [1 + 7*W]=true}}
-_keys_chord_voicing[3] = {{[2 + 5*W]=true, [3 + 7*W]=true, [2 + 6*W]=true}}
-_keys_chord_voicing[4] = {{[3 + 5*W]=true, [3 + 6*W]=true}, {[1 + 7*W]=true, [1 + 8*W]=true}, {[1 + 7*W]=true, [3 + 6*W]=true}, {[3 + 5*W]=true, [1 + 8*W]=true}}
-_keys_chord_voicing[5] = {{[3 + 7*W]=true, [2 + 6*W]=true, [3 + 8*W]=true}}
-_keys_chord_voicing[6] = {{[3 + 6*W]=true, [2 + 5*W]=true}, {[1 + 8*W]=true, [2 + 5*W]=true}}
-_keys_chord_voicing[7] = {{[2 + 6*W]=true, [3 + 8*W]=true, [3 + 5*W]=true}, {[2 + 6*W]=true, [3 + 8*W]=true, [1 + 7*W]=true}}
-local _keys_idle = {}
-_keys_idle[1 + 5*W] = 0
-_keys_idle[2 + 5*W] = 3
-_keys_idle[3 + 5*W] = 3
-_keys_idle[4 + 5*W] = 0
-_keys_idle[1 + 6*W] = 0
-_keys_idle[2 + 6*W] = 3
-_keys_idle[3 + 6*W] = 6
-_keys_idle[4 + 6*W] = 0
-_keys_idle[1 + 7*W] = 3
-_keys_idle[2 + 7*W] = 0
-_keys_idle[3 + 7*W] = 3
-_keys_idle[4 + 7*W] = 0
-_keys_idle[1 + 8*W] = 6
-_keys_idle[2 + 8*W] = 0
-_keys_idle[3 + 8*W] = 3
-_keys_idle[4 + 8*W] = 0
+_keys_chord_voicing[1] = {{99, 82, 115}, {129, 82, 115}}
+_keys_chord_voicing[2] = {{131, 83}, {131, 113}}
+_keys_chord_voicing[3] = {{82, 115, 98}}
+_keys_chord_voicing[4] = {{83, 99}, {113, 129}, {113, 99}, {83, 129}}
+_keys_chord_voicing[5] = {{115, 98, 131}}
+_keys_chord_voicing[6] = {{99, 82}, {129, 82}}
+_keys_chord_voicing[7] = {{98, 131, 83}, {98, 131, 113}}
 local _keys_next_chord = {[1]={2, 3, 4, 5, 6, 7}, [2]={5, 7}, [3]={4, 6}, [4]={1, 5, 7}, [5]={1, 6}, [6]={2, 4, 5}, [7]={1, 3}}
 local function handle_keys(x, y, z)
   local note = _keys_note[x + y*W]
@@ -109,17 +92,21 @@ local function handle_keys(x, y, z)
     end
   end
 end
-
 local function _keys_pixel(k)
   if state.keys_held[k] then return 12 end
-  local vs = _keys_chord_voicing[state.keys_coach_chord]
-  if vs then
-    local v = vs[state.keys_coach_voicing_idx]
-    if v and v[k] then
+  local v = _keys_chord_voicing[state.keys_coach_chord]
+  if v then
+    local cv = v[state.keys_coach_voicing_idx]
+    if cv and (cv[1] == k or cv[2] == k or cv[3] == k) then
       return state.keys_coach_blink == 0 and 13 or 6
     end
   end
-  return _keys_idle[k] or 0
+  local note = _keys_note[k]
+  if not note then return 0 end
+  local pc = (note - 60) % 12
+  if pc == 0 then return 6 end
+  local in_scale = {[0]=true, [2]=true, [4]=true, [5]=true, [7]=true, [9]=true, [11]=true}
+  return in_scale[pc] and 3 or 0
 end
 
 local function _keys_blink_tick()
