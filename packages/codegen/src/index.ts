@@ -22,6 +22,8 @@ export type {
   MomentaryCCParams,
   MomentaryNoteParams,
   MomentaryParams,
+  NoteMonitorBehavior,
+  NoteMonitorParams,
   Page,
   Region,
   RegionMode,

@@ -390,6 +390,46 @@ export type LfoBehavior = {
   params: LfoParams;
 };
 
+// ---------- Note monitor (MIDI input → grid feedback) ----------
+
+/**
+ * Visualises incoming MIDI note_on / note_off events on the grid.
+ * Each cell of the selection corresponds to one MIDI note: cell index
+ * 0 = `base_note`, cell index 1 = `base_note + 1`, etc. Notes outside
+ * the cell range are silently ignored.
+ *
+ * Group-only. No grid input — purely an output. Optionally
+ * velocity-responsive (LED brightness scales with the incoming
+ * note's velocity).
+ *
+ * Channel filter: 0 = listen on every channel; 1..16 = only the
+ * matching channel. iii's `event_midi(d1, d2, d3)` exposes the raw
+ * MIDI bytes; we mask the high nibble of d1 for status and the low
+ * nibble for channel.
+ */
+export type NoteMonitorParams = {
+  /** 0 = any channel, 1..16 = specific channel */
+  channel: number;
+  /** MIDI note for the first (top-left in cell-sort order) cell. */
+  base_note: number;
+  /** Brightness when a note is held (or fixed level if not velocity-responsive). */
+  led_held: number;
+  /** Brightness when no note is held. */
+  led_idle: number;
+  /**
+   * If true, the held brightness scales with velocity:
+   * led_idle + (led_held - led_idle) * velocity / 127.
+   * If false, every note_on lights the cell at led_held regardless
+   * of velocity.
+   */
+  velocity_responsive: boolean;
+};
+
+export type NoteMonitorBehavior = {
+  kind: 'note_monitor';
+  params: NoteMonitorParams;
+};
+
 // ---------- Wake sequencer ----------
 
 /**
@@ -474,7 +514,8 @@ export type Behavior =
   | NoteKeyboardBehavior
   | StepSequencerBehavior
   | WakeSequencerBehavior
-  | LfoBehavior;
+  | LfoBehavior
+  | NoteMonitorBehavior;
 
 // ---------- Region / Page / GridLayout ----------
 
