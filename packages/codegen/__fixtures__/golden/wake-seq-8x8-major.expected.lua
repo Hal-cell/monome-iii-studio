@@ -15,6 +15,9 @@ local state = {
   wake_page = 0,
   wake_data = {[0]={[0]=0, [1]=0, [2]=0, [3]=0, [4]=0, [5]=0, [6]=0, [7]=0}, [1]={[0]=4, [1]=4, [2]=4, [3]=4, [4]=4, [5]=4, [6]=4, [7]=4}, [2]={[0]=7, [1]=7, [2]=7, [3]=7, [4]=7, [5]=7, [6]=7, [7]=7}, [3]={[0]=7, [1]=7, [2]=7, [3]=7, [4]=7, [5]=7, [6]=7, [7]=7}},
   wake_length = 8,
+  wake_running = 1,
+  wake_bpm = 120,
+  wake_scale_idx = 2,
   wake_active_note = -1,
   wake_active_dur = 0,
   wake_sub = 0,
@@ -177,11 +180,18 @@ _wake_rr[5 + 8*W] = 7
 _wake_rr[6 + 8*W] = 7
 _wake_rr[7 + 8*W] = 7
 _wake_rr[8 + 8*W] = 7
-local _wake_scale = {[1]=0, [2]=2, [3]=4, [4]=5, [5]=7, [6]=9, [7]=11}
+local _wake_scales = {[1]={[1]=0, [2]=1, [3]=2, [4]=3, [5]=4, [6]=5, [7]=6}, [2]={[1]=0, [2]=2, [3]=4, [4]=5, [5]=7, [6]=9, [7]=11}, [3]={[1]=0, [2]=2, [3]=3, [4]=5, [5]=7, [6]=8, [7]=10}, [4]={[1]=0, [2]=2, [3]=3, [4]=5, [5]=7, [6]=9, [7]=10}, [5]={[1]=0, [2]=1, [3]=3, [4]=5, [5]=7, [6]=8, [7]=10}, [6]={[1]=0, [2]=2, [3]=4, [4]=6, [5]=7, [6]=9, [7]=11}, [7]={[1]=0, [2]=2, [3]=4, [4]=5, [5]=7, [6]=9, [7]=10}, [8]={[1]=0, [2]=1, [3]=3, [4]=5, [5]=6, [6]=8, [7]=10}}
 local _wake_vel = {[0]=0, [1]=18, [2]=36, [3]=54, [4]=72, [5]=90, [6]=108, [7]=127}
 local _wake_dur = {[0]=0, [1]=32, [2]=59, [3]=85, [4]=112, [5]=139, [6]=165, [7]=192}
 
+local _wake_metro
+
 local function _wake_tick()
+  -- 0. running gate. CLK page can stop playback; we still let the
+  -- metro fire so the page can be repainted on press, but skip
+  -- all the audio + step machinery. Any active note is killed
+  -- once on stop (handled in the press handler).
+  if state.wake_running == 0 then return end
   -- 1. tick down active note duration; close any voice that just expired
   if state.wake_active_dur > 0 then
     state.wake_active_dur = state.wake_active_dur - 1
@@ -209,7 +219,9 @@ local function _wake_tick()
     if state.wake_active_note >= 0 then
       midi_note_off(state.wake_active_note, 0, 1)
     end
-    local note = 60 + _wake_scale[pitch] + 12 * (oct - 4)
+    -- Scale offsets are looked up via state.scale_idx so the CLK
+    -- page can switch scales live without recompiling the script.
+    local note = 60 + _wake_scales[state.wake_scale_idx][pitch] + 12 * (oct - 4)
     midi_note_on(note, _wake_vel[v], 1)
     state.wake_active_note = note
     state.wake_active_dur = _wake_dur[d]
@@ -223,7 +235,7 @@ local function handle_wake(x, y, z)
   local rr = _wake_rr[x + y*W]
   if rr == 0 then
     -- function row: page select (extra cells beyond NUM_PAGES are ignored)
-    if c < 5 then
+    if c < 6 then
       state.wake_page = c
     end
   else
@@ -235,6 +247,45 @@ local function handle_wake(x, y, z)
       state.wake_length = c + 1
       if state.wake_step >= state.wake_length then
         state.wake_step = -1
+      end
+    elseif state.wake_page == 5 then
+      -- CLK page. Dispatch by body-row:
+      --   rr=1: scale picker (col 0..7 = 8 scales, 1-based idx)
+      --   rr=2: run/stop (col 0 = stop, col 1 = run)
+      --   rr=3..bodyHeight: BPM meter (press to set live BPM)
+      if rr == 1 then
+        if c >= 0 and c < 8 then
+          state.wake_scale_idx = c + 1
+        end
+      elseif rr == 2 then
+        if c == 0 then
+          -- stop: kill any voice + freeze the playhead
+          state.wake_running = 0
+          if state.wake_active_note >= 0 then
+            midi_note_off(state.wake_active_note, 0, 1)
+            state.wake_active_note = -1
+          end
+          state.wake_active_dur = 0
+        elseif c == 1 then
+          state.wake_running = 1
+        end
+      else
+        -- BPM meter. Cell index is read in row-major order
+        -- (top-to-bottom of the meter, left-to-right within
+        -- each row), so top-left = MIN_BPM and bottom-right
+        -- = MAX_BPM. Press to set state.bpm and recompute
+        -- the metro period; if the metro is running the live
+        -- update kicks in via metro_set under the hood.
+        local bpm_row = rr - 3
+        local idx = bpm_row * 8 + c
+        if idx >= 0 and idx < 40 then
+          local bpm = 60 + math.floor((idx + 1) * 240 / 40)
+          if bpm < 60 then bpm = 60 end
+          if bpm > 300 then bpm = 300 end
+          state.wake_bpm = bpm
+          local new_period = 60 / bpm / 4 / 8
+          if _wake_metro ~= nil then _wake_metro.time = new_period end
+        end
       end
     else
       local body_row = rr - 1
@@ -256,7 +307,7 @@ end
 local function _wake_pixel(col, rr)
   if rr == 0 then
     -- function row
-    if col >= 5 then return 1 end
+    if col >= 6 then return 1 end
     return (state.wake_page == col) and 12 or 6
   end
   -- body row
@@ -269,6 +320,29 @@ local function _wake_pixel(col, rr)
       return on_step and 15 or 12
     end
     return 0
+  end
+  if state.wake_page == 5 then
+    -- CLK page. rr=1 scale picker, rr=2 run/stop, rr>=3 BPM meter.
+    if rr == 1 then
+      -- scale picker: 8 cells, active scale at LED_VALUE, others
+      -- LED_VALUE_INACTIVE; cells past 8 are LED_OFF.
+      if col >= 8 then return 0 end
+      return (state.wake_scale_idx == col + 1) and 12 or 4
+    end
+    if rr == 2 then
+      -- run/stop: col 0 = stop indicator (bright when stopped),
+      -- col 1 = run indicator (bright when running). Others off.
+      if col == 0 then return state.wake_running == 0 and 12 or 4 end
+      if col == 1 then return state.wake_running == 1 and 12 or 4 end
+      return 0
+    end
+    -- BPM meter: cell idx 0..bpmCellsTotal-1 in reading order
+    -- (rr=3 row first). Cell lit if its threshold ≤ current BPM.
+    local bpm_row = rr - 3
+    local idx = bpm_row * 8 + col
+    if idx < 0 or idx >= 40 then return 0 end
+    local threshold = 60 + math.floor((idx + 1) * 240 / 40)
+    return state.wake_bpm >= threshold and 12 or 4
   end
   -- normal value pages: single lit cell per column for the data
   -- value, dimmed if the column is past the active length so the
@@ -285,7 +359,7 @@ local function _wake_pixel(col, rr)
   return on_step and 4 or 0
 end
 
-local _wake_metro = metro.init(_wake_tick, 0.015625)
+_wake_metro = metro.init(_wake_tick, 0.015625)
 _wake_metro:start()
 
 -- ---- per-page LED draw ----

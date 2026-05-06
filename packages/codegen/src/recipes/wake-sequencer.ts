@@ -1,16 +1,27 @@
 import type { Cell, Region, WakeSequencerBehavior } from '../types.ts';
 import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
-import { noteAtDegree } from '../scales.ts';
+import { SCALE_NAMES, noteAtDegree } from '../scales.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 /**
- * v1 page set. Indices match `state.<region>_page`. Pages 0..3 use
- * `state.<region>_data[page][col]`; page 4 (LENGTH) uses the separate
- * scalar `state.<region>_length`.
+ * v2 page set. Indices match `state.<region>_page`.
+ *
+ *   Pages 0..3 (PITCH / OCT / VEL / DURATION) use
+ *     `state.<region>_data[page][col]` — per-step values.
+ *   Page 4 (LENGTH) uses the scalar `state.<region>_length`.
+ *   Page 5 (CLK) is a live-control panel that mutates global script
+ *     state: BPM, run/stop, scale index. Layout (top of body
+ *     downward): rr=1 = scale picker (8 cells), rr=2 = run/stop
+ *     (col 0 = stop, col 1 = run), rr=3..bodyHeight = BPM meter
+ *     (2D, top-left = MIN_BPM, bottom-right = MAX_BPM).
  */
-const NUM_PAGES = 5;
-// 0 = PITCH, 1 = OCT, 2 = VEL, 3 = DURATION, 4 = LENGTH
+const NUM_PAGES = 6;
 const PAGE_LENGTH = 4;
+const PAGE_CLK = 5;
+
+// CLK page tunables.
+const MIN_BPM = 60;
+const MAX_BPM = 300;
 
 /**
  * Sub-step resolution. The metro runs `STEP_TICKS` times per step so the
@@ -46,13 +57,16 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
   const pixelName = `_${name}_pixel`;
   const colTable = `_${name}_col`;
   const rrTable = `_${name}_rr`;
-  const scaleOffsets = `_${name}_scale`;
+  const scalesTable = `_${name}_scales`; // 2D: [scale_idx][pitch] → semitones
   const velocityTable = `_${name}_vel`;
   const durationTable = `_${name}_dur`;
   const stepSlot = `${name}_step`;
   const pageSlot = `${name}_page`;
   const dataSlot = `${name}_data`;
   const lengthSlot = `${name}_length`;
+  const runningSlot = `${name}_running`;
+  const bpmSlot = `${name}_bpm`;
+  const scaleIdxSlot = `${name}_scale_idx`;
   const activeNoteSlot = `${name}_active_note`;
   const activeDurSlot = `${name}_active_dur`;
   const subTickSlot = `${name}_sub`;
@@ -77,13 +91,22 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     .map((c) => `${rrTable}[${luaKey(c)}] = ${c.y - yTop}`)
     .join('\n');
 
-  // Scale offsets: pitch value 1..bodyHeight → semitone offset from
-  // root_note. Walks scale degrees 0..bodyHeight-1; noteAtDegree
-  // handles octave wrap so longer body_height keeps climbing the scale.
-  const scaleEntries = Array.from(
-    { length: bodyHeight },
-    (_, i) => `[${i + 1}]=${noteAtDegree(0, params.scale, i)}`,
-  ).join(', ');
+  // Scale offsets, indexed by scale index (1..#SCALE_NAMES) then
+  // pitch value (1..bodyHeight). The CLK page lets the user switch
+  // scales live by changing `state.<region>_scale_idx`; we precompute
+  // every scale's offsets at codegen time so the tick body just does
+  // a 2D lookup.
+  const scaleEntries = SCALE_NAMES.map((scaleName, sIdx) => {
+    const offsets = Array.from(
+      { length: bodyHeight },
+      (_, i) => `[${i + 1}]=${noteAtDegree(0, scaleName, i)}`,
+    ).join(', ');
+    return `[${sIdx + 1}]={${offsets}}`;
+  }).join(', ');
+
+  // Initial scale index (1-based) — derived from the panel's `scale`
+  // param, so the first run sounds like the user configured.
+  const initialScaleIdx = SCALE_NAMES.indexOf(params.scale) + 1 || 1;
 
   // Velocity mapping: 0..bodyHeight → 0..127, linear, with 0 → 0.
   const velocityEntries = Array.from({ length: bodyHeight + 1 }, (_, v) => {
@@ -148,6 +171,12 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     // active step count. Defaults to numCols (the whole region plays);
     // the user can shorten it on the LENGTH page (page 4).
     `${lengthSlot} = ${numCols},`,
+    // CLK page state. running=1 → playhead advances + audio; 0 →
+    // metro keeps ticking but tick body short-circuits. bpm and
+    // scale_idx are mutated live by the CLK page handler.
+    `${runningSlot} = 1,`,
+    `${bpmSlot} = ${params.bpm},`,
+    `${scaleIdxSlot} = ${initialScaleIdx},`,
     `${activeNoteSlot} = -1,`,
     `${activeDurSlot} = 0,`,
     // sub-tick counter: how many master ticks since the last step
@@ -157,18 +186,37 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
 
   // ---- declarations: helper tables, tick, handler, pixel, metro ----
 
+  // ---- BPM meter geometry on CLK page ----
+  // Body rows reserved on CLK page (1-indexed within body):
+  //   rr=1: scale picker
+  //   rr=2: run/stop
+  //   rr=3..bodyHeight: BPM meter (numCols cols × (bodyHeight-2) rows)
+  const bpmRowsTotal = Math.max(0, bodyHeight - 2);
+  const bpmCellsTotal = bpmRowsTotal * numCols;
+
   const declarations = [
     `-- ---- region: ${name} ----`,
     `local ${colTable} = {}`,
     colLines,
     `local ${rrTable} = {}`,
     rrLines,
-    `local ${scaleOffsets} = {${scaleEntries}}`,
+    `local ${scalesTable} = {${scaleEntries}}`,
     `local ${velocityTable} = {${velocityEntries}}`,
     `local ${durationTable} = {${durationEntries}}`,
     '',
+    // Forward-declare the metro so the press handler (defined below
+    // but lexically before the metro.init call) can capture it as an
+    // upvalue. CLK page mutations need to call _metro.time = X to
+    // change BPM live.
+    `local ${metroVar}`,
+    '',
     // ---- tick ----
     `local function ${tickName}()`,
+    "  -- 0. running gate. CLK page can stop playback; we still let the",
+    "  -- metro fire so the page can be repainted on press, but skip",
+    "  -- all the audio + step machinery. Any active note is killed",
+    "  -- once on stop (handled in the press handler).",
+    `  if state.${runningSlot} == 0 then return end`,
     "  -- 1. tick down active note duration; close any voice that just expired",
     `  if state.${activeDurSlot} > 0 then`,
     `    state.${activeDurSlot} = state.${activeDurSlot} - 1`,
@@ -196,7 +244,9 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `    if state.${activeNoteSlot} >= 0 then`,
     `      midi_note_off(state.${activeNoteSlot}, 0, ${params.channel})`,
     '    end',
-    `    local note = ${params.root_note} + ${scaleOffsets}[pitch] + 12 * (oct - ${octaveCenter})`,
+    "    -- Scale offsets are looked up via state.scale_idx so the CLK",
+    "    -- page can switch scales live without recompiling the script.",
+    `    local note = ${params.root_note} + ${scalesTable}[state.${scaleIdxSlot}][pitch] + 12 * (oct - ${octaveCenter})`,
     `    midi_note_on(note, ${velocityTable}[v], ${params.channel})`,
     `    state.${activeNoteSlot} = note`,
     `    state.${activeDurSlot} = ${durationTable}[d]`,
@@ -224,6 +274,49 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `      if state.${stepSlot} >= state.${lengthSlot} then`,
     `        state.${stepSlot} = -1`,
     '      end',
+    `    elseif state.${pageSlot} == ${PAGE_CLK} then`,
+    "      -- CLK page. Dispatch by body-row:",
+    "      --   rr=1: scale picker (col 0..7 = 8 scales, 1-based idx)",
+    "      --   rr=2: run/stop (col 0 = stop, col 1 = run)",
+    "      --   rr=3..bodyHeight: BPM meter (press to set live BPM)",
+    `      if rr == 1 then`,
+    `        if c >= 0 and c < ${SCALE_NAMES.length} then`,
+    `          state.${scaleIdxSlot} = c + 1`,
+    '        end',
+    `      elseif rr == 2 then`,
+    `        if c == 0 then`,
+    "          -- stop: kill any voice + freeze the playhead",
+    `          state.${runningSlot} = 0`,
+    `          if state.${activeNoteSlot} >= 0 then`,
+    `            midi_note_off(state.${activeNoteSlot}, 0, ${params.channel})`,
+    `            state.${activeNoteSlot} = -1`,
+    '          end',
+    `          state.${activeDurSlot} = 0`,
+    `        elseif c == 1 then`,
+    `          state.${runningSlot} = 1`,
+    '        end',
+    bpmCellsTotal > 0
+      ? [
+          `      else`,
+          `        -- BPM meter. Cell index is read in row-major order`,
+          `        -- (top-to-bottom of the meter, left-to-right within`,
+          `        -- each row), so top-left = MIN_BPM and bottom-right`,
+          `        -- = MAX_BPM. Press to set state.bpm and recompute`,
+          `        -- the metro period; if the metro is running the live`,
+          `        -- update kicks in via metro_set under the hood.`,
+          `        local bpm_row = rr - 3`,
+          `        local idx = bpm_row * ${numCols} + c`,
+          `        if idx >= 0 and idx < ${bpmCellsTotal} then`,
+          `          local bpm = ${MIN_BPM} + math.floor((idx + 1) * ${MAX_BPM - MIN_BPM} / ${bpmCellsTotal})`,
+          `          if bpm < ${MIN_BPM} then bpm = ${MIN_BPM} end`,
+          `          if bpm > ${MAX_BPM} then bpm = ${MAX_BPM} end`,
+          `          state.${bpmSlot} = bpm`,
+          `          local new_period = 60 / bpm / ${params.steps_per_beat} / ${STEP_TICKS}`,
+          `          if ${metroVar} ~= nil then ${metroVar}.time = new_period end`,
+          `        end`,
+        ].join('\n')
+      : '',
+    `      end`,
     '    else',
     `      local body_row = rr - 1`,
     `      local value = ${bodyHeight} - body_row`,
@@ -259,6 +352,33 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     '    end',
     `    return ${LED_OFF}`,
     '  end',
+    `  if state.${pageSlot} == ${PAGE_CLK} then`,
+    "    -- CLK page. rr=1 scale picker, rr=2 run/stop, rr>=3 BPM meter.",
+    `    if rr == 1 then`,
+    "      -- scale picker: 8 cells, active scale at LED_VALUE, others",
+    "      -- LED_VALUE_INACTIVE; cells past 8 are LED_OFF.",
+    `      if col >= ${SCALE_NAMES.length} then return ${LED_OFF} end`,
+    `      return (state.${scaleIdxSlot} == col + 1) and ${LED_VALUE} or ${LED_VALUE_INACTIVE}`,
+    '    end',
+    `    if rr == 2 then`,
+    "      -- run/stop: col 0 = stop indicator (bright when stopped),",
+    "      -- col 1 = run indicator (bright when running). Others off.",
+    `      if col == 0 then return state.${runningSlot} == 0 and ${LED_VALUE} or ${LED_VALUE_INACTIVE} end`,
+    `      if col == 1 then return state.${runningSlot} == 1 and ${LED_VALUE} or ${LED_VALUE_INACTIVE} end`,
+    `      return ${LED_OFF}`,
+    '    end',
+    bpmCellsTotal > 0
+      ? [
+          "    -- BPM meter: cell idx 0..bpmCellsTotal-1 in reading order",
+          "    -- (rr=3 row first). Cell lit if its threshold ≤ current BPM.",
+          `    local bpm_row = rr - 3`,
+          `    local idx = bpm_row * ${numCols} + col`,
+          `    if idx < 0 or idx >= ${bpmCellsTotal} then return ${LED_OFF} end`,
+          `    local threshold = ${MIN_BPM} + math.floor((idx + 1) * ${MAX_BPM - MIN_BPM} / ${bpmCellsTotal})`,
+          `    return state.${bpmSlot} >= threshold and ${LED_VALUE} or ${LED_VALUE_INACTIVE}`,
+        ].join('\n')
+      : `    return ${LED_OFF}`,
+    '  end',
     "  -- normal value pages: single lit cell per column for the data",
     "  -- value, dimmed if the column is past the active length so the",
     "  -- user can see which programmed notes won't fire.",
@@ -274,7 +394,7 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     `  return on_step and ${LED_PLAYHEAD} or ${LED_OFF}`,
     'end',
     '',
-    `local ${metroVar} = metro.init(${tickName}, ${masterTickSeconds})`,
+    `${metroVar} = metro.init(${tickName}, ${masterTickSeconds})`,
     `${metroVar}:start()`,
   ].join('\n');
 
