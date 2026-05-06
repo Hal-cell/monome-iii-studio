@@ -23,17 +23,22 @@
  *   Each tick scans one column, left → right, wrapping. Alive
  *   cells in the current column trigger note-on (staccato), with
  *   y → pitch via the active scale (8 entries, top y=1 = highest
- *   pitch). All notes are released before the next column's notes
- *   trigger, giving a clean stepped-arpeggio feel. Sim advances
- *   only after a full scan (or every N scans, see sim-rate).
- *   Pattern shape becomes audible:
- *     - blinker → two-note alternation
- *     - glider  → a single note drifting through the pitch range
- *     - still life → stable repeating chord cluster
- *     - random  → continuous chord wash
+ *   pitch). Notes from the previous column release before the
+ *   new ones fire, giving a clean stepped-arpeggio feel.
+ *
+ * Sim is INCREMENTAL across the scan to avoid a scan-wrap stutter.
+ *   The naive version ran a full Conway step on the wrap tick,
+ *   which made that single tick heavier than the others (≈120
+ *   cells × 8 neighbour reads + redraw). The metro then fired
+ *   the next tick late, audibly stretching col 15's notes.
+ *   Instead we double-buffer the grid (alive_a / alive_b),
+ *   compute one row of the next state per tick over the first
+ *   8 ticks of each scan, and commit the swap atomically at the
+ *   next wrap. Per-tick work is now constant; wrap is a pointer
+ *   assignment.
  *
  * Canvas LED:
- *   just born this tick     = 15 (flash)
+ *   just born this tick      = 15 (flash)
  *   alive ≥ 1 tick           = 12
  *   just died this tick      = 5  (afterglow)
  *   dead                     = 0
@@ -85,111 +90,143 @@ local LED_BORN     = 15
 local LED_DYING    = 5
 local LED_DEAD     = 0
 local LED_SCAN_DIM = 2   -- dead cell at current scan column
-local LED_CTRL     = 4   -- idle control button
-local LED_PAUSED   = 14  -- pause button when sim is paused
-local LED_RUNNING  = 5   -- pause button when sim is running
+local LED_CTRL     = 4
+local LED_PAUSED   = 14
+local LED_RUNNING  = 5
 
--- ---- Sim state ----
--- alive[y][x] uses 4 values:
+-- ---- Sim state (double-buffered) ----
+-- Each cell uses 4 values:
 --   0  = dead (long)
 --   1  = just born this tick (LED 15)
 --   2  = alive (LED 12)
 --  -1  = just died this tick (LED 5 afterglow)
-local alive = {}
+local alive_a, alive_b = {}, {}
 for y = 1, H do
-  alive[y] = {}
+  alive_a[y] = {}
+  alive_b[y] = {}
   for x = 1, CW do
-    alive[y][x] = 0
+    alive_a[y][x] = 0
+    alive_b[y][x] = 0
   end
 end
+local alive = alive_a
+
+-- Incremental step state. step_dst is the buffer being filled by
+-- the next-state computation; step_row is the row to compute on
+-- the next tick. nil / 0 means no step in progress.
+local step_dst = nil
+local step_row = 0
 
 local paused = true  -- start paused so user can draw an initial pattern
 
 -- Speed cycle: column-scan period in seconds.
 local SPEEDS = { 0.08, 0.15, 0.25, 0.5 }
-local speed_idx = 2  -- ~6.7 Hz default = full scan in ~2.25 s
+local speed_idx = 2
 
 -- Sim-rate cycle: advance sim every N full scans.
 local SIM_RATES = { 1, 2, 4 }
-local sim_rate_idx = 1  -- evolve every full scan
+local sim_rate_idx = 1
 
 -- ---- Music ----
 local MIDI_CH = 1
-local NOTE_VEL = 60  -- mid-soft for ambient feel
+local NOTE_VEL = 60
 
 -- Pitch tables, indexed by y (1=top of grid → highest pitch).
--- Each scale fits in one octave + 1, anchored at D2/D3.
---   D Dorian:  D E F G A B C D
---   D Aeolian: D E F G A Bb C D (natural minor)
---   D Phrygian: D Eb F G A Bb C D
---   D Major:   D E F# G A B C# D (Ionian)
 local SCALES = {
-  { 50, 48, 47, 45, 43, 41, 40, 38 },  -- 1 dorian
-  { 50, 48, 46, 45, 43, 41, 40, 38 },  -- 2 aeolian
-  { 50, 48, 46, 45, 43, 41, 39, 38 },  -- 3 phrygian
-  { 50, 49, 47, 45, 43, 42, 40, 38 },  -- 4 major
+  { 50, 48, 47, 45, 43, 41, 40, 38 },  -- 1 dorian   (D E F G A B C D)
+  { 50, 48, 46, 45, 43, 41, 40, 38 },  -- 2 aeolian  (D E F G A Bb C D)
+  { 50, 48, 46, 45, 43, 41, 39, 38 },  -- 3 phrygian (D Eb F G A Bb C D)
+  { 50, 49, 47, 45, 43, 42, 40, 38 },  -- 4 major    (D E F# G A B C# D)
 }
 local scale_idx = 1
 
 -- ---- Scan state ----
 local scan_col = 1
-local sim_counter = 0  -- counts full scans since last sim step
+local sim_counter = 0  -- counts full scans since last sim trigger
 
--- Notes triggered last scan tick — to be note-off'd before the
--- next column's note-ons fire.
+-- Notes triggered last tick — released before the next column
+-- fires so each step is a clean staccato chord.
 local pending_notes = {}
 
-local _metro  -- forward decl so event_grid can adjust _metro.time
+local _metro
 
 -- ---- Helpers ----
-local function is_alive(y, x)
-  -- True if cell counts as alive THIS tick (states 1 or 2).
+local function is_alive_now(y, x)
+  -- Reads from current state (alive); state values 1 or 2 = alive.
   local v = alive[y][x]
   return v == 1 or v == 2
 end
 
-local function neighbors(x, y)
-  -- Toroidal Moore neighborhood on the CW × H canvas.
-  local n = 0
-  for dy = -1, 1 do
-    for dx = -1, 1 do
-      if not (dx == 0 and dy == 0) then
-        local nx = ((x - 1 + dx) % CW) + 1
-        local ny = ((y - 1 + dy) % H) + 1
-        if is_alive(ny, nx) then n = n + 1 end
-      end
+-- ---- Incremental step ----
+-- Compute a single row of the next state from src into dst, with
+-- toroidal wrap and standard B3/S23 rules. Inlined neighbour
+-- check + cached row references = ~5x faster than a per-cell
+-- function call would be.
+local function compute_row(y, src, dst)
+  local r_above = src[((y - 2) % H) + 1]
+  local r_curr  = src[y]
+  local r_below = src[(y % H) + 1]
+  local r_new   = dst[y]
+  for x = 1, CW do
+    local xl = ((x - 2) % CW) + 1
+    local xr = (x % CW) + 1
+    -- Inline neighbour count. State 1 (born) and 2 (alive) count.
+    local n = 0
+    local v
+    v = r_above[xl]; if v == 1 or v == 2 then n = n + 1 end
+    v = r_above[x];  if v == 1 or v == 2 then n = n + 1 end
+    v = r_above[xr]; if v == 1 or v == 2 then n = n + 1 end
+    v = r_curr[xl];  if v == 1 or v == 2 then n = n + 1 end
+    v = r_curr[xr];  if v == 1 or v == 2 then n = n + 1 end
+    v = r_below[xl]; if v == 1 or v == 2 then n = n + 1 end
+    v = r_below[x];  if v == 1 or v == 2 then n = n + 1 end
+    v = r_below[xr]; if v == 1 or v == 2 then n = n + 1 end
+    v = r_curr[x]
+    local was = (v == 1 or v == 2)
+    local will
+    if was then will = (n == 2 or n == 3) else will = (n == 3) end
+    if will then
+      r_new[x] = was and 2 or 1
+    else
+      r_new[x] = was and -1 or 0
     end
   end
-  return n
 end
 
-local function step()
-  -- Conway B3/S23. Build into a fresh table so the update is
-  -- simultaneous (no in-place corruption mid-pass).
-  local new = {}
-  for y = 1, H do
-    new[y] = {}
-    for x = 1, CW do
-      local was = is_alive(y, x)
-      local n = neighbors(x, y)
-      local will
-      if was then
-        will = (n == 2 or n == 3)
-      else
-        will = (n == 3)
-      end
-      if will and not was then
-        new[y][x] = 1   -- birth
-      elseif will then
-        new[y][x] = 2   -- survival
-      elseif was then
-        new[y][x] = -1  -- death
-      else
-        new[y][x] = 0   -- still dead
-      end
-    end
+local function start_step()
+  step_dst = (alive == alive_a) and alive_b or alive_a
+  step_row = 1
+end
+
+local function abort_step()
+  step_dst = nil
+  step_row = 0
+end
+
+local function commit_step()
+  -- Atomic-ish: just retarget the 'alive' pointer. The just-
+  -- finished buffer becomes current; the previously current
+  -- buffer is now eligible to be the next step_dst.
+  if step_dst and step_row > H then
+    alive = step_dst
+    step_dst = nil
+    step_row = 0
+    return true
   end
-  alive = new
+  return false
+end
+
+-- Run synchronously: a paused single-step. Cheap because it's
+-- only invoked manually; we don't care about per-tick latency
+-- here (it's between two ticks, not inside one).
+local function step_now()
+  local dst = (alive == alive_a) and alive_b or alive_a
+  for y = 1, H do
+    compute_row(y, alive, dst)
+  end
+  alive = dst
+  -- Cancel any pending incremental step — its source is now stale.
+  abort_step()
 end
 
 -- ---- Music plumbing ----
@@ -203,7 +240,7 @@ end
 local function trigger_column(col)
   local pitch = SCALES[scale_idx]
   for y = 1, H do
-    if is_alive(y, col) then
+    if is_alive_now(y, col) then
       local note = pitch[y]
       midi_note_on(note, NOTE_VEL, MIDI_CH)
       pending_notes[#pending_notes + 1] = note
@@ -213,14 +250,12 @@ end
 
 -- ---- LED render ----
 local function redraw()
-  -- Canvas
   local show_scan = not paused
   for y = 1, H do
     for x = 1, CW do
       local b
       if show_scan and x == scan_col then
-        -- Scan column override: alive = brightest, dead = dim trail.
-        b = is_alive(y, x) and LED_BORN or LED_SCAN_DIM
+        b = is_alive_now(y, x) and LED_BORN or LED_SCAN_DIM
       else
         local v = alive[y][x]
         if     v == 1  then b = LED_BORN
@@ -232,30 +267,25 @@ local function redraw()
       grid_led(x, y, b)
     end
   end
-  -- Control strip
   for y = 1, H do
     local kind = ctrl_at(CTRL_X, y)
-    local b = 1  -- dim default for any unmapped slot
+    local b = 1
     if kind == 'pause' then
       b = paused and LED_PAUSED or LED_RUNNING
     elseif kind == 'step' then
-      b = paused and LED_CTRL or 1  -- only meaningful while paused
+      b = paused and LED_CTRL or 1
     elseif kind == 'speed' then
-      -- Brighter = faster (smaller period).
-      b = 2 + (5 - speed_idx) * 2  -- idx 1..4 → 10, 8, 6, 4
+      b = 2 + (5 - speed_idx) * 2
     elseif kind == 'scale' then
-      -- Distinct brightness per scale so user can tell which is
-      -- selected at a glance.
-      local SCALE_LED = { 7, 5, 3, 11 }  -- dorian/aeolian/phrygian/major
+      local SCALE_LED = { 7, 5, 3, 11 }
       b = SCALE_LED[scale_idx]
     elseif kind == 'clear' then
-      b = 3  -- dim "off"
+      b = 3
     elseif kind == 'rand_s' then
-      b = 5  -- medium "some"
+      b = 5
     elseif kind == 'rand_d' then
-      b = 8  -- brighter "lots" — denser button looks denser
+      b = 8
     elseif kind == 'simr' then
-      -- Brighter = faster sim (smaller N). idx 1..3 → 11, 6, 3.
       local SIMR_LED = { 11, 6, 3 }
       b = SIMR_LED[sim_rate_idx]
     end
@@ -267,6 +297,7 @@ end
 -- ---- Control actions ----
 local function fill_random(density)
   release_pending()
+  abort_step()
   for y = 1, H do
     for x = 1, CW do
       if math.random() < density then
@@ -280,6 +311,7 @@ end
 
 local function clear_all()
   release_pending()
+  abort_step()
   for y = 1, H do
     for x = 1, CW do
       alive[y][x] = 0
@@ -289,21 +321,17 @@ end
 
 -- ---- Input ----
 function event_grid(x, y, z)
-  if z ~= 1 then return end  -- only on press, not release
+  if z ~= 1 then return end
   local kind = ctrl_at(x, y)
   if kind == 'pause' then
     paused = not paused
-    -- On pause-down, release any sounding notes so we don't leave
-    -- voices hanging while the metro is dormant in user terms.
     if paused then release_pending() end
   elseif kind == 'step' then
-    if paused then step() end
+    if paused then step_now() end
   elseif kind == 'speed' then
     speed_idx = (speed_idx % #SPEEDS) + 1
     if _metro then _metro.time = SPEEDS[speed_idx] end
   elseif kind == 'scale' then
-    -- Switching scale mid-flight: release sounding pitches from
-    -- the old scale; the next column's note-ons will use the new.
     release_pending()
     scale_idx = (scale_idx % #SCALES) + 1
   elseif kind == 'clear' then
@@ -314,11 +342,13 @@ function event_grid(x, y, z)
     fill_random(0.5)
   elseif kind == 'simr' then
     sim_rate_idx = (sim_rate_idx % #SIM_RATES) + 1
-    sim_counter = 0  -- reset counter so next sim step honors the new rate
+    sim_counter = 0
   elseif kind == nil then
-    -- canvas cell: toggle alive/dead
-    if is_alive(y, x) then
-      alive[y][x] = -1  -- afterglow shows the user's edit
+    -- canvas cell: toggle alive/dead. Abort any in-flight step,
+    -- since its source state is now stale.
+    abort_step()
+    if is_alive_now(y, x) then
+      alive[y][x] = -1
     else
       alive[y][x] = 1
     end
@@ -328,8 +358,7 @@ end
 
 -- ---- Tick ----
 local function tick_fn()
-  -- 1. Release notes from previous scan column (always, even when
-  --    we're about to bail on pause — keeps pause silent).
+  -- 1. Always release notes from the previous tick. Constant cost.
   release_pending()
 
   if paused then
@@ -337,18 +366,29 @@ local function tick_fn()
     return
   end
 
-  -- 2. Trigger note-ons for current column's alive cells.
+  -- 2. Trigger note-ons for current column. Cost ≤ 8 MIDI calls.
   trigger_column(scan_col)
 
-  -- 3. Advance scan; on wrap, count it for sim cadence.
+  -- 3. Advance scan column. On wrap, possibly commit the
+  --    finished step and possibly schedule a new one. These are
+  --    all O(1).
   scan_col = scan_col + 1
   if scan_col > CW then
     scan_col = 1
+    commit_step()
     sim_counter = sim_counter + 1
     if sim_counter >= SIM_RATES[sim_rate_idx] then
       sim_counter = 0
-      step()
+      start_step()
     end
+  end
+
+  -- 4. Compute one row of the in-flight next-state buffer, if any.
+  --    This is the "expensive" work, now spread evenly across the
+  --    next 8 ticks of the scan instead of dumped onto the wrap.
+  if step_dst and step_row <= H then
+    compute_row(step_row, alive, step_dst)
+    step_row = step_row + 1
   end
 
   redraw()
