@@ -430,6 +430,34 @@ export type NoteMonitorBehavior = {
   params: NoteMonitorParams;
 };
 
+// ---------- Page select ----------
+
+/**
+ * Global page-switching cells. Group-only, lives OUTSIDE the per-page
+ * region grouping — these cells are rendered and dispatched on every
+ * page so the user can always switch back. The cells map to page
+ * indices in their natural sort order: cell 0 → page 0, cell 1 →
+ * page 1, etc. Cells with no matching page (i.e. index ≥
+ * layout.pages.length) are dimmed and inert.
+ *
+ * On press: state.page is set to the cell's target index, the LED
+ * delta cache is cleared, the grid is blanked, and redraw() runs the
+ * new page's draw block.
+ */
+export type PageSelectParams = {
+  /** Brightness for the cell of the currently-active page. */
+  led_active: number;
+  /** Brightness for cells of inactive (but valid) pages. */
+  led_inactive: number;
+  /** Brightness for cells past the end of the page list. */
+  led_unused: number;
+};
+
+export type PageSelectBehavior = {
+  kind: 'page_select';
+  params: PageSelectParams;
+};
+
 // ---------- Wake sequencer ----------
 
 /**
@@ -515,7 +543,8 @@ export type Behavior =
   | StepSequencerBehavior
   | WakeSequencerBehavior
   | LfoBehavior
-  | NoteMonitorBehavior;
+  | NoteMonitorBehavior
+  | PageSelectBehavior;
 
 // ---------- Region / Page / GridLayout ----------
 

@@ -10,6 +10,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
+  page = 0,
   monitor_held = {[1]=0, [2]=0, [3]=0, [4]=0, [5]=0, [6]=0, [7]=0, [8]=0, [9]=0, [10]=0, [11]=0, [12]=0},
 }
 
@@ -69,8 +70,8 @@ local function handle_midi_monitor(d1, d2, d3)
   end
 end
 
--- ---- LED draw ----
-redraw = function()
+-- ---- per-page LED draw ----
+local function _draw_p0()
   -- region: monitor
   grid_led(1, 1, state.monitor_held[1] > 0 and 12 or 3)
   grid_led(2, 1, state.monitor_held[2] > 0 and 12 or 3)
@@ -84,16 +85,36 @@ redraw = function()
   grid_led(10, 1, state.monitor_held[10] > 0 and 12 or 3)
   grid_led(11, 1, state.monitor_held[11] > 0 and 12 or 3)
   grid_led(12, 1, state.monitor_held[12] > 0 and 12 or 3)
+end
+
+-- ---- master redraw ----
+redraw = function()
+  _draw_p0()
   grid_refresh()
 end
 
 -- ---- dispatch ----
-local _route = {}
+local _route_global = {}
 
+local _route_p0 = {}
+
+local _routes = {[0]=_route_p0}
 
 function event_grid(x, y, z)
-  local h = _route[x + y*W]
-  if h then h(x, y, z) end
+  local k = x + y*W
+  -- global (page_select) handlers run first; they may switch state.page
+  local h = _route_global[k]
+  if h then
+    h(x, y, z)
+    redraw()
+    return
+  end
+  -- per-page dispatch
+  local route = _routes[state.page]
+  if route then
+    h = route[k]
+    if h then h(x, y, z) end
+  end
   redraw()
 end
 

@@ -10,6 +10,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
+  page = 0,
   poly_step = {[0]=-1, [1]=-1, [2]=-1, [3]=-1},
   poly_on = {[0]={}, [1]={}, [2]={}, [3]={}},
   poly_dir = {[0]=1, [1]=1, [2]=1, [3]=1},
@@ -161,8 +162,8 @@ end
 local _poly_metro = metro.init(_poly_tick, 0.125)
 _poly_metro:start()
 
--- ---- LED draw ----
-redraw = function()
+-- ---- per-page LED draw ----
+local function _draw_p0()
   -- region: poly
   grid_led(1, 5, _poly_pixel(0, 0))
   grid_led(2, 5, _poly_pixel(0, 1))
@@ -196,47 +197,68 @@ redraw = function()
   grid_led(6, 8, _poly_pixel(3, 5))
   grid_led(7, 8, _poly_pixel(3, 6))
   grid_led(8, 8, _poly_pixel(3, 7))
+end
+
+-- ---- master redraw ----
+redraw = function()
+  _draw_p0()
   grid_refresh()
 end
 
 -- ---- dispatch ----
-local _route = {}
-_route[1 + 5*W] = handle_poly
-_route[2 + 5*W] = handle_poly
-_route[3 + 5*W] = handle_poly
-_route[4 + 5*W] = handle_poly
-_route[5 + 5*W] = handle_poly
-_route[6 + 5*W] = handle_poly
-_route[7 + 5*W] = handle_poly
-_route[8 + 5*W] = handle_poly
-_route[1 + 6*W] = handle_poly
-_route[2 + 6*W] = handle_poly
-_route[3 + 6*W] = handle_poly
-_route[4 + 6*W] = handle_poly
-_route[5 + 6*W] = handle_poly
-_route[6 + 6*W] = handle_poly
-_route[7 + 6*W] = handle_poly
-_route[8 + 6*W] = handle_poly
-_route[1 + 7*W] = handle_poly
-_route[2 + 7*W] = handle_poly
-_route[3 + 7*W] = handle_poly
-_route[4 + 7*W] = handle_poly
-_route[5 + 7*W] = handle_poly
-_route[6 + 7*W] = handle_poly
-_route[7 + 7*W] = handle_poly
-_route[8 + 7*W] = handle_poly
-_route[1 + 8*W] = handle_poly
-_route[2 + 8*W] = handle_poly
-_route[3 + 8*W] = handle_poly
-_route[4 + 8*W] = handle_poly
-_route[5 + 8*W] = handle_poly
-_route[6 + 8*W] = handle_poly
-_route[7 + 8*W] = handle_poly
-_route[8 + 8*W] = handle_poly
+local _route_global = {}
+
+local _route_p0 = {}
+_route_p0[1 + 5*W] = handle_poly
+_route_p0[2 + 5*W] = handle_poly
+_route_p0[3 + 5*W] = handle_poly
+_route_p0[4 + 5*W] = handle_poly
+_route_p0[5 + 5*W] = handle_poly
+_route_p0[6 + 5*W] = handle_poly
+_route_p0[7 + 5*W] = handle_poly
+_route_p0[8 + 5*W] = handle_poly
+_route_p0[1 + 6*W] = handle_poly
+_route_p0[2 + 6*W] = handle_poly
+_route_p0[3 + 6*W] = handle_poly
+_route_p0[4 + 6*W] = handle_poly
+_route_p0[5 + 6*W] = handle_poly
+_route_p0[6 + 6*W] = handle_poly
+_route_p0[7 + 6*W] = handle_poly
+_route_p0[8 + 6*W] = handle_poly
+_route_p0[1 + 7*W] = handle_poly
+_route_p0[2 + 7*W] = handle_poly
+_route_p0[3 + 7*W] = handle_poly
+_route_p0[4 + 7*W] = handle_poly
+_route_p0[5 + 7*W] = handle_poly
+_route_p0[6 + 7*W] = handle_poly
+_route_p0[7 + 7*W] = handle_poly
+_route_p0[8 + 7*W] = handle_poly
+_route_p0[1 + 8*W] = handle_poly
+_route_p0[2 + 8*W] = handle_poly
+_route_p0[3 + 8*W] = handle_poly
+_route_p0[4 + 8*W] = handle_poly
+_route_p0[5 + 8*W] = handle_poly
+_route_p0[6 + 8*W] = handle_poly
+_route_p0[7 + 8*W] = handle_poly
+_route_p0[8 + 8*W] = handle_poly
+
+local _routes = {[0]=_route_p0}
 
 function event_grid(x, y, z)
-  local h = _route[x + y*W]
-  if h then h(x, y, z) end
+  local k = x + y*W
+  -- global (page_select) handlers run first; they may switch state.page
+  local h = _route_global[k]
+  if h then
+    h(x, y, z)
+    redraw()
+    return
+  end
+  -- per-page dispatch
+  local route = _routes[state.page]
+  if route then
+    h = route[k]
+    if h then h(x, y, z) end
+  end
   redraw()
 end
 

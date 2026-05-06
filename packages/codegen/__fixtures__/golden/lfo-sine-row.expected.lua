@@ -10,6 +10,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
+  page = 0,
   lfo_phase = 0,
   lfo_lastv = -1,
 }
@@ -58,8 +59,8 @@ end
 local _lfo_metro = metro.init(_lfo_tick, 0.02)
 _lfo_metro:start()
 
--- ---- LED draw ----
-redraw = function()
+-- ---- per-page LED draw ----
+local function _draw_p0()
   -- region: lfo
   grid_led(1, 1, (state.lfo_lastv * 8) >= (1 * 127) and 12 or 3)
   grid_led(2, 1, (state.lfo_lastv * 8) >= (2 * 127) and 12 or 3)
@@ -69,16 +70,36 @@ redraw = function()
   grid_led(6, 1, (state.lfo_lastv * 8) >= (6 * 127) and 12 or 3)
   grid_led(7, 1, (state.lfo_lastv * 8) >= (7 * 127) and 12 or 3)
   grid_led(8, 1, (state.lfo_lastv * 8) >= (8 * 127) and 12 or 3)
+end
+
+-- ---- master redraw ----
+redraw = function()
+  _draw_p0()
   grid_refresh()
 end
 
 -- ---- dispatch ----
-local _route = {}
+local _route_global = {}
 
+local _route_p0 = {}
+
+local _routes = {[0]=_route_p0}
 
 function event_grid(x, y, z)
-  local h = _route[x + y*W]
-  if h then h(x, y, z) end
+  local k = x + y*W
+  -- global (page_select) handlers run first; they may switch state.page
+  local h = _route_global[k]
+  if h then
+    h(x, y, z)
+    redraw()
+    return
+  end
+  -- per-page dispatch
+  local route = _routes[state.page]
+  if route then
+    h = route[k]
+    if h then h(x, y, z) end
+  end
   redraw()
 end
 

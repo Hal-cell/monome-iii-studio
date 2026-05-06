@@ -10,6 +10,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
+  page = 0,
   fader_held = {},
   fader_count = 0,
   fader_lo = 0,
@@ -76,8 +77,8 @@ local function handle_fader(x, y, z)
   end
 end
 
--- ---- LED draw ----
-redraw = function()
+-- ---- per-page LED draw ----
+local function _draw_p0()
   -- region: fader
   do
     local set = state.fader_set
@@ -91,23 +92,44 @@ redraw = function()
     grid_led(7, 1, set and lo <= 6 and 6 <= hi and 12 or 3)
     grid_led(8, 1, set and lo <= 7 and 7 <= hi and 12 or 3)
   end
+end
+
+-- ---- master redraw ----
+redraw = function()
+  _draw_p0()
   grid_refresh()
 end
 
 -- ---- dispatch ----
-local _route = {}
-_route[1 + 1*W] = handle_fader
-_route[2 + 1*W] = handle_fader
-_route[3 + 1*W] = handle_fader
-_route[4 + 1*W] = handle_fader
-_route[5 + 1*W] = handle_fader
-_route[6 + 1*W] = handle_fader
-_route[7 + 1*W] = handle_fader
-_route[8 + 1*W] = handle_fader
+local _route_global = {}
+
+local _route_p0 = {}
+_route_p0[1 + 1*W] = handle_fader
+_route_p0[2 + 1*W] = handle_fader
+_route_p0[3 + 1*W] = handle_fader
+_route_p0[4 + 1*W] = handle_fader
+_route_p0[5 + 1*W] = handle_fader
+_route_p0[6 + 1*W] = handle_fader
+_route_p0[7 + 1*W] = handle_fader
+_route_p0[8 + 1*W] = handle_fader
+
+local _routes = {[0]=_route_p0}
 
 function event_grid(x, y, z)
-  local h = _route[x + y*W]
-  if h then h(x, y, z) end
+  local k = x + y*W
+  -- global (page_select) handlers run first; they may switch state.page
+  local h = _route_global[k]
+  if h then
+    h(x, y, z)
+    redraw()
+    return
+  end
+  -- per-page dispatch
+  local route = _routes[state.page]
+  if route then
+    h = route[k]
+    if h then h(x, y, z) end
+  end
   redraw()
 end
 

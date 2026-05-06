@@ -10,6 +10,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
+  page = 0,
   drum_step = {[0]=-1},
   drum_on = {[0]={}},
   drum_dir = {[0]=1},
@@ -113,8 +114,8 @@ end
 local _drum_metro = metro.init(_drum_tick, 0.125)
 _drum_metro:start()
 
--- ---- LED draw ----
-redraw = function()
+-- ---- per-page LED draw ----
+local function _draw_p0()
   -- region: drum
   grid_led(1, 8, _drum_pixel(0, 0))
   grid_led(2, 8, _drum_pixel(0, 1))
@@ -124,23 +125,44 @@ redraw = function()
   grid_led(6, 8, _drum_pixel(0, 5))
   grid_led(7, 8, _drum_pixel(0, 6))
   grid_led(8, 8, _drum_pixel(0, 7))
+end
+
+-- ---- master redraw ----
+redraw = function()
+  _draw_p0()
   grid_refresh()
 end
 
 -- ---- dispatch ----
-local _route = {}
-_route[1 + 8*W] = handle_drum
-_route[2 + 8*W] = handle_drum
-_route[3 + 8*W] = handle_drum
-_route[4 + 8*W] = handle_drum
-_route[5 + 8*W] = handle_drum
-_route[6 + 8*W] = handle_drum
-_route[7 + 8*W] = handle_drum
-_route[8 + 8*W] = handle_drum
+local _route_global = {}
+
+local _route_p0 = {}
+_route_p0[1 + 8*W] = handle_drum
+_route_p0[2 + 8*W] = handle_drum
+_route_p0[3 + 8*W] = handle_drum
+_route_p0[4 + 8*W] = handle_drum
+_route_p0[5 + 8*W] = handle_drum
+_route_p0[6 + 8*W] = handle_drum
+_route_p0[7 + 8*W] = handle_drum
+_route_p0[8 + 8*W] = handle_drum
+
+local _routes = {[0]=_route_p0}
 
 function event_grid(x, y, z)
-  local h = _route[x + y*W]
-  if h then h(x, y, z) end
+  local k = x + y*W
+  -- global (page_select) handlers run first; they may switch state.page
+  local h = _route_global[k]
+  if h then
+    h(x, y, z)
+    redraw()
+    return
+  end
+  -- per-page dispatch
+  local route = _routes[state.page]
+  if route then
+    h = route[k]
+    if h then h(x, y, z) end
+  end
   redraw()
 end
 
