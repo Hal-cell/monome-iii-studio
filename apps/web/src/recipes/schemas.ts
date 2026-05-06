@@ -276,6 +276,7 @@ const noteKeyboard: RecipeMeta = {
     led_octave: 6,
     led_offscale: 0,
     harmony_coach: 'off',
+    live_scale_select: 'off',
   },
   paramsFor: (values) => [
     { kind: 'int', key: 'channel', label: 'Channel', min: 1, max: 16, default: 1 },
@@ -339,6 +340,18 @@ const noteKeyboard: RecipeMeta = {
       : []),
     {
       kind: 'enum',
+      key: 'live_scale_select',
+      label: 'Live scale select',
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'on', label: 'On' },
+      ],
+      default: 'off',
+      help:
+        'reserve the rightmost column of the selection as scale-picker cells (top-down: chromatic / major / minor / dorian / phrygian / lydian / mixolydian / locrian). Pressing one switches the scale at runtime — retunes both the LED highlight and harmony-coach voicings.',
+    },
+    {
+      kind: 'enum',
       key: 'harmony_coach',
       label: 'Harmony coach',
       options: [
@@ -366,6 +379,7 @@ const noteKeyboard: RecipeMeta = {
       led_octave: asInt(v.led_octave, 6),
       led_offscale: asInt(v.led_offscale, 0),
       harmony_coach: asString(v.harmony_coach, 'off') === 'on',
+      live_scale_select: asString(v.live_scale_select, 'off') === 'on',
     },
   }),
 };

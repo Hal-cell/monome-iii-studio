@@ -236,11 +236,27 @@ export type NoteKeyboardParams = {
    * resolving back through dominant / subdominant families). Helps
    * the player practise harmonic motion in their chosen key.
    *
-   * Silently no-op when `scale` is 'chromatic' — diatonic harmony
-   * doesn't apply to a 12-note set. Default off so existing layouts
-   * keep their pre-coach behaviour.
+   * Silently no-op when the active scale is 'chromatic' — diatonic
+   * harmony doesn't apply to a 12-note set. Default off so existing
+   * layouts keep their pre-coach behaviour.
    */
   harmony_coach: boolean;
+  /**
+   * Live scale selector — reserves the rightmost column of the
+   * keyboard region as scale-picker cells (one cell per scale,
+   * top-to-bottom in SCALE_NAMES order). Pressing a cell switches
+   * the active scale at runtime, which retunes the LED highlight
+   * AND the harmony-coach chord generator. Panel's `scale` becomes
+   * the INITIAL value.
+   *
+   * When off (default), the rightmost column is just more keyboard
+   * keys and `scale` is fixed at codegen time.
+   *
+   * Each picker cell maps to SCALE_NAMES[i] for i in 0..(min(rows,
+   * SCALE_NAMES.length)-1) — shorter selections only reach the
+   * first N scales.
+   */
+  live_scale_select: boolean;
 };
 
 export type NoteKeyboardBehavior = {
