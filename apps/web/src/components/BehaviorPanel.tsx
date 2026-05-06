@@ -33,10 +33,17 @@ import {
   selection,
 } from '../store/selection.ts';
 import {
+  applyLayoutSnapshot,
   loadLayout,
   newLayout,
   snapshotLayout,
 } from '../store/session.ts';
+import {
+  canRedo,
+  canUndo,
+  redo as historyRedo,
+  undo as historyUndo,
+} from '../store/history.ts';
 import { exportLayout, importLayoutFile } from '../lib/persist.ts';
 import {
   connectDevice,
@@ -266,6 +273,15 @@ export function BehaviorPanel() {
     setNotice('new layout');
   }
 
+  function onUndo() {
+    const snap = historyUndo();
+    if (snap) applyLayoutSnapshot(snap);
+  }
+  function onRedo() {
+    const snap = historyRedo();
+    if (snap) applyLayoutSnapshot(snap);
+  }
+
   return (
     <div class="flex flex-col gap-6 h-full">
       <Section title="Layout">
@@ -294,6 +310,14 @@ export function BehaviorPanel() {
             </SmallButton>
             <SmallButton onClick={onNew} disabled={!hasContent()}>
               New
+            </SmallButton>
+          </div>
+          <div class="flex gap-1">
+            <SmallButton onClick={onUndo} disabled={!canUndo()}>
+              ↶ Undo
+            </SmallButton>
+            <SmallButton onClick={onRedo} disabled={!canRedo()}>
+              ↷ Redo
             </SmallButton>
           </div>
           <input
