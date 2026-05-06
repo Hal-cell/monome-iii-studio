@@ -83,7 +83,7 @@ GitHub serves the atom feed without auth and respects HTTP caching headers, so p
 
 | # | Task | Effort | Type | Status | Notes |
 |---|---|---|---|---|---|
-| **C1** | Conway's Game of Life | ⭐⭐ 1–2 h | fun | ✅ (this commit) | type "life" anywhere in the web UI; banner offers ▶ run on iii or download `gol.lua`. Canvas 15×8 with toroidal wrap; right column controls (pause / step / speed cycle / clear / random sparse / random dense). LED 15 = just born, 12 = alive, 5 = just died |
+| **C1** | Conway's Game of Life + sonification | ⭐⭐⭐ 2 h | fun | ✅ (sonified, scale-pickable) | type "life" anywhere in the web UI; banner offers ▶ run on iii or download `gol.lua`. Canvas 15×8 with toroidal wrap. Each tick scans one column → alive cells trigger MIDI note-on (y → pitch via D Dorian/Aeolian/Phrygian/Major scale). Sim advances after each full scan (or every 2/4 scans). LED 15 = just born, 12 = alive, 5 = just died, scan column highlight bumps brightness. Right-column controls: pause / step / speed cycle / **scale cycle** / clear / random sparse / random dense / **sim-rate cycle** |
 | **C2** | Lights Out puzzle | ⭐⭐ 1–2 h | fun | | press cell → flip plus-neighbors; goal all dark |
 | **C3** | Two-player Pong | ⭐⭐⭐ 2–3 h | fun | | left/right paddles; needs two players to be fun |
 | **C4** | Generative ambient mode | ⭐⭐⭐ ½ day | fun | | grid evolves slowly; long-press a cell to perturb |
