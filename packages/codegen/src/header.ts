@@ -105,6 +105,12 @@ function describeBehavior(region: Region): string {
     }
     return `step seq group, ${numRows}×${numCols}, ${head}, ${p.bpm} BPM @ 1/${p.steps_per_beat}${divsInfo}${dirInfo}${gateInfo}${monoInfo}`;
   }
+  if (region.behavior.kind === 'lfo') {
+    const p = region.behavior.params;
+    const lo = Math.max(0, Math.floor(p.center - p.depth / 2));
+    const hi = Math.min(127, Math.ceil(p.center + p.depth / 2));
+    return `lfo group, ${p.waveform} ch${p.channel} cc${p.cc} ${lo}..${hi} @ ${p.period_seconds}s`;
+  }
   // Exhaustive: every behavior kind handled above.
   return '';
 }

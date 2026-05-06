@@ -521,6 +521,97 @@ const stepSequencer: RecipeMeta = {
   },
 };
 
+// ---------- LFO ----------
+
+const LFO_WAVEFORMS = [
+  { value: 'sine', label: 'Sine' },
+  { value: 'triangle', label: 'Triangle' },
+  { value: 'saw', label: 'Saw' },
+  { value: 'square', label: 'Square' },
+] as const;
+
+type LfoWaveformName = 'sine' | 'triangle' | 'saw' | 'square';
+
+function asWaveform(v: unknown): LfoWaveformName {
+  const s = asString(v, 'sine');
+  return LFO_WAVEFORMS.some((o) => o.value === s)
+    ? (s as LfoWaveformName)
+    : 'sine';
+}
+
+const lfo: RecipeMeta = {
+  id: 'lfo',
+  label: 'LFO',
+  description: 'cyclic CC modulation, visualised as a meter',
+  modes: [{ id: 'group', label: 'group' }],
+  defaultValues: {
+    channel: 1,
+    cc: 50,
+    waveform: 'sine',
+    // period needs decimal precision (0.1s = 10 Hz). The int-param
+    // schema doesn't do floats, so we store period as 100ths of a
+    // second under a separate key and convert on build.
+    period_centiseconds: 100, // 1.0 s
+    center: 64,
+    depth: 96,
+    led_bright: 12,
+    led_dim: 3,
+  },
+  paramsFor: () => [
+    { kind: 'int', key: 'channel', label: 'Channel', min: 1, max: 16, default: 1 },
+    { kind: 'int', key: 'cc', label: 'CC #', min: 0, max: 127, default: 50 },
+    {
+      kind: 'enum',
+      key: 'waveform',
+      label: 'Waveform',
+      options: LFO_WAVEFORMS,
+      default: 'sine',
+    },
+    {
+      kind: 'int',
+      key: 'period_centiseconds',
+      label: 'Period (×0.01s)',
+      min: 10,
+      max: 3000,
+      default: 100,
+      help: 'cycle length in hundredths of a second; 100 = 1 s, 50 = 0.5 s, 1000 = 10 s',
+    },
+    {
+      kind: 'int',
+      key: 'center',
+      label: 'Center',
+      min: 0,
+      max: 127,
+      default: 64,
+      help: 'midpoint of the output range',
+    },
+    {
+      kind: 'int',
+      key: 'depth',
+      label: 'Depth',
+      min: 0,
+      max: 127,
+      default: 96,
+      help: 'peak-to-peak amplitude; 0 = no modulation (CC stays at center)',
+    },
+    { kind: 'int', key: 'led_bright', label: 'LED on', min: 0, max: 15, default: 12 },
+    { kind: 'int', key: 'led_dim', label: 'LED off', min: 0, max: 15, default: 3 },
+  ],
+  build: (_mode, v): Behavior => ({
+    kind: 'lfo',
+    params: {
+      channel: asInt(v.channel, 1),
+      cc: asInt(v.cc, 50),
+      waveform: asWaveform(v.waveform),
+      period_seconds: asInt(v.period_centiseconds, 100) / 100,
+      center: asInt(v.center, 64),
+      depth: asInt(v.depth, 96),
+      led_bright: asInt(v.led_bright, 12),
+      led_dim: asInt(v.led_dim, 3),
+    },
+  }),
+};
+
 // ---------- Wake sequencer ----------
 
 const wakeSequencer: RecipeMeta = {
@@ -591,6 +682,7 @@ export const RECIPES: Record<BehaviorKind, RecipeMeta> = {
   note_keyboard: noteKeyboard,
   step_sequencer: stepSequencer,
   wake_sequencer: wakeSequencer,
+  lfo,
 };
 
 /**
@@ -603,6 +695,7 @@ export const RECIPE_ORDER: BehaviorKind[] = [
   'radio',
   'range',
   'meter',
+  'lfo',
   'note_keyboard',
   'step_sequencer',
   'wake_sequencer',
