@@ -66,12 +66,17 @@ const COACH_BLINK_S = 0.25;
 const MAX_VOICINGS_LIVE = 5;
 const MAX_VOICINGS_STATIC = 6;
 
-// Hard cap on a voicing's pitch span. Triads should sit within an
-// octave so the blinking cells stay close together — the user
-// explicitly asked us to stop sampling spread-octave voicings, and
-// instead get variety from inversions (which all fit within ~7
-// semitones of root).
-const MAX_PITCH_SPAN = 12;
+// Cap on the gap between PITCH-ADJACENT notes in a voicing.
+// Sorted by pitch, no consecutive pair may differ by more than
+// MAX_ADJ_GAP semitones — that keeps each chord coherent (no
+// note floating an octave+ away from its neighbours).
+//
+// We deliberately cap the GAP rather than the total span so
+// inversions and drop-2 / drop-3 voicings — which can exceed an
+// octave end-to-end — still pass. Per user request: "如果转位时候
+// 需要超过一个 octave 是可以的" (if the inversion needs to span
+// more than an octave, that's allowed).
+const MAX_ADJ_GAP = 12;
 
 // iii grid is always 16 cells wide. Hard-coding it here lets us
 // pre-evaluate cell keys to single integers for the voicing tables,
@@ -713,26 +718,23 @@ type ScoredVoicing = {
  * Returned as integer-key tuples (cellKeyInt).
  *
  * Constraints in priority order:
- *   1. Compactness — both axes:
- *        a. Pitch span ≤ MAX_PITCH_SPAN (one octave). The user
- *           actually hears these notes; spreading across octaves
- *           makes the suggestion nonsense.
- *        b. Grid-Manhattan span. The user has to PRESS these
- *           cells, so a triad scattered across the whole 16-col
- *           keyboard is unplayable. We compute the minimum
- *           achievable Manhattan span on the current keyboard
- *           and discard anything more than `+TIGHT_TOLERANCE`
- *           wider — adaptive so we don't reject everything on
- *           layouts where tight isn't possible.
- *   2. Register variety — sort surviving voicings by bass-note
+ *   1. Pitch coherence — no gap larger than MAX_ADJ_GAP between
+ *      sorted-adjacent notes. Allows close-form chords AND
+ *      open / drop voicings whose total span exceeds an octave,
+ *      but rejects voicings where a single note floats far
+ *      from its cluster.
+ *   2. Grid compactness — adaptive Manhattan span filter. The
+ *      user presses these cells, so a triad scattered across
+ *      the whole 16-col keyboard is unplayable. We compute the
+ *      minimum achievable span on the current keyboard and
+ *      discard anything more than `+TIGHT_TOLERANCE` wider.
+ *   3. Register variety — sort surviving voicings by bass-note
  *      pitch and take K evenly-spaced picks across the list.
  *      Gives one voicing per register zone (low / mid / high)
- *      rather than all three at the top.
- *   3. Within a register, dedup by bass note keeping only the
- *      tightest representative — without dedup, stratified
- *      indexes can land in the middle of a same-bass cluster
- *      and pick a wider voicing when a tighter one is right
- *      next to it.
+ *      rather than all stacked at the top.
+ *   4. Same-bass dedup — only the grid-tightest representative
+ *      at each distinct bass survives, so stratified picks
+ *      don't accidentally land on a wider variant.
  *
  * Falls back to looser filters if a constraint over-prunes.
  */
@@ -797,12 +799,19 @@ function pickVoicings(
     unique.push(v);
   }
 
-  // Filter 1: pitch span ≤ one octave.
-  const pitchOk = unique.filter((v) => {
-    const ns = v.items.map((it) => it.note);
-    return Math.max(...ns) - Math.min(...ns) <= MAX_PITCH_SPAN;
+  // Filter 1: every gap between sorted-adjacent notes ≤
+  // MAX_ADJ_GAP. Total span is unconstrained — that's how
+  // close-form 7th chords (~10-11 semitones) and drop-2 /
+  // drop-3 voicings (15-19 semitones) both pass while
+  // genuinely scattered voicings get rejected.
+  const adjOk = unique.filter((v) => {
+    const ns = v.items.map((it) => it.note).sort((a, b) => a - b);
+    for (let i = 1; i < ns.length; i++) {
+      if (ns[i]! - ns[i - 1]! > MAX_ADJ_GAP) return false;
+    }
+    return true;
   });
-  const afterPitch = pitchOk.length > 0 ? pitchOk : unique;
+  const afterPitch = adjOk.length > 0 ? adjOk : unique;
   if (afterPitch.length === 0) return [];
 
   // Filter 2: grid Manhattan span ≤ minSpan + TIGHT_TOLERANCE.
