@@ -377,14 +377,33 @@ export async function uploadAndRun(
   _setStatus({ kind: 'busy', action: 'uploading' });
 
   try {
-    // Outer "select file" priming (cli.py does this before upload()).
+    // 1. Stop whatever script is currently running before we start
+    //    pushing tens of KB of new Lua over USB. ^^c is REPL_CMD_CLEAN
+    //    in iii's repl.c — vm_deinit() + vm_init(false) — which kills
+    //    all metros (including, e.g., the snake easter egg's 50 Hz
+    //    redraw loop) and gives us a quiet VM to upload into.
+    //
+    //    Side effect: vm_init(false) skips lib.lua, so the Lua-side
+    //    `first()` helper is NOT available between this ^^c and the
+    //    final ^^i. We work around that below by writing init.lua
+    //    directly via the fs_write_file C primitive.
+    await writeLineRaw('^^c');
+    await sleep(CMD_DELAY_MS);
+
+    // 2. Blank the grid LEDs. With no script running, nothing will
+    //    fight us by re-drawing the previous frame, so the
+    //    transition from old → new script looks clean even if the
+    //    new script's grid_led_all(0) happens to be deferred.
+    await writeLineRaw('grid_led_all(0); grid_refresh()');
+    await sleep(CMD_DELAY_MS);
+
+    // 3. Upload (mirrors iii.py upload()).
     await writeLineRaw('^^s');
     await sleep(CMD_DELAY_MS);
     await writeLineRaw(filename);
     await sleep(CMD_DELAY_MS);
     await writeLineRaw('^^f');
     await sleep(CMD_DELAY_MS);
-    // Inner upload (mirrors iii.py upload()).
     await writeLineRaw('^^s');
     await sleep(CMD_DELAY_MS);
     await writeLineRaw(filename);
@@ -405,12 +424,18 @@ export async function uploadAndRun(
     await sleep(FINAL_FLUSH_MS);
 
     _setStatus({ kind: 'busy', action: 'running' });
-    // Set as boot script, then soft re-init the Lua VM so it actually
-    // runs. ^^i tears down the old VM (clearing accumulated metros /
-    // handlers) and runs lib.lua + init.lua in a fresh state — same
-    // semantics as runFile, no hardware reboot, no boot animation.
-    await writeLineRaw(`first("${filename}")`);
+    // 4. Point init.lua at the freshly uploaded file. We can't call
+    //    lib.lua's first(name) helper here because lib.lua hasn't
+    //    been loaded since the ^^c above. Inline the body of first()
+    //    using the fs_write_file C primitive directly — same effect.
+    await writeLineRaw(
+      `fs_write_file("init.lua", "fs_run_file('${filename}')")`,
+    );
     await sleep(CMD_DELAY_MS);
+
+    // 5. Soft re-init with run_script=true → vm_init runs lib.lua
+    //    AND init.lua, which now boots the new file. No hardware
+    //    reboot, no boot animation.
     await writeLineRaw('^^i');
     await sleep(CMD_DELAY_MS);
   } catch (err) {
@@ -445,7 +470,18 @@ export async function runFile(filename: string): Promise<void> {
   if (!_port) throw new Error('not connected to iii device');
   _setStatus({ kind: 'busy', action: `running ${filename}` });
   try {
-    await writeLineRaw(`first("${filename}")`);
+    // Same pattern as uploadAndRun: ^^c kills the currently running
+    // script (so its metros don't bleed into the new boot), we
+    // explicitly blank the grid, write init.lua via the fs_write_file
+    // primitive (since lib.lua isn't loaded after vm_init(false)),
+    // then ^^i to reload lib + init and start the target file.
+    await writeLineRaw('^^c');
+    await sleep(CMD_DELAY_MS);
+    await writeLineRaw('grid_led_all(0); grid_refresh()');
+    await sleep(CMD_DELAY_MS);
+    await writeLineRaw(
+      `fs_write_file("init.lua", "fs_run_file('${filename}')")`,
+    );
     await sleep(CMD_DELAY_MS);
     await writeLineRaw('^^i');
     await sleep(CMD_DELAY_MS);
