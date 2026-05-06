@@ -96,13 +96,18 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
   // scales live by changing `state.<region>_scale_idx`; we precompute
   // every scale's offsets at codegen time so the tick body just does
   // a 2D lookup.
-  const scaleEntries = SCALE_NAMES.map((scaleName, sIdx) => {
+  //
+  // Emitted with one scale per source line: iii's repl.c uses a
+  // 512-byte LINE_BUFFER and silently truncates anything longer.
+  // 8 scales × bodyHeight entries on one line approaches that
+  // limit fast.
+  const scaleLines = SCALE_NAMES.map((scaleName, sIdx) => {
     const offsets = Array.from(
       { length: bodyHeight },
       (_, i) => `[${i + 1}]=${noteAtDegree(0, scaleName, i)}`,
-    ).join(', ');
-    return `[${sIdx + 1}]={${offsets}}`;
-  }).join(', ');
+    ).join(',');
+    return `  [${sIdx + 1}]={${offsets}},`;
+  });
 
   // Initial scale index (1-based) — derived from the panel's `scale`
   // param, so the first run sounds like the user configured.
@@ -155,19 +160,25 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
   // data: 4 pages (PITCH/OCT/VEL/DUR), each is a {col → value
   // 0..bodyHeight} table. Page 4 (LENGTH) is stored separately as a
   // scalar in `state.<region>_length`, not in this table.
-  const dataInit = Array.from({ length: PAGE_LENGTH }, (_, p) => {
+  //
+  // Emitted with one page per source line so the entire literal
+  // stays under iii's 512-byte LINE_BUFFER even on a full 16-col
+  // sequencer (4 pages × 16 cols × ~7 chars/entry would push past
+  // 500 chars on a single line otherwise).
+  const dataPageLines = Array.from({ length: PAGE_LENGTH }, (_, p) => {
     const def = PAGE_DEFAULTS[p];
     const cols = Array.from(
       { length: numCols },
       (_, c) => `[${c}]=${def}`,
-    ).join(', ');
-    return `[${p}]={${cols}}`;
-  }).join(', ');
+    ).join(',');
+    return `    [${p}]={${cols}},`;
+  });
+  const dataInit = ['{', ...dataPageLines, '  }'].join('\n');
 
   const stateInit = [
     `${stepSlot} = -1,`,
     `${pageSlot} = 0,`,
-    `${dataSlot} = {${dataInit}},`,
+    `${dataSlot} = ${dataInit},`,
     // active step count. Defaults to numCols (the whole region plays);
     // the user can shorten it on the LENGTH page (page 4).
     `${lengthSlot} = ${numCols},`,
@@ -200,7 +211,9 @@ export function emitWakeSequencer(region: WakeRegion): EmittedFragments {
     colLines,
     `local ${rrTable} = {}`,
     rrLines,
-    `local ${scalesTable} = {${scaleEntries}}`,
+    `local ${scalesTable} = {`,
+    ...scaleLines,
+    `}`,
     `local ${velocityTable} = {${velocityEntries}}`,
     `local ${durationTable} = {${durationEntries}}`,
     '',

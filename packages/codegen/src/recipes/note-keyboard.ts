@@ -155,14 +155,24 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
         .join('\n');
 
   // ---- scale-membership table (only when useLiveScale) ----
-  // Built as a single literal for compactness. Each scale is a
-  // sparse `{[pc]=true,...}` set; the pixel function indexes by pc
-  // (0..11) to decide led_idle vs led_offscale.
+  // Each scale is a sparse `{[pc]=true,...}` set; the pixel
+  // function indexes by pc (0..11) to decide led_idle vs
+  // led_offscale.
+  //
+  // Emitted with one scale per line. iii's repl.c receives scripts
+  // through a 512-byte LINE_BUFFER, so any single source line over
+  // 512 chars gets truncated and Lua chokes ("unexpected symbol
+  // near ']'"). Per-scale lines top out around 140 chars
+  // (chromatic, all 12 PCs) — well under the limit.
   const scaleMemberInit = useLiveScale
-    ? `local ${scaleMemberTable(safeName)} = {${SCALE_NAMES.map((name) => {
-        const intervals = SCALE_INTERVALS[name];
-        return `{${intervals.map((pc) => `[${pc}]=true`).join(',')}}`;
-      }).join(',')}}`
+    ? [
+        `local ${scaleMemberTable(safeName)} = {`,
+        ...SCALE_NAMES.map((name) => {
+          const intervals = SCALE_INTERVALS[name];
+          return `  {${intervals.map((pc) => `[${pc}]=true`).join(',')}},`;
+        }),
+        '}',
+      ].join('\n')
     : '';
 
   // ---- harmony-coach voicings ----
@@ -195,40 +205,56 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     }
   }
 
-  // Voicing table emitted as a single literal: live-scale builds a
-  // 2D table (8 scales × 7 chords); static builds a flat 7-chord
-  // array. Empty chord slots are `{}` placeholders so 1-based
-  // indexing stays correct. Voicing tuples are space-free
-  // (`{99,82,115}` not `{99, 82, 115}`) — saves ~3 chars per
-  // voicing and adds up across the live-scale table.
-  function emitChordsFor(perChord: number[][][]): string {
-    return (
-      '{' +
-      perChord
-        .map((voicings) =>
-          voicings.length === 0
-            ? '{}'
-            : '{' + voicings.map((v) => `{${v.join(',')}}`).join(',') + '}',
-        )
-        .join(',') +
-      '}'
-    );
+  // Voicing table emit. iii's 512-byte LINE_BUFFER means we MUST
+  // keep each source line short — putting the whole 2D voicing
+  // table on one line would silently truncate at byte 511 and
+  // produce a parse error somewhere in the middle.
+  //
+  // Live mode: 8 scales × 7 chords, one chord per line, grouped
+  //   inside per-scale `{ ... }` blocks. Chromatic (scale 1) and
+  //   any other all-empty scale get inlined as `{{},{},{},{},{},{},{}},`
+  //   to save 7 lines.
+  // Static mode: flat 7-chord array, one chord per line.
+  // Empty chord slots emit as `{}` so 1-based indexing stays
+  // correct. Voicing tuples are space-free (`{99,82,115}` not
+  // `{99, 82, 115}`).
+  function chordLinesFor(
+    perChord: number[][][],
+    indent: string,
+  ): string[] {
+    return perChord.map((voicings) => {
+      if (voicings.length === 0) return `${indent}{},`;
+      return `${indent}{${voicings.map((v) => `{${v.join(',')}}`).join(',')}},`;
+    });
   }
   let voicingTableInit = '';
   if (useCoach) {
     if (useLiveScale) {
-      const allScales = SCALE_NAMES.map((_n, i) => {
+      const lines: string[] = [`local ${voicingTable(safeName)} = {`];
+      SCALE_NAMES.forEach((_n, i) => {
         const idx = i + 1;
         const perChord =
           voicingsByScale?.[idx] ?? Array.from({ length: 7 }, () => []);
-        return emitChordsFor(perChord);
+        if (perChord.every((v) => v.length === 0)) {
+          // All-empty scale — inline placeholder, single line.
+          lines.push('  {{},{},{},{},{},{},{}},');
+        } else {
+          lines.push('  {');
+          lines.push(...chordLinesFor(perChord, '    '));
+          lines.push('  },');
+        }
       });
-      voicingTableInit = `local ${voicingTable(safeName)} = {${allScales.join(',')}}`;
+      lines.push('}');
+      voicingTableInit = lines.join('\n');
     } else {
       const idx = scaleNameToIdx(params.scale);
       const perChord =
         voicingsByScale?.[idx] ?? Array.from({ length: 7 }, () => []);
-      voicingTableInit = `local ${voicingTable(safeName)} = ${emitChordsFor(perChord)}`;
+      voicingTableInit = [
+        `local ${voicingTable(safeName)} = {`,
+        ...chordLinesFor(perChord, '  '),
+        '}',
+      ].join('\n');
     }
   }
 
