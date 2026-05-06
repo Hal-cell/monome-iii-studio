@@ -80,44 +80,49 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
 
   // ---- harmony-coach precomputations ----
   //
-  // Pitch class set for each chord degree (1..7). We pull triads from
-  // scale positions (d-1, d+1, d+3) — the classic "stack two thirds"
-  // construction within the user's scale. The actual chord quality
-  // (M/m/dim) is determined by the scale's interval pattern.
+  // Pitch class triads for each chord degree (1..7). We pull triads
+  // from scale positions (d-1, d+1, d+3) — the classic "stack two
+  // thirds" construction within the user's scale. The actual chord
+  // quality (M/m/dim) is determined by the scale's interval pattern.
   const chordPitchClasses = useCoach
     ? Array.from({ length: 7 }, (_, di) => {
         const d = di + 1;
-        const pcs = new Set<number>();
+        const pcs: number[] = [];
         for (let i = 0; i < 3; i++) {
           const note = noteAtDegree(
             params.root_note,
             params.scale,
             (d - 1) + i * 2,
           );
-          pcs.add(((note % 12) + 12) % 12);
+          pcs.push(((note % 12) + 12) % 12);
         }
         return pcs;
       })
     : [];
 
-  // Per-cell match table: for each cell with note N, which chord
-  // degrees include pitch class (N mod 12)? Emit only entries that
-  // match at least one chord (so the runtime lookup is dense).
-  const chordMatchLines = useCoach
-    ? inRange
-        .map(({ cell, note }) => {
-          const cellPc = ((note % 12) + 12) % 12;
-          const matches: number[] = [];
-          for (let d = 1; d <= 7; d++) {
-            if (chordPitchClasses[d - 1]!.has(cellPc)) matches.push(d);
-          }
-          if (matches.length === 0) return null;
-          const entries = matches.map((d) => `[${d}]=true`).join(', ');
-          return `${matchTable(safeName)}[${luaKey(cell)}] = {${entries}}`;
-        })
-        .filter((l): l is string => l !== null)
-        .join('\n')
-    : '';
+  // Per-chord voicing: pick a SPECIFIC set of cells (one per chord
+  // tone) that's spatially tight, instead of lighting every cell
+  // whose pitch class matches. On an isomorphic keyboard the same
+  // pitch class often appears in many cells, and lighting them all
+  // turns the hint into "all the in-key keys" — useless. Picking one
+  // tight voicing per chord gives the user a concrete shape to copy.
+  const chordVoicings = useCoach
+    ? chordPitchClasses.map((pcs) => pickVoicing(inRange, pcs))
+    : [];
+
+  // Lua table keyed by chord degree → set of cell-keys that should
+  // blink for that chord. Empty entries (chord tones unreachable on
+  // this keyboard) yield an empty set; the pixel function silently
+  // shows no hint when that happens.
+  const chordVoicingLines = useCoach
+    ? chordVoicings.map((voicing, di) => {
+        const d = di + 1;
+        const entries = voicing
+          .map((c) => `[${luaKey(c)}]=true`)
+          .join(', ');
+        return `${voicingTable(safeName)}[${d}] = {${entries}}`;
+      })
+    : [];
 
   // Idle brightness lookup per cell (used by the pixel function in
   // coach mode). Octave markers — cells whose note matches the root
@@ -140,13 +145,19 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     : '';
 
   // ---- handler ----
-  const handlerCoachAdvance = useCoach
+  // Coach mode: walk the progression graph only when the held set
+  // transitions from non-empty to empty (i.e. the user has finished
+  // playing this chord and lifted all keys). Walking on every press
+  // would advance 3+ times for a single triad — extremely confusing.
+  const handlerCoachRelease = useCoach
     ? [
-        '    -- harmony coach: walk to the next plausible chord degree',
-        `    local opts = ${nextChordTable(safeName)}[state.${coachChordSlot(safeName)}]`,
-        `    if opts then`,
-        `      state.${coachChordSlot(safeName)} = opts[math.random(1, #opts)]`,
-        `    end`,
+        `    if next(state.${stateSlot}) == nil then`,
+        '      -- All keys released — user has finished this chord. Walk.',
+        `      local opts = ${nextChordTable(safeName)}[state.${coachChordSlot(safeName)}]`,
+        `      if opts then`,
+        `        state.${coachChordSlot(safeName)} = opts[math.random(1, #opts)]`,
+        '      end',
+        '    end',
       ].join('\n')
     : '';
 
@@ -157,10 +168,10 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     '  if z == 1 then',
     `    midi_note_on(note, ${params.velocity}, ${params.channel})`,
     `    state.${stateSlot}[x + y*W] = true`,
-    handlerCoachAdvance,
     '  else',
     `    midi_note_off(note, 0, ${params.channel})`,
     `    state.${stateSlot}[x + y*W] = nil`,
+    handlerCoachRelease,
     '  end',
     'end',
   ]
@@ -173,8 +184,8 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
         '',
         `local function ${pixelName(safeName)}(k)`,
         `  if state.${stateSlot}[k] then return ${params.led_held} end`,
-        `  local m = ${matchTable(safeName)}[k]`,
-        `  if m and m[state.${coachChordSlot(safeName)}] then`,
+        `  local v = ${voicingTable(safeName)}[state.${coachChordSlot(safeName)}]`,
+        `  if v and v[k] then`,
         `    return state.${coachBlinkSlot(safeName)} == 0 and ${LED_CHORD_HI} or ${LED_CHORD_LO}`,
         '  end',
         `  return ${idleTable(safeName)}[k] or 0`,
@@ -202,8 +213,8 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     ...(useCoach
       ? [
           '',
-          `local ${matchTable(safeName)} = {}`,
-          chordMatchLines,
+          `local ${voicingTable(safeName)} = {}`,
+          ...chordVoicingLines,
           '',
           `local ${idleTable(safeName)} = {}`,
           idleLines,
@@ -270,7 +281,7 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
 
 // Identifier helpers — keep all the coach-only locals namespaced under
 // the region name so multiple note_keyboard regions don't collide.
-const matchTable = (n: string) => `_${n}_chord_match`;
+const voicingTable = (n: string) => `_${n}_chord_voicing`;
 const idleTable = (n: string) => `_${n}_idle`;
 const nextChordTable = (n: string) => `_${n}_next_chord`;
 const pixelName = (n: string) => `_${n}_pixel`;
@@ -278,6 +289,66 @@ const blinkTickName = (n: string) => `_${n}_blink_tick`;
 const blinkMetroName = (n: string) => `_${n}_blink_metro`;
 const coachChordSlot = (n: string) => `${n}_coach_chord`;
 const coachBlinkSlot = (n: string) => `${n}_coach_blink`;
+
+/**
+ * Pick a tight voicing for a chord on the current keyboard.
+ *
+ * Given the chord's pitch classes (root / third / fifth) and the set
+ * of cells in the keyboard, find ONE cell per pitch class that
+ * minimises the bounding-box span of the chosen 3 cells (Manhattan).
+ * Returns the picked Cells in the order matching `chordPCs`.
+ *
+ * If the keyboard doesn't contain all three pitch classes, returns
+ * just the cells for the reachable ones (or empty if none reach).
+ * The pixel function silently shows no hint when a chord's voicing
+ * is empty.
+ */
+function pickVoicing(
+  cellsWithNote: Array<{ cell: Cell; note: number }>,
+  chordPCs: number[],
+): Cell[] {
+  const byPc = new Map<number, Cell[]>();
+  for (const { cell, note } of cellsWithNote) {
+    const pc = ((note % 12) + 12) % 12;
+    const arr = byPc.get(pc) ?? [];
+    arr.push(cell);
+    byPc.set(pc, arr);
+  }
+
+  const candidates = chordPCs.map((pc) => byPc.get(pc) ?? []);
+  // Drop chord tones with no cells; we'll voice with whatever's left.
+  const reachable = candidates.filter((arr) => arr.length > 0);
+  if (reachable.length === 0) return [];
+  if (reachable.length === 1) return [reachable[0]![0]!];
+
+  // Enumerate all combinations across the reachable tones; pick the
+  // tightest by Manhattan bounding-box span. With ≤ 3 tones and at
+  // most a dozen cells per tone, this is tiny — runs at codegen time.
+  let best: Cell[] = [];
+  let bestSpan = Infinity;
+  function search(idx: number, current: Cell[]): void {
+    if (idx === reachable.length) {
+      const xs = current.map((c) => c.x);
+      const ys = current.map((c) => c.y);
+      const span =
+        Math.max(...xs) -
+        Math.min(...xs) +
+        (Math.max(...ys) - Math.min(...ys));
+      if (span < bestSpan) {
+        bestSpan = span;
+        best = [...current];
+      }
+      return;
+    }
+    for (const candidate of reachable[idx]!) {
+      current.push(candidate);
+      search(idx + 1, current);
+      current.pop();
+    }
+  }
+  search(0, []);
+  return best;
+}
 
 function analyzeSelection(cells: Cell[]): {
   xLeft: number;
