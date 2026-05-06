@@ -32,8 +32,9 @@ import {
   values,
 } from './behavior.ts';
 import { selection, setSelection } from './selection.ts';
+import { beginApply, endApply, type LayoutSnapshot } from './history.ts';
 
-function serializeRegion(r: SavedRegion): SavedRegionJSON {
+export function serializeRegion(r: SavedRegion): SavedRegionJSON {
   return {
     id: r.id,
     name: r.name,
@@ -98,4 +99,23 @@ export function newLayout(): void {
   clearAllRegions();
   setSelection(new Set<string>());
   setRecipeKind(null);
+}
+
+/**
+ * Apply a history (undo / redo) snapshot back to the underlying
+ * stores. Touches only the layout state — selection, recipe kind,
+ * and in-progress param values are intentionally left alone, because
+ * those represent the user's *current* draft, not the history line.
+ *
+ * Wrapped in beginApply/endApply so the auto-capture effect can tell
+ * "this signal change is from undo, don't record it again".
+ */
+export function applyLayoutSnapshot(snap: LayoutSnapshot): void {
+  beginApply();
+  try {
+    setLayoutName(snap.layoutName);
+    replaceAllRegions(snap.regions.map(deserializeRegion));
+  } finally {
+    endApply();
+  }
 }
