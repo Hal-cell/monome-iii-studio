@@ -28,10 +28,16 @@ const LED_PICKER_INACTIVE = 4;
 const LED_PICKER_UNUSED = 1;
 const COACH_BLINK_S = 0.25;
 
-// Maximum voicings per chord. Live-scale mode multiplies the data by
-// 8 scales, so we use a tighter cap there to keep the script under
-// iii's 32 KB upload buffer (SCRIPT_BUFFER_SIZE in repl.c).
-const MAX_VOICINGS_LIVE = 3;
+// Maximum voicings per chord. Live-scale mode multiplies the data
+// by 8 scales, so we use a tighter cap there to keep the script
+// under iii's 32 KB upload buffer (SCRIPT_BUFFER_SIZE in repl.c).
+//
+// Bumped to 5 from 3 once we switched to bass-pitch stratification
+// — extra voicings let us cover more of the keyboard's vertical
+// range (low / mid-low / mid / mid-high / high) so the coach
+// rotation includes voicings down in the bass register, not just
+// the top octave.
+const MAX_VOICINGS_LIVE = 5;
 const MAX_VOICINGS_STATIC = 6;
 
 // Hard cap on a voicing's pitch span. Triads should sit within an
@@ -669,29 +675,31 @@ type ScoredVoicing = {
   items: CellNote[];
   /** Manhattan distance bounding-box (visual compactness on grid). */
   span: number;
-  /** Inversion class: index in chordPCs of the lowest-pitch cell.
-   *  0 = root pos, 1 = first inv, 2 = second inv. -1 if N/A
-   *  (e.g. only 1 PC is reachable). */
-  inv: number;
+  /** Lowest note in the voicing (MIDI). Used as the register key —
+   *  voicings are stratified by bass pitch so the coach rotation
+   *  spans the keyboard's full vertical range. */
+  bass: number;
 };
 
 /**
- * Pick up to N voicings for one chord, optimized for the harmony
- * coach. Voicings are returned as integer-key tuples (cellKeyInt).
+ * Pick up to N voicings for one chord, for the harmony coach.
+ * Returned as integer-key tuples (cellKeyInt).
  *
- * Goals (per user request):
- *   1. Compact only — blinking cells should sit close together
- *      visually. We sort by Manhattan bounding-box span ascending.
- *   2. No octave-spread randomization — we hard-filter voicings
- *      whose pitch span exceeds one octave.
- *   3. Inversion variety — we explicitly partition voicings by
- *      which chord-PC sits at the bass (root / 3rd / 5th = root /
- *      1st inv / 2nd inv) and round-robin pick from each bucket so
- *      the user hears different rotations as the coach walks.
- *
- * If no voicing fits within MAX_PITCH_SPAN (very narrow keyboards),
- * we fall back to the unfiltered list — better some suggestion than
- * none.
+ * Three constraints, in priority order:
+ *   1. Compactness — pitch span ≤ MAX_PITCH_SPAN (one octave) so
+ *      the blinking cells stay close together visually. Hard
+ *      filter at enumeration time; if no voicing satisfies this
+ *      we fall back to the unfiltered set (very narrow keyboards
+ *      only).
+ *   2. Register variety — sort by bass-note pitch ascending and
+ *      take K evenly-spaced picks. On a tall keyboard this
+ *      naturally gives one voicing per octave (low / mid / high),
+ *      not three voicings stacked at the top. The previous
+ *      inversion-bucket round-robin enumerated cells top-down so
+ *      every inversion's "most compact" voicing landed in the
+ *      upper register — exactly the bias we're now fixing.
+ *   3. Within a register, prefer smaller Manhattan span (visual
+ *      compactness on the grid).
  */
 function pickVoicings(
   cellsWithNote: CellNote[],
@@ -724,12 +732,9 @@ function pickVoicings(
         Math.min(...xs) +
         (Math.max(...ys) - Math.min(...ys));
       const notes = current.map((it) => it.note);
-      // Inversion class = chordPCs index of the bass note's PC.
       let bassNote = notes[0]!;
       for (const n of notes) if (n < bassNote) bassNote = n;
-      const bassPc = ((bassNote % 12) + 12) % 12;
-      const inv = chordPCs.indexOf(bassPc);
-      all.push({ items: [...current], span, inv });
+      all.push({ items: [...current], span, bass: bassNote });
       return;
     }
     for (const c of reachable[idx]!) {
@@ -764,50 +769,30 @@ function pickVoicings(
   });
 
   const pool = compact.length > 0 ? compact : unique;
+  if (pool.length === 0) return [];
 
-  // Partition by inversion class.
-  const byInv: Record<number, ScoredVoicing[]> = { 0: [], 1: [], 2: [] };
-  const stray: ScoredVoicing[] = [];
-  for (const v of pool) {
-    if (v.inv === 0 || v.inv === 1 || v.inv === 2) {
-      byInv[v.inv]!.push(v);
-    } else {
-      stray.push(v);
-    }
-  }
-  for (const k of [0, 1, 2] as const) {
-    byInv[k]!.sort((a, b) => a.span - b.span);
+  // Sort by bass pitch ASC, span ASC as tiebreak. The tiebreak
+  // means voicings stacked at the same bass note (e.g. different
+  // upper-voice positions) prefer the more compact one.
+  pool.sort((a, b) => a.bass - b.bass || a.span - b.span);
+
+  const N = pool.length;
+  const K = Math.min(maxVoicings, N);
+  if (K === 1) {
+    return [pool[0]!.items.map((it) => cellKeyInt(it.cell))];
   }
 
-  // Round-robin: iterate inversion classes and take the next
-  // most-compact voicing from each, until we've collected K. This
-  // guarantees inversion variety as long as each inversion has at
-  // least one compact voicing.
+  // Stratified pick: K evenly-spaced indexes across the
+  // bass-pitch-sorted list. Index 0 = lowest bass, N-1 = highest.
+  // Dedup against same-index picks (rare, only if K > N which we
+  // already cap above).
   const picked: ScoredVoicing[] = [];
-  let depth = 0;
-  while (picked.length < maxVoicings) {
-    let added = false;
-    for (const inv of [0, 1, 2] as const) {
-      if (
-        depth < byInv[inv]!.length &&
-        picked.length < maxVoicings
-      ) {
-        picked.push(byInv[inv]![depth]!);
-        added = true;
-      }
-    }
-    if (!added) break;
-    depth++;
-  }
-
-  // If round-robin didn't fill (some inversion was empty), top up
-  // with strays sorted by span.
-  if (picked.length < maxVoicings && stray.length > 0) {
-    stray.sort((a, b) => a.span - b.span);
-    for (const v of stray) {
-      if (picked.length >= maxVoicings) break;
-      picked.push(v);
-    }
+  const seenIdx = new Set<number>();
+  for (let i = 0; i < K; i++) {
+    let idx = Math.floor((i * (N - 1)) / (K - 1));
+    while (seenIdx.has(idx) && idx < N - 1) idx++;
+    seenIdx.add(idx);
+    picked.push(pool[idx]!);
   }
 
   return picked.map((v) => v.items.map((it) => cellKeyInt(it.cell)));
