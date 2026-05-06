@@ -94,21 +94,75 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   const inRange = cellsWithNote
     .filter(({ note }) => note >= 0 && note <= 127)
     .sort((a, b) => a.cell.y - b.cell.y || a.cell.x - b.cell.x);
-  const noteLines = inRange
-    .map(({ cell, note }) => `${noteTable}[${luaKey(cell)}] = ${note}`)
-    .join('\n');
+
+  // ---- rectangularity detection ----
+  // When the keyboard cells form a complete rectangle AND every
+  // cell's note is in MIDI range, we can emit the note table /
+  // routes / LED draw as nested for-loops instead of per-cell
+  // lines. Saves ~10 KB on a full 16×8 layout vs per-cell emit.
+  const xLkb = keyboardCells.length
+    ? Math.min(...keyboardCells.map((c) => c.x))
+    : 0;
+  const xRkb = keyboardCells.length
+    ? Math.max(...keyboardCells.map((c) => c.x))
+    : 0;
+  const yTkb = keyboardCells.length
+    ? Math.min(...keyboardCells.map((c) => c.y))
+    : 0;
+  const yBkb = keyboardCells.length
+    ? Math.max(...keyboardCells.map((c) => c.y))
+    : 0;
+  const wKb = xRkb - xLkb + 1;
+  const hKb = yBkb - yTkb + 1;
+  const isRectKb =
+    keyboardCells.length > 0 &&
+    keyboardCells.length === wKb * hKb &&
+    inRange.length === keyboardCells.length;
+
+  // Note formula for the loop body:
+  //   note = root_note + (height + yTop - y) * row_interval
+  //                    + (x - 1 - xLeft) * col_interval
+  // where y, x are 1-indexed grid coords (matching the loop var).
+  const noteFormulaA = height + yTop;
+  const noteFormulaB = -1 - xLeft;
+  function noteFormulaFor(xVar: string, yVar: string): string {
+    const xCore =
+      noteFormulaB === 0
+        ? xVar
+        : noteFormulaB > 0
+          ? `(${xVar}+${noteFormulaB})`
+          : `(${xVar}-${-noteFormulaB})`;
+    const xExpr =
+      params.column_interval === 1
+        ? xCore
+        : `${xCore}*${params.column_interval}`;
+    const yCore = `(${noteFormulaA}-${yVar})`;
+    const yExpr =
+      params.row_interval === 1 ? yCore : `${yCore}*${params.row_interval}`;
+    return `${params.root_note} + ${yExpr} + ${xExpr}`;
+  }
+
+  const noteLines = isRectKb
+    ? [
+        `for y = ${yTkb + 1}, ${yBkb + 1} do`,
+        `  for x = ${xLkb + 1}, ${xRkb + 1} do`,
+        `    ${noteTable}[x + y*W] = ${noteFormulaFor('x', 'y')}`,
+        '  end',
+        'end',
+      ].join('\n')
+    : inRange
+        .map(({ cell, note }) => `${noteTable}[${luaKey(cell)}] = ${note}`)
+        .join('\n');
 
   // ---- scale-membership table (only when useLiveScale) ----
-  // 8 entries (one per scale), each a {[pc]=true} set of in-scale
-  // pitch classes. The pixel function uses this to decide
-  // led_idle vs led_offscale per cell when `state.scale_idx`
-  // changes. ~1 KB total.
-  const scaleMemberLines = useLiveScale
-    ? SCALE_NAMES.map((name, idx) => {
+  // Built as a single literal for compactness. Each scale is a
+  // sparse `{[pc]=true,...}` set; the pixel function indexes by pc
+  // (0..11) to decide led_idle vs led_offscale.
+  const scaleMemberInit = useLiveScale
+    ? `local ${scaleMemberTable(safeName)} = {${SCALE_NAMES.map((name) => {
         const intervals = SCALE_INTERVALS[name];
-        const entries = intervals.map((pc) => `[${pc}]=true`).join(', ');
-        return `${scaleMemberTable(safeName)}[${idx + 1}] = {${entries}}`;
-      }).join('\n')
+        return `{${intervals.map((pc) => `[${pc}]=true`).join(',')}}`;
+      }).join(',')}}`
     : '';
 
   // ---- harmony-coach voicings ----
@@ -141,55 +195,72 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     }
   }
 
-  const voicingTableInit = useCoach
-    ? useLiveScale
-      ? [
-          `local ${voicingTable(safeName)} = {}`,
-          ...SCALE_NAMES.map(
-            (_n, i) => `${voicingTable(safeName)}[${i + 1}] = {}`,
-          ),
-        ].join('\n')
-      : `local ${voicingTable(safeName)} = {}`
-    : '';
-
-  const voicingTableLines = voicingsByScale
-    ? Object.entries(voicingsByScale)
-        .flatMap(([scaleIdxStr, perChord]) => {
-          const scaleIdx = Number(scaleIdxStr);
-          return perChord
-            .map((voicings, di) => {
-              const d = di + 1;
-              if (voicings.length === 0) return null;
-              const inner = voicings
-                .map((v) => `{${v.join(', ')}}`)
-                .join(', ');
-              return useLiveScale
-                ? `${voicingTable(safeName)}[${scaleIdx}][${d}] = {${inner}}`
-                : `${voicingTable(safeName)}[${d}] = {${inner}}`;
-            })
-            .filter((l): l is string => l !== null);
-        })
-        .join('\n')
-    : '';
+  // Voicing table emitted as a single literal: live-scale builds a
+  // 2D table (8 scales × 7 chords); static builds a flat 7-chord
+  // array. Empty chord slots are `{}` placeholders so 1-based
+  // indexing stays correct. Voicing tuples are space-free
+  // (`{99,82,115}` not `{99, 82, 115}`) — saves ~3 chars per
+  // voicing and adds up across the live-scale table.
+  function emitChordsFor(perChord: number[][][]): string {
+    return (
+      '{' +
+      perChord
+        .map((voicings) =>
+          voicings.length === 0
+            ? '{}'
+            : '{' + voicings.map((v) => `{${v.join(',')}}`).join(',') + '}',
+        )
+        .join(',') +
+      '}'
+    );
+  }
+  let voicingTableInit = '';
+  if (useCoach) {
+    if (useLiveScale) {
+      const allScales = SCALE_NAMES.map((_n, i) => {
+        const idx = i + 1;
+        const perChord =
+          voicingsByScale?.[idx] ?? Array.from({ length: 7 }, () => []);
+        return emitChordsFor(perChord);
+      });
+      voicingTableInit = `local ${voicingTable(safeName)} = {${allScales.join(',')}}`;
+    } else {
+      const idx = scaleNameToIdx(params.scale);
+      const perChord =
+        voicingsByScale?.[idx] ?? Array.from({ length: 7 }, () => []);
+      voicingTableInit = `local ${voicingTable(safeName)} = ${emitChordsFor(perChord)}`;
+    }
+  }
 
   const nextChordTableLua = useCoach
     ? `local ${nextChordTable(safeName)} = {${Object.entries(NEXT_CHORD_DEGREE)
-        .map(([d, opts]) => `[${d}]={${opts.join(', ')}}`)
-        .join(', ')}}`
+        .map(([d, opts]) => `[${d}]={${opts.join(',')}}`)
+        .join(',')}}`
     : '';
 
   // ---- scale-picker cells (rightmost column) ----
+  // Picker cells are by construction a contiguous 1-D vertical run
+  // (`x = xRight`, sorted by y) so they're always loop-emittable.
   const pickerCellsAll = region.cells
     .filter((c) => isPickerCell(c))
     .sort((a, b) => a.y - b.y); // top → bottom = scale_idx 1..N
   const pickerCells = pickerCellsAll.slice(0, SCALE_NAMES.length);
   const pickerExtraCells = pickerCellsAll.slice(SCALE_NAMES.length);
+  const pickerYTop = pickerCells.length ? pickerCells[0]!.y : 0;
+  const pickerXcol = useLiveScale ? xRight + 1 : 0; // 1-indexed picker col
 
-  const pickerTargetLines = useLiveScale
-    ? pickerCells
-        .map((c, i) => `${pickerTable(safeName)}[${luaKey(c)}] = ${i + 1}`)
-        .join('\n')
-    : '';
+  // Loop emit: `_keys_picker[xcol + y*W] = y - yTop`. Same indexing
+  // convention as luaKey so the route table aligns. yTop=0 case
+  // simplifies the value to just `y`.
+  const yToScaleIdx = pickerYTop === 0 ? 'y' : `y - ${pickerYTop}`;
+  const pickerTargetLines =
+    useLiveScale && pickerCells.length > 0
+      ? [
+          `for y = ${pickerYTop + 1}, ${pickerYTop + pickerCells.length} do`,
+          `  ${pickerTable(safeName)}[${pickerXcol} + y*W] = ${yToScaleIdx}`,
+          'end',
+        ].join('\n')
+      : '';
 
   // ---- handlers ----
   // On full release (no keys held) the coach walks to the next
@@ -352,23 +423,14 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     ...(useLiveScale
       ? [
           '',
-          `local ${scaleMemberTable(safeName)} = {}`,
-          scaleMemberLines,
+          scaleMemberInit,
           '',
           `local ${pickerTable(safeName)} = {}`,
           pickerTargetLines,
         ]
       : []),
     ...(useCoach
-      ? [
-          '',
-          voicingTableInit,
-          voicingTableLines,
-          '',
-          nextChordTableLua,
-          '',
-          revoiceFn,
-        ]
+      ? ['', voicingTableInit, '', nextChordTableLua, '', revoiceFn]
       : []),
     '',
     keyboardHandler,
@@ -380,27 +442,51 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     .join('\n');
 
   // ---- LED draw ----
-  const ledKeyboardLines = usePixel
-    ? inRange.map(
-        ({ cell }) =>
-          `  grid_led(${luaXY(cell)}, ${pixelName(safeName)}(${luaKey(cell)}))`,
-      )
-    : inRange.map(({ cell, note }) => {
-        const idleVal = idleBrightnessFor(note, params);
-        return `  grid_led(${luaXY(cell)}, state.${stateSlot}[${luaKey(cell)}] and ${params.led_held} or ${idleVal})`;
-      });
+  // For pixel-mode rectangular keyboards, emit a nested for-loop —
+  // saves ~30 chars × N cells vs per-cell `grid_led(...)` calls.
+  // The non-pixel path keeps per-cell emit because each cell's idle
+  // brightness depends on its note's pc (varies per cell).
+  let ledKeyboardLines: string[];
+  if (usePixel && isRectKb) {
+    ledKeyboardLines = [
+      `  for y = ${yTkb + 1}, ${yBkb + 1} do`,
+      `    for x = ${xLkb + 1}, ${xRkb + 1} do`,
+      `      grid_led(x, y, ${pixelName(safeName)}(x + y*W))`,
+      '    end',
+      '  end',
+    ];
+  } else if (usePixel) {
+    ledKeyboardLines = inRange.map(
+      ({ cell }) =>
+        `  grid_led(${luaXY(cell)}, ${pixelName(safeName)}(${luaKey(cell)}))`,
+    );
+  } else {
+    ledKeyboardLines = inRange.map(({ cell, note }) => {
+      const idleVal = idleBrightnessFor(note, params);
+      return `  grid_led(${luaXY(cell)}, state.${stateSlot}[${luaKey(cell)}] and ${params.led_held} or ${idleVal})`;
+    });
+  }
 
-  const ledPickerLines = useLiveScale
-    ? [
-        ...pickerCells.map(
-          (c, i) =>
-            `  grid_led(${luaXY(c)}, state.${scaleIdxSlot(safeName)} == ${i + 1} and ${LED_PICKER_ACTIVE} or ${LED_PICKER_INACTIVE})`,
-        ),
-        ...pickerExtraCells.map(
-          (c) => `  grid_led(${luaXY(c)}, ${LED_PICKER_UNUSED})`,
-        ),
-      ]
-    : [];
+  // Picker LED draw: contiguous 1-D vertical run, always loopable.
+  // The expression `y - <yTop>` maps grid-y back to scale_idx, so
+  // we don't need to encode each (y → idx) pairing separately.
+  const ledPickerLines: string[] =
+    useLiveScale && pickerCells.length > 0
+      ? [
+          `  for y = ${pickerYTop + 1}, ${pickerYTop + pickerCells.length} do`,
+          `    grid_led(${pickerXcol}, y, state.${scaleIdxSlot(safeName)} == ${yToScaleIdx} and ${LED_PICKER_ACTIVE} or ${LED_PICKER_INACTIVE})`,
+          '  end',
+        ]
+      : [];
+  if (useLiveScale && pickerExtraCells.length > 0) {
+    const eYtop = pickerExtraCells[0]!.y;
+    const eYbot = pickerExtraCells[pickerExtraCells.length - 1]!.y;
+    ledPickerLines.push(
+      `  for y = ${eYtop + 1}, ${eYbot + 1} do`,
+      `    grid_led(${pickerXcol}, y, ${LED_PICKER_UNUSED})`,
+      '  end',
+    );
+  }
 
   const drawBlock = [
     `  -- region: ${safeName}`,
@@ -409,16 +495,32 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   ].join('\n');
 
   // ---- routes ----
-  const routeAdditions = [
-    ...inRange.map(
-      ({ cell }) => `_route[${luaKey(cell)}] = ${handlerName}`,
-    ),
-    ...(useLiveScale
-      ? pickerCells.map(
-          (c) => `_route[${luaKey(c)}] = ${pickerHandlerName}`,
-        )
-      : []),
-  ];
+  // Loop-emit when rectangular; the parent emit.ts rewrites
+  // `_route[` → `_route_pN[` per page, so a `for...end` here
+  // becomes a per-page route loop after rewrite.
+  const routeAdditions: string[] = [];
+  if (isRectKb) {
+    routeAdditions.push(
+      `for y = ${yTkb + 1}, ${yBkb + 1} do`,
+      `  for x = ${xLkb + 1}, ${xRkb + 1} do`,
+      `    _route[x + y*W] = ${handlerName}`,
+      '  end',
+      'end',
+    );
+  } else {
+    routeAdditions.push(
+      ...inRange.map(
+        ({ cell }) => `_route[${luaKey(cell)}] = ${handlerName}`,
+      ),
+    );
+  }
+  if (useLiveScale && pickerCells.length > 0) {
+    routeAdditions.push(
+      `for y = ${pickerYTop + 1}, ${pickerYTop + pickerCells.length} do`,
+      `  _route[${pickerXcol} + y*W] = ${pickerHandlerName}`,
+      'end',
+    );
+  }
 
   // ---- state ----
   // coach_voicing starts unset (nil); _<n>_revoice() seeds it during
