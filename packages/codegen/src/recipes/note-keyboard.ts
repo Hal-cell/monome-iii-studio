@@ -32,7 +32,14 @@ const COACH_BLINK_S = 0.25;
 // 8 scales, so we use a tighter cap there to keep the script under
 // iii's 32 KB upload buffer (SCRIPT_BUFFER_SIZE in repl.c).
 const MAX_VOICINGS_LIVE = 3;
-const MAX_VOICINGS_STATIC = 5;
+const MAX_VOICINGS_STATIC = 6;
+
+// Hard cap on a voicing's pitch span. Triads should sit within an
+// octave so the blinking cells stay close together — the user
+// explicitly asked us to stop sampling spread-octave voicings, and
+// instead get variety from inversions (which all fit within ~7
+// semitones of root).
+const MAX_PITCH_SPAN = 12;
 
 // iii grid is always 16 cells wide. Hard-coding it here lets us
 // pre-evaluate cell keys to single integers for the voicing tables,
@@ -56,7 +63,13 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   const noteTable = `_${safeName}_note`;
 
   const useLiveScale = params.live_scale_select === true;
-  const useCoach = params.harmony_coach === true;
+  // Coach is meaningful only when a non-chromatic scale can be
+  // active at runtime: live-scale mode unlocks the picker, static
+  // mode picks the scale at codegen time. Static + chromatic =
+  // silently disabled, no coach data emitted.
+  const useCoach =
+    params.harmony_coach === true &&
+    (useLiveScale || params.scale !== 'chromatic');
   const usePixel = useCoach || useLiveScale;
   const maxVoicings = useLiveScale
     ? MAX_VOICINGS_LIVE
@@ -179,10 +192,9 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     : '';
 
   // ---- handlers ----
-  // The "walk to next chord" block lives inside `if next(held) == nil`,
-  // which already provides a scope, so static mode emits the body
-  // directly. Live mode adds an extra `state.scale_idx ~= 1` guard so we
-  // don't walk while the user has chromatic selected.
+  // On full release (no keys held) the coach walks to the next
+  // chord-degree, then `_<n>_revoice()` picks a voicing and applies
+  // common-tone substitution from the previous one.
   const releaseInner = useCoach
     ? (() => {
         const indent = useLiveScale ? '        ' : '      ';
@@ -191,12 +203,7 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
           `${indent}if opts then`,
           `${indent}  state.${coachChordSlot(safeName)} = opts[math.random(1, #opts)]`,
           `${indent}end`,
-          useLiveScale
-            ? `${indent}local vs = ${voicingTable(safeName)}[state.${scaleIdxSlot(safeName)}][state.${coachChordSlot(safeName)}]`
-            : `${indent}local vs = ${voicingTable(safeName)}[state.${coachChordSlot(safeName)}]`,
-          `${indent}if vs and #vs > 0 then`,
-          `${indent}  state.${coachVoicingIdxSlot(safeName)} = math.random(1, #vs)`,
-          `${indent}end`,
+          `${indent}${revoiceName(safeName)}()`,
         ];
         return lines.join('\n');
       })()
@@ -234,17 +241,16 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     .filter((l) => l !== '')
     .join('\n');
 
-  // Picker handler: switch active scale + reseed coach voicing for new
-  // scale.
+  // Picker handler: switch active scale + reseed coach voicing for
+  // the new scale. Clear coach_voicing first so the revoice doesn't
+  // try to common-tone-substitute against the old scale's voicing
+  // (the user explicitly switched scales — voice-leading across
+  // that boundary doesn't really make sense).
   const pickerCoachReseed = useCoach
     ? [
         `  state.${coachChordSlot(safeName)} = 1`,
-        `  if state.${scaleIdxSlot(safeName)} ~= 1 then`,
-        `    local vs = ${voicingTable(safeName)}[state.${scaleIdxSlot(safeName)}][1]`,
-        `    if vs and #vs > 0 then`,
-        `      state.${coachVoicingIdxSlot(safeName)} = math.random(1, #vs)`,
-        '    end',
-        '  end',
+        `  state.${coachVoicingSlot(safeName)} = nil`,
+        `  ${revoiceName(safeName)}()`,
       ].join('\n')
     : '';
 
@@ -275,42 +281,22 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
       `  if state.${stateSlot}[k] then return ${params.led_held} end`,
     );
     if (useCoach) {
-      // Coach overlay. Live-scale mode wraps the lookup in a
-      // `state.scale_idx ~= 1` guard so chromatic mode shows no
-      // suggestion. Static-scale mode only emits the block at all when
-      // the chosen scale isn't chromatic (in chromatic mode there's no
-      // diatonic chord set), so no guard is needed there.
-      const emitCoachBlock =
-        useLiveScale || params.scale !== 'chromatic';
-      if (emitCoachBlock) {
-        const indent = useLiveScale ? '    ' : '  ';
-        const vsLookup = useLiveScale
-          ? `${voicingTable(safeName)}[state.${scaleIdxSlot(safeName)}]`
-          : voicingTable(safeName);
-        if (useLiveScale) {
-          pixelLines.push(
-            `  if state.${scaleIdxSlot(safeName)} ~= 1 then`,
-          );
-        }
-        pixelLines.push(
-          `${indent}local v = ${vsLookup}[state.${coachChordSlot(safeName)}]`,
-        );
-        pixelLines.push(`${indent}if v then`);
-        pixelLines.push(
-          `${indent}  local cv = v[state.${coachVoicingIdxSlot(safeName)}]`,
-        );
-        pixelLines.push(
-          `${indent}  if cv and (cv[1] == k or cv[2] == k or cv[3] == k) then`,
-        );
-        pixelLines.push(
-          `${indent}    return state.${coachBlinkSlot(safeName)} == 0 and ${LED_CHORD_HI} or ${LED_CHORD_LO}`,
-        );
-        pixelLines.push(`${indent}  end`);
-        pixelLines.push(`${indent}end`);
-        if (useLiveScale) {
-          pixelLines.push('  end');
-        }
-      }
+      // Coach overlay. The walk + revoice logic already gates by
+      // scale_idx (live) and emits nothing for static+chromatic
+      // (useCoach is false there), so here we just need to read
+      // state.<n>_coach_voicing directly. Linear-scan check covers
+      // 1/2/3-cell voicings — extra cv[i] slots are nil and won't
+      // match k.
+      pixelLines.push(
+        `  local cv = state.${coachVoicingSlot(safeName)}`,
+      );
+      pixelLines.push(
+        `  if cv and (cv[1] == k or cv[2] == k or cv[3] == k) then`,
+      );
+      pixelLines.push(
+        `    return state.${coachBlinkSlot(safeName)} == 0 and ${LED_CHORD_HI} or ${LED_CHORD_LO}`,
+      );
+      pixelLines.push('  end');
     }
     // Compute pc inline. Lua `(neg) % 12` returns non-negative on 5.x.
     pixelLines.push(`  local note = ${noteTable}[k]`);
@@ -353,6 +339,11 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
       ].join('\n')
     : '';
 
+  // ---- coach revoice helper (handler/picker/init all call it) ----
+  const revoiceFn = useCoach
+    ? buildRevoiceFn(safeName, useLiveScale, params.root_note)
+    : '';
+
   // ---- declarations assembled ----
   const declarations = [
     `-- ---- region: ${safeName} ----`,
@@ -369,7 +360,15 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
         ]
       : []),
     ...(useCoach
-      ? ['', voicingTableInit, voicingTableLines, '', nextChordTableLua]
+      ? [
+          '',
+          voicingTableInit,
+          voicingTableLines,
+          '',
+          nextChordTableLua,
+          '',
+          revoiceFn,
+        ]
       : []),
     '',
     keyboardHandler,
@@ -422,6 +421,8 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   ];
 
   // ---- state ----
+  // coach_voicing starts unset (nil); _<n>_revoice() seeds it during
+  // init, and the walk / picker keep it up to date thereafter.
   const stateInitLines = [`${stateSlot} = {},`];
   if (useLiveScale) {
     stateInitLines.push(
@@ -431,13 +432,17 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   if (useCoach) {
     stateInitLines.push(
       `${coachChordSlot(safeName)} = 1,`,
-      `${coachVoicingIdxSlot(safeName)} = 1,`,
       `${coachBlinkSlot(safeName)} = 0,`,
     );
   }
 
+  // Seed RNG once, then prime an initial coach voicing so the user
+  // sees a chord suggestion before pressing anything.
   const initLines = useCoach
-    ? ['math.randomseed(math.floor(get_time() * 1000))']
+    ? [
+        'math.randomseed(math.floor(get_time() * 1000))',
+        `${revoiceName(safeName)}()`,
+      ]
     : undefined;
 
   return {
@@ -458,14 +463,66 @@ const blinkTickName = (n: string) => `_${n}_blink_tick`;
 const blinkMetroName = (n: string) => `_${n}_blink_metro`;
 const scaleMemberTable = (n: string) => `_${n}_scale_member`;
 const pickerTable = (n: string) => `_${n}_picker`;
+const revoiceName = (n: string) => `_${n}_revoice`;
 const coachChordSlot = (n: string) => `${n}_coach_chord`;
-const coachVoicingIdxSlot = (n: string) => `${n}_coach_voicing_idx`;
+const coachVoicingSlot = (n: string) => `${n}_coach_voicing`;
 const coachBlinkSlot = (n: string) => `${n}_coach_blink`;
 const scaleIdxSlot = (n: string) => `${n}_scale_idx`;
 
 function scaleNameToIdx(name: string): number {
   const i = SCALE_NAMES.indexOf(name as (typeof SCALE_NAMES)[number]);
   return i >= 0 ? i + 1 : 1;
+}
+
+/**
+ * Build the runtime `_<n>_revoice()` Lua function. Picks a fresh
+ * voicing for the CURRENT chord (state.<n>_coach_chord) and applies
+ * common-tone substitution: any cell in the new voicing whose pitch
+ * class also appears in the previous voicing is replaced by the
+ * previous voicing's cell of that pc, so shared tones don't visually
+ * jump between blinks.
+ *
+ * Lua structure is shared between live-scale and static modes —
+ * only the voicing-table lookup differs (2D vs 1D index).
+ */
+function buildRevoiceFn(
+  safeName: string,
+  useLiveScale: boolean,
+  rootNote: number,
+): string {
+  const coachSlot = coachVoicingSlot(safeName);
+  const noteT = `_${safeName}_note`;
+  const vsLookup = useLiveScale
+    ? `${voicingTable(safeName)}[state.${scaleIdxSlot(safeName)}][state.${coachChordSlot(safeName)}]`
+    : `${voicingTable(safeName)}[state.${coachChordSlot(safeName)}]`;
+  return [
+    `local function ${revoiceName(safeName)}()`,
+    `  local vs = ${vsLookup}`,
+    `  if not vs or #vs == 0 then state.${coachSlot} = nil; return end`,
+    `  local base = vs[math.random(1, #vs)]`,
+    `  local prev = state.${coachSlot}`,
+    `  local n = #base`,
+    `  local nv = {}`,
+    `  for i = 1, n do nv[i] = base[i] end`,
+    `  if prev then`,
+    `    for i = 1, n do`,
+    `      local nn = ${noteT}[nv[i]]`,
+    `      if nn then`,
+    `        local npc = (nn - ${rootNote}) % 12`,
+    `        for j = 1, #prev do`,
+    `          local pc = prev[j]`,
+    `          local pn = ${noteT}[pc]`,
+    `          if pn and (pn - ${rootNote}) % 12 == npc then`,
+    `            nv[i] = pc`,
+    `            break`,
+    `          end`,
+    `        end`,
+    `      end`,
+    `    end`,
+    `  end`,
+    `  state.${coachSlot} = nv`,
+    `end`,
+  ].join('\n');
 }
 
 function idleBrightnessFor(
@@ -479,58 +536,90 @@ function idleBrightnessFor(
   return intervals.includes(pc) ? params.led_idle : params.led_offscale ?? 0;
 }
 
+type CellNote = { cell: Cell; note: number };
+type ScoredVoicing = {
+  items: CellNote[];
+  /** Manhattan distance bounding-box (visual compactness on grid). */
+  span: number;
+  /** Inversion class: index in chordPCs of the lowest-pitch cell.
+   *  0 = root pos, 1 = first inv, 2 = second inv. -1 if N/A
+   *  (e.g. only 1 PC is reachable). */
+  inv: number;
+};
+
 /**
- * Pick up to N voicings for one chord on the current keyboard,
- * returned as integer-key tuples (precomputed cellKeyInt). The
- * sampling logic is the same as before — enumerate every
- * (root, third, fifth) tuple, dedupe, sort by Manhattan span,
- * sample evenly across the span range to cover tight → spread.
+ * Pick up to N voicings for one chord, optimized for the harmony
+ * coach. Voicings are returned as integer-key tuples (cellKeyInt).
+ *
+ * Goals (per user request):
+ *   1. Compact only — blinking cells should sit close together
+ *      visually. We sort by Manhattan bounding-box span ascending.
+ *   2. No octave-spread randomization — we hard-filter voicings
+ *      whose pitch span exceeds one octave.
+ *   3. Inversion variety — we explicitly partition voicings by
+ *      which chord-PC sits at the bass (root / 3rd / 5th = root /
+ *      1st inv / 2nd inv) and round-robin pick from each bucket so
+ *      the user hears different rotations as the coach walks.
+ *
+ * If no voicing fits within MAX_PITCH_SPAN (very narrow keyboards),
+ * we fall back to the unfiltered list — better some suggestion than
+ * none.
  */
 function pickVoicings(
-  cellsWithNote: Array<{ cell: Cell; note: number }>,
+  cellsWithNote: CellNote[],
   chordPCs: number[],
   maxVoicings: number,
 ): number[][] {
-  const byPc = new Map<number, Cell[]>();
-  for (const { cell, note } of cellsWithNote) {
-    const pc = ((note % 12) + 12) % 12;
+  const byPc = new Map<number, CellNote[]>();
+  for (const it of cellsWithNote) {
+    const pc = ((it.note % 12) + 12) % 12;
     const arr = byPc.get(pc) ?? [];
-    arr.push(cell);
+    arr.push(it);
     byPc.set(pc, arr);
   }
 
-  const candidates = chordPCs.map((pc) => byPc.get(pc) ?? []);
-  const reachable = candidates.filter((arr) => arr.length > 0);
+  const candidatesByPC = chordPCs.map((pc) => byPc.get(pc) ?? []);
+  const reachable = candidatesByPC.filter((arr) => arr.length > 0);
   if (reachable.length === 0) return [];
-  if (reachable.length === 1) return [[cellKeyInt(reachable[0]![0]!)]];
+  if (reachable.length === 1) {
+    return [[cellKeyInt(reachable[0]![0]!.cell)]];
+  }
 
-  type Voicing = { cells: Cell[]; span: number };
-  const all: Voicing[] = [];
-  function search(idx: number, current: Cell[]): void {
+  // Enumerate every cell-tuple covering the reachable chord-PCs.
+  const all: ScoredVoicing[] = [];
+  function search(idx: number, current: CellNote[]): void {
     if (idx === reachable.length) {
-      const xs = current.map((c) => c.x);
-      const ys = current.map((c) => c.y);
+      const xs = current.map((it) => it.cell.x);
+      const ys = current.map((it) => it.cell.y);
       const span =
         Math.max(...xs) -
         Math.min(...xs) +
         (Math.max(...ys) - Math.min(...ys));
-      all.push({ cells: [...current], span });
+      const notes = current.map((it) => it.note);
+      // Inversion class = chordPCs index of the bass note's PC.
+      let bassNote = notes[0]!;
+      for (const n of notes) if (n < bassNote) bassNote = n;
+      const bassPc = ((bassNote % 12) + 12) % 12;
+      const inv = chordPCs.indexOf(bassPc);
+      all.push({ items: [...current], span, inv });
       return;
     }
-    for (const candidate of reachable[idx]!) {
-      current.push(candidate);
+    for (const c of reachable[idx]!) {
+      current.push(c);
       search(idx + 1, current);
       current.pop();
     }
   }
   search(0, []);
-  all.sort((a, b) => a.span - b.span);
 
+  // Dedupe by cell-set (the search produces permutation duplicates
+  // when several PCs share a cell-set — e.g. when reachable is
+  // smaller than chordPCs.length).
   const seen = new Set<string>();
-  const unique: Voicing[] = [];
+  const unique: ScoredVoicing[] = [];
   for (const v of all) {
-    const key = v.cells
-      .map((c) => `${c.x},${c.y}`)
+    const key = v.items
+      .map((it) => `${it.cell.x},${it.cell.y}`)
       .sort()
       .join('|');
     if (seen.has(key)) continue;
@@ -538,25 +627,62 @@ function pickVoicings(
     unique.push(v);
   }
 
-  const N = unique.length;
-  const K = Math.min(maxVoicings, N);
-  if (K <= 1) {
-    return unique.slice(0, K).map((v) => v.cells.map(cellKeyInt));
+  // Hard-filter octave-spanning voicings. Use pitchSpan (in
+  // semitones) computed from the actual note values — that's what
+  // the user actually hears.
+  const compact = unique.filter((v) => {
+    const ns = v.items.map((it) => it.note);
+    return Math.max(...ns) - Math.min(...ns) <= MAX_PITCH_SPAN;
+  });
+
+  const pool = compact.length > 0 ? compact : unique;
+
+  // Partition by inversion class.
+  const byInv: Record<number, ScoredVoicing[]> = { 0: [], 1: [], 2: [] };
+  const stray: ScoredVoicing[] = [];
+  for (const v of pool) {
+    if (v.inv === 0 || v.inv === 1 || v.inv === 2) {
+      byInv[v.inv]!.push(v);
+    } else {
+      stray.push(v);
+    }
   }
-  const picked: number[][] = [];
-  const pickedKeys = new Set<string>();
-  for (let i = 0; i < K; i++) {
-    const idx = Math.floor((i * (N - 1)) / (K - 1));
-    const v = unique[idx]!;
-    const key = v.cells
-      .map((c) => `${c.x},${c.y}`)
-      .sort()
-      .join('|');
-    if (pickedKeys.has(key)) continue;
-    pickedKeys.add(key);
-    picked.push(v.cells.map(cellKeyInt));
+  for (const k of [0, 1, 2] as const) {
+    byInv[k]!.sort((a, b) => a.span - b.span);
   }
-  return picked;
+
+  // Round-robin: iterate inversion classes and take the next
+  // most-compact voicing from each, until we've collected K. This
+  // guarantees inversion variety as long as each inversion has at
+  // least one compact voicing.
+  const picked: ScoredVoicing[] = [];
+  let depth = 0;
+  while (picked.length < maxVoicings) {
+    let added = false;
+    for (const inv of [0, 1, 2] as const) {
+      if (
+        depth < byInv[inv]!.length &&
+        picked.length < maxVoicings
+      ) {
+        picked.push(byInv[inv]![depth]!);
+        added = true;
+      }
+    }
+    if (!added) break;
+    depth++;
+  }
+
+  // If round-robin didn't fill (some inversion was empty), top up
+  // with strays sorted by span.
+  if (picked.length < maxVoicings && stray.length > 0) {
+    stray.sort((a, b) => a.span - b.span);
+    for (const v of stray) {
+      if (picked.length >= maxVoicings) break;
+      picked.push(v);
+    }
+  }
+
+  return picked.map((v) => v.items.map((it) => cellKeyInt(it.cell)));
 }
 
 function buildVoicingsForScale(
