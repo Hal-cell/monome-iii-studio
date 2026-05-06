@@ -38,14 +38,24 @@ export function emitLfo(region: LfoRegion): EmittedFragments {
   const TICK_S = 0.02;
   const phaseStep = TICK_S / params.period_seconds;
 
-  // Sort cells in a natural fill order: top-to-bottom, left-to-right
-  // within each row. For a horizontal-row selection this gives a clean
-  // left-to-right meter; for a column it fills top-to-bottom; for a
-  // block it fills row by row.
+  // Sort cells in a natural meter-rise order: BOTTOM-to-top,
+  // left-to-right within each row. For a horizontal-row selection this
+  // is just left-to-right; for a column the meter rises bottom-up; for
+  // a block the rows fill from the bottom up.
   const sortedCells = [...region.cells].sort(
-    (a, b) => a.y - b.y || a.x - b.x,
+    (a, b) => b.y - a.y || a.x - b.x,
   );
   const numCells = sortedCells.length;
+
+  // Threshold per cell for the meter: LFO output ranges over
+  // [minV, maxV] = [center-depth/2, center+depth/2], not [0, 127].
+  // Without this the top cell never lights at full sine because v
+  // never reaches 127. cell i (1-based) lights when v >= minV +
+  // (i / numCells) * range, so cell 1 lights just above minV and
+  // cell numCells lights at maxV.
+  const minV = params.center - params.depth / 2;
+  const maxV = params.center + params.depth / 2;
+  const range = Math.max(1, maxV - minV); // depth=0 → avoid div by 0
 
   // Map waveform name to a Lua expression returning value in [-1, 1]
   // for the current phase. Phase is a float in [0, 1).
@@ -71,15 +81,14 @@ export function emitLfo(region: LfoRegion): EmittedFragments {
     `${metroVar}:start()`,
   ].join('\n');
 
-  // LED draw: meter-style fill. The fraction of cells lit is
-  // last_value / 127 mapped to 0..numCells.
+  // LED draw: meter-style fill. cell i (1-based) lights when
+  // last_value >= minV + (i / numCells) * range. Thresholds are
+  // computed at compile time so the runtime check is a single >=.
   const ledLines = sortedCells
-    .map(
-      (c, i) =>
-        // i is 0-based; cell #1 lights up first (smallest value), so
-        // we light cell #(i+1) when (last_value/127 * numCells) >= i+1.
-        `  grid_led(${luaXY(c)}, (state.${lastValueSlot} * ${numCells}) >= (${i + 1} * 127) and ${params.led_bright} or ${params.led_dim})`,
-    )
+    .map((c, i) => {
+      const threshold = Math.round(minV + ((i + 1) / numCells) * range);
+      return `  grid_led(${luaXY(c)}, state.${lastValueSlot} >= ${threshold} and ${params.led_bright} or ${params.led_dim})`;
+    })
     .join('\n');
 
   const drawBlock = [`  -- region: ${name}`, ledLines].join('\n');

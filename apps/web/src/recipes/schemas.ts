@@ -612,64 +612,6 @@ const lfo: RecipeMeta = {
   }),
 };
 
-// ---------- Note monitor (MIDI input → grid feedback) ----------
-
-const noteMonitor: RecipeMeta = {
-  id: 'note_monitor',
-  label: 'Note monitor',
-  description: 'visualise incoming MIDI notes on the grid',
-  modes: [{ id: 'group', label: 'group' }],
-  defaultValues: {
-    channel: 0,
-    base_note: 36,
-    led_held: 12,
-    led_idle: 3,
-    velocity_responsive: 'off',
-  },
-  paramsFor: () => [
-    {
-      kind: 'int',
-      key: 'channel',
-      label: 'Channel',
-      min: 0,
-      max: 16,
-      default: 0,
-      help: '0 = listen on every channel; 1..16 = filter to one channel',
-    },
-    {
-      kind: 'int',
-      key: 'base_note',
-      label: 'Base note',
-      min: 0,
-      max: 127,
-      default: 36,
-      help: 'MIDI note for the first cell (top-left in cell-sort order); subsequent cells map to base+1, base+2, …',
-    },
-    { kind: 'int', key: 'led_held', label: 'LED held', min: 0, max: 15, default: 12 },
-    { kind: 'int', key: 'led_idle', label: 'LED idle', min: 0, max: 15, default: 3 },
-    {
-      kind: 'enum',
-      key: 'velocity_responsive',
-      label: 'Velocity',
-      options: [
-        { value: 'off', label: 'Fixed' },
-        { value: 'on', label: 'Velocity-scaled' },
-      ],
-      default: 'off',
-    },
-  ],
-  build: (_mode, v): Behavior => ({
-    kind: 'note_monitor',
-    params: {
-      channel: asInt(v.channel, 0),
-      base_note: asInt(v.base_note, 36),
-      led_held: asInt(v.led_held, 12),
-      led_idle: asInt(v.led_idle, 3),
-      velocity_responsive: asString(v.velocity_responsive, 'off') === 'on',
-    },
-  }),
-};
-
 // ---------- Page select (global) ----------
 
 const pageSelect: RecipeMeta = {
@@ -768,7 +710,6 @@ export const RECIPES: Record<BehaviorKind, RecipeMeta> = {
   step_sequencer: stepSequencer,
   wake_sequencer: wakeSequencer,
   lfo,
-  note_monitor: noteMonitor,
   page_select: pageSelect,
 };
 
@@ -784,7 +725,6 @@ export const RECIPE_ORDER: BehaviorKind[] = [
   'meter',
   'lfo',
   'note_keyboard',
-  'note_monitor',
   'step_sequencer',
   'wake_sequencer',
   'page_select',

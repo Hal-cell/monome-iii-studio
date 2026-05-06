@@ -22,8 +22,6 @@ export type {
   MomentaryCCParams,
   MomentaryNoteParams,
   MomentaryParams,
-  NoteMonitorBehavior,
-  NoteMonitorParams,
   PageSelectBehavior,
   PageSelectParams,
   Page,

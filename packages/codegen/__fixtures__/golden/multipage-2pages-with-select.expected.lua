@@ -55,11 +55,20 @@ local function handle_pages(x, y, z)
   if target == nil or target >= 2 then return end
   if target == state.page then return end
   state.page = target
-  -- Force a full repaint on the new page: clear the LED delta
-  -- cache and blank the hardware before drawing, otherwise cells
-  -- that the new page doesn't write to keep their stale value.
-  for k in pairs(_prev_led) do _prev_led[k] = nil end
+  -- Force a full repaint on the new page. We need to (a) clear
+  -- the LED delta cache so cells from the OLD page that the NEW
+  -- page doesn't paint are detected as deltas the next time
+  -- something writes them, and (b) blank the actual hardware
+  -- LEDs so cells the new page never touches are dark.
+  --
+  -- Reassigning _prev_led to a fresh table is safer across iii
+  -- Lua versions than mutating during pairs() iteration; the
+  -- closure inside grid_led picks up the new table via upvalue.
+  -- grid_refresh() is called after grid_led_all(0) to push the
+  -- blank state to hardware in case grid_led_all is buffered.
+  _prev_led = {}
   grid_led_all(0)
+  grid_refresh()
   redraw()
 end
 

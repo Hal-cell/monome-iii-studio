@@ -62,14 +62,14 @@ _lfo_metro:start()
 -- ---- per-page LED draw ----
 local function _draw_p0()
   -- region: lfo
-  grid_led(1, 1, (state.lfo_lastv * 8) >= (1 * 127) and 12 or 3)
-  grid_led(2, 1, (state.lfo_lastv * 8) >= (2 * 127) and 12 or 3)
-  grid_led(3, 1, (state.lfo_lastv * 8) >= (3 * 127) and 12 or 3)
-  grid_led(4, 1, (state.lfo_lastv * 8) >= (4 * 127) and 12 or 3)
-  grid_led(5, 1, (state.lfo_lastv * 8) >= (5 * 127) and 12 or 3)
-  grid_led(6, 1, (state.lfo_lastv * 8) >= (6 * 127) and 12 or 3)
-  grid_led(7, 1, (state.lfo_lastv * 8) >= (7 * 127) and 12 or 3)
-  grid_led(8, 1, (state.lfo_lastv * 8) >= (8 * 127) and 12 or 3)
+  grid_led(1, 1, state.lfo_lastv >= 28 and 12 or 3)
+  grid_led(2, 1, state.lfo_lastv >= 40 and 12 or 3)
+  grid_led(3, 1, state.lfo_lastv >= 52 and 12 or 3)
+  grid_led(4, 1, state.lfo_lastv >= 64 and 12 or 3)
+  grid_led(5, 1, state.lfo_lastv >= 76 and 12 or 3)
+  grid_led(6, 1, state.lfo_lastv >= 88 and 12 or 3)
+  grid_led(7, 1, state.lfo_lastv >= 100 and 12 or 3)
+  grid_led(8, 1, state.lfo_lastv >= 112 and 12 or 3)
 end
 
 -- ---- master redraw ----
