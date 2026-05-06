@@ -120,6 +120,17 @@ local function is_dpad(x, y)
   return false
 end
 
+-- The D-pad is a + cross, so its empty centre cell at (15, 7) is
+-- surrounded by D-pad cells on all four sides — any snake trying to
+-- enter it dies first. To avoid spawning unreachable apples there,
+-- and to give the player's thumb some breathing room around the
+-- controls, the whole bottom-right 4×4 block is an apple-spawn no-go
+-- zone (the snake can still WALK through the non-D-pad cells inside
+-- it; we only restrict where apples appear).
+local function is_apple_excluded(x, y)
+  return x >= W - 3 and y >= H - 3
+end
+
 local function snake_occupies(x, y)
   for _, s in ipairs(snake) do
     if s.x == x and s.y == y then return true end
@@ -131,7 +142,7 @@ local function spawn_apple()
   for _ = 1, 300 do
     local x = math.random(1, W)
     local y = math.random(1, H)
-    if not is_dpad(x, y) and not snake_occupies(x, y) then
+    if not is_apple_excluded(x, y) and not snake_occupies(x, y) then
       apple = {x=x, y=y}
       return
     end
