@@ -4,7 +4,6 @@ import type {
   MeterBehavior,
   MomentaryBehavior,
   NoteKeyboardBehavior,
-  NoteMonitorBehavior,
   PageSelectBehavior,
   RadioBehavior,
   RangeBehavior,
@@ -18,7 +17,6 @@ import { emitLfo } from './recipes/lfo.ts';
 import { emitMeter } from './recipes/meter.ts';
 import { emitMomentary } from './recipes/momentary.ts';
 import { emitNoteKeyboard } from './recipes/note-keyboard.ts';
-import { emitNoteMonitor } from './recipes/note-monitor.ts';
 import { emitPageSelect } from './recipes/page-select.ts';
 import { emitRadio } from './recipes/radio.ts';
 import { emitRange } from './recipes/range.ts';
@@ -50,7 +48,6 @@ export function emit(layout: GridLayout): string {
   const stateInits: string[] = [];
   const declarations: string[] = [];
   const initLines: string[] = [];
-  const midiHandlerNames: string[] = [];
 
   // Globally-scoped (rendered + dispatched on every page).
   const globalDrawBlocks: string[] = [];
@@ -99,11 +96,6 @@ export function emit(layout: GridLayout): string {
         case 'lfo':
           frags = emitLfo(region as Region & { behavior: LfoBehavior });
           break;
-        case 'note_monitor':
-          frags = emitNoteMonitor(
-            region as Region & { behavior: NoteMonitorBehavior },
-          );
-          break;
         case 'page_select':
           frags = emitPageSelect(
             region as Region & { behavior: PageSelectBehavior },
@@ -130,7 +122,6 @@ export function emit(layout: GridLayout): string {
       }
       declarations.push(frags.declarations);
       if (frags.initLines) initLines.push(...frags.initLines);
-      if (frags.midiHandler) midiHandlerNames.push(frags.midiHandler);
 
       if (isGlobal) {
         globalDrawBlocks.push(frags.drawBlock);
@@ -233,22 +224,6 @@ export function emit(layout: GridLayout): string {
     'end',
   ].join('\n');
 
-  // Optional MIDI dispatch — same as before.
-  const midiDispatch =
-    midiHandlerNames.length > 0
-      ? [
-          '',
-          '-- ---- MIDI input dispatch ----',
-          '-- iii calls event_midi(d1, d2, d3) on every incoming MIDI byte',
-          '-- triple. Fan out to each region that registered a handler;',
-          '-- redraw afterwards so any LED state mutations show up.',
-          'function event_midi(d1, d2, d3)',
-          ...midiHandlerNames.map((n) => `  ${n}(d1, d2, d3)`),
-          '  redraw()',
-          'end',
-        ].join('\n')
-      : '';
-
   return [
     emitHeader(layout),
     '',
@@ -299,7 +274,6 @@ export function emit(layout: GridLayout): string {
     routeArrayDecl,
     '',
     eventGridFn,
-    ...(midiDispatch ? [midiDispatch] : []),
     '',
     '-- ---- init ----',
     'grid_led_all(0)',
