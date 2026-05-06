@@ -83,7 +83,7 @@ GitHub serves the atom feed without auth and respects HTTP caching headers, so p
 
 | # | Task | Effort | Type | Status | Notes |
 |---|---|---|---|---|---|
-| **C1** | Conway's Game of Life | ⭐⭐ 1–2 h | fun | | shares trigger framework with snake |
+| **C1** | Conway's Game of Life | ⭐⭐ 1–2 h | fun | ✅ (this commit) | type "life" anywhere in the web UI; banner offers ▶ run on iii or download `gol.lua`. Canvas 15×8 with toroidal wrap; right column controls (pause / step / speed cycle / clear / random sparse / random dense). LED 15 = just born, 12 = alive, 5 = just died |
 | **C2** | Lights Out puzzle | ⭐⭐ 1–2 h | fun | | press cell → flip plus-neighbors; goal all dark |
 | **C3** | Two-player Pong | ⭐⭐⭐ 2–3 h | fun | | left/right paddles; needs two players to be fun |
 | **C4** | Generative ambient mode | ⭐⭐⭐ ½ day | fun | | grid evolves slowly; long-press a cell to perturb |
@@ -104,7 +104,7 @@ note_keyboard / harmony coach is mature now. Suggested order:
 2. **A4** Euclidean rhythm — small, high-impact, very monome-flavoured.
 3. **B7** layout template library — drum pad / step seq / synth keyboard starters.
 4. **B4 / B5 / B6** — quick UX wins.
-5. **C1–C4** — pick whatever feels fun.
+5. **C2 / C3 / C4** — Lights Out / Pong / generative ambient (C1 done).
 
 ---
 
