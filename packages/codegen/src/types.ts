@@ -460,15 +460,26 @@ export type PageSelectBehavior = {
  *           shown dimmed on the value pages so the user can see which
  *           steps are silenced. Default = numCols (all steps play).
  *           The playhead wraps at length, not numCols.
- *
- * Live BPM / run-stop / scale switching are NOT in v1 — those need
- * the CLK page (deferred). For v1, scale + root + bpm are static
- * params set in the panel.
+ *   5 CLK   live-control panel for global script state. Body layout:
+ *             rr=1: scale picker — 8 cells (chromatic / major /
+ *                   minor / dorian / phrygian / lydian / mixolydian /
+ *                   locrian). Active scale at LED_VALUE, others at
+ *                   LED_VALUE_INACTIVE. Switches scale live by
+ *                   indexing into a precomputed 2D scale table.
+ *             rr=2: run/stop — col 0 = stop, col 1 = run. Stopping
+ *                   kills any held note and freezes the playhead;
+ *                   running resumes from the current position.
+ *             rr=3..bodyHeight: BPM meter, top-left = MIN_BPM,
+ *                   bottom-right = MAX_BPM in row-major reading
+ *                   order. Press to set state.bpm; the metro period
+ *                   is recomputed and `_metro.time = X` propagates
+ *                   the new period live (per iii's metro_set in C).
  *
  * Selection constraints (enforced by the UI, not the emitter):
  *   - rectangle
- *   - ≥ 5 cols (room for 5 page selectors in the function row)
- *   - ≥ 2 rows (1 function + ≥ 1 body)
+ *   - ≥ 6 cols (room for 6 page selectors in the function row)
+ *   - ≥ 2 rows (1 function + ≥ 1 body); CLK page works best with
+ *     bodyHeight ≥ 3 so the BPM meter has at least one row
  */
 export type WakeSequencerParams = {
   channel: number;

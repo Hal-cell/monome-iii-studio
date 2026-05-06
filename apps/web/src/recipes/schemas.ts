@@ -653,10 +653,14 @@ const wakeSequencer: RecipeMeta = {
     bpm: 120,
     steps_per_beat: 4,
   },
-  // Selection must be a filled rectangle of at least 5 cols (room for
-  // the 5 page selectors in the function row — PITCH, OCT, VEL,
-  // DURATION, LENGTH) and 2 rows (1 fn row + at least 1 body row).
-  shape: { minCols: 5, minRows: 2, rectangleRequired: true },
+  // Selection must be a filled rectangle of at least 6 cols (room
+  // for the 6 page selectors in the function row — PITCH, OCT, VEL,
+  // DURATION, LENGTH, CLK) and 2 rows (1 fn row + at least 1 body
+  // row). The CLK page is most useful with bodyHeight ≥ 3 (so it
+  // can fit scale picker + run/stop + a BPM meter row), but we
+  // don't enforce that — smaller selections silently lose the
+  // unreachable controls.
+  shape: { minCols: 6, minRows: 2, rectangleRequired: true },
   paramsFor: () => [
     { kind: 'int', key: 'channel', label: 'Channel', min: 1, max: 16, default: 1 },
     {
