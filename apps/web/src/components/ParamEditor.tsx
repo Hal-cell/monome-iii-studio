@@ -130,13 +130,18 @@ function EnumField(props: {
 }) {
   const current = () =>
     typeof props.value === 'string' ? props.value : props.field.default;
+  // Short option lists (Output: Note/CC, Polyphony: Poly/Mono,
+  // Direction: 3) read fine on a single row with equal-width
+  // buttons. Anything longer (the 8 scales, future >=4-option enums)
+  // gets a 2-column grid so the labels don't get clipped to "Mixol…".
+  const useGrid = () => props.field.options.length >= 4;
   return (
-    <div class="flex gap-1">
+    <div class={useGrid() ? 'grid grid-cols-2 gap-1' : 'flex gap-1'}>
       <For each={props.field.options}>
         {(opt) => (
           <button
             type="button"
-            class={`flex-1 px-2 py-1 text-xs rounded border ${
+            class={`${useGrid() ? '' : 'flex-1 '}px-2 py-1 text-xs rounded border ${
               current() === opt.value
                 ? 'border-neutral-400 bg-neutral-800 text-neutral-100'
                 : 'border-neutral-800 bg-neutral-950 text-neutral-500 hover:text-neutral-300'
