@@ -274,6 +274,7 @@ const noteKeyboard: RecipeMeta = {
     led_held: 12,
     led_idle: 3,
     led_octave: 6,
+    harmony_coach: 'off',
   },
   paramsFor: (values) => [
     { kind: 'int', key: 'channel', label: 'Channel', min: 1, max: 16, default: 1 },
@@ -321,6 +322,20 @@ const noteKeyboard: RecipeMeta = {
       default: 6,
       help: 'cells whose note shares the root pitch class (every 12 semitones); set equal to LED idle to disable',
     },
+    {
+      kind: 'enum',
+      key: 'harmony_coach',
+      label: 'Harmony coach',
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'on', label: 'On' },
+      ],
+      default: 'off',
+      help:
+        values.scale === 'chromatic'
+          ? 'no-op for chromatic scale — pick a 7-note scale (major / minor / dorian / …) to use'
+          : 'cells of the next suggested chord blink; each press walks the progression graph (I → ii / iii / IV / V / vi / vii° etc.)',
+    },
   ],
   build: (_mode, v): Behavior => ({
     kind: 'note_keyboard',
@@ -334,6 +349,7 @@ const noteKeyboard: RecipeMeta = {
       led_held: asInt(v.led_held, 12),
       led_idle: asInt(v.led_idle, 3),
       led_octave: asInt(v.led_octave, 6),
+      harmony_coach: asString(v.harmony_coach, 'off') === 'on',
     },
   }),
 };
