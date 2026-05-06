@@ -13,6 +13,7 @@ local state = {
   page = 0,
   keys_held = {},
   keys_coach_chord = 1,
+  keys_coach_voicing_idx = 1,
   keys_coach_blink = 0,
 }
 
@@ -61,13 +62,13 @@ _keys_note[2 + 8*W] = 62
 _keys_note[3 + 8*W] = 64
 _keys_note[4 + 8*W] = 65
 local _keys_chord_voicing = {}
-_keys_chord_voicing[1] = {[2 + 6*W]=true, [1 + 5*W]=true, [3 + 5*W]=true}
-_keys_chord_voicing[2] = {[3 + 6*W]=true, [2 + 5*W]=true, [4 + 5*W]=true}
-_keys_chord_voicing[3] = {[1 + 5*W]=true, [3 + 5*W]=true, [1 + 6*W]=true}
-_keys_chord_voicing[4] = {[2 + 5*W]=true, [4 + 5*W]=true, [2 + 6*W]=true}
-_keys_chord_voicing[5] = {[3 + 5*W]=true, [1 + 6*W]=true, [3 + 6*W]=true}
-_keys_chord_voicing[6] = {[4 + 5*W]=true, [2 + 6*W]=true, [4 + 6*W]=true}
-_keys_chord_voicing[7] = {[1 + 6*W]=true, [3 + 6*W]=true, [2 + 5*W]=true}
+_keys_chord_voicing[1] = {{[2 + 6*W]=true, [1 + 5*W]=true, [3 + 5*W]=true}, {[2 + 6*W]=true, [4 + 6*W]=true, [3 + 5*W]=true}, {[1 + 8*W]=true, [3 + 8*W]=true, [2 + 7*W]=true}, {[1 + 8*W]=true, [1 + 5*W]=true, [3 + 5*W]=true}, {[1 + 8*W]=true, [4 + 6*W]=true, [3 + 5*W]=true}}
+_keys_chord_voicing[2] = {{[3 + 6*W]=true, [2 + 5*W]=true, [4 + 5*W]=true}, {[3 + 6*W]=true, [1 + 7*W]=true, [3 + 7*W]=true}, {[2 + 8*W]=true, [4 + 8*W]=true, [3 + 7*W]=true}, {[3 + 6*W]=true, [1 + 7*W]=true, [4 + 5*W]=true}, {[2 + 8*W]=true, [1 + 7*W]=true, [4 + 5*W]=true}}
+_keys_chord_voicing[3] = {{[1 + 5*W]=true, [3 + 5*W]=true, [1 + 6*W]=true}, {[4 + 6*W]=true, [3 + 5*W]=true, [4 + 7*W]=true}, {[4 + 6*W]=true, [3 + 5*W]=true, [1 + 6*W]=true}, {[3 + 8*W]=true, [2 + 7*W]=true, [1 + 6*W]=true}, {[3 + 8*W]=true, [3 + 5*W]=true, [1 + 6*W]=true}}
+_keys_chord_voicing[4] = {{[2 + 5*W]=true, [4 + 5*W]=true, [2 + 6*W]=true}, {[1 + 7*W]=true, [3 + 7*W]=true, [2 + 6*W]=true}, {[4 + 8*W]=true, [3 + 7*W]=true, [1 + 8*W]=true}, {[4 + 8*W]=true, [4 + 5*W]=true, [2 + 6*W]=true}, {[4 + 8*W]=true, [4 + 5*W]=true, [1 + 8*W]=true}}
+_keys_chord_voicing[5] = {{[3 + 5*W]=true, [1 + 6*W]=true, [3 + 6*W]=true}, {[3 + 5*W]=true, [4 + 7*W]=true, [3 + 6*W]=true}, {[2 + 7*W]=true, [1 + 6*W]=true, [2 + 8*W]=true}, {[2 + 7*W]=true, [4 + 7*W]=true, [2 + 8*W]=true}, {[3 + 5*W]=true, [4 + 7*W]=true, [2 + 8*W]=true}}
+_keys_chord_voicing[6] = {{[4 + 5*W]=true, [2 + 6*W]=true, [4 + 6*W]=true}, {[3 + 7*W]=true, [2 + 6*W]=true, [3 + 8*W]=true}, {[3 + 7*W]=true, [2 + 6*W]=true, [1 + 5*W]=true}, {[3 + 7*W]=true, [1 + 8*W]=true, [4 + 6*W]=true}, {[4 + 5*W]=true, [1 + 8*W]=true, [3 + 8*W]=true}}
+_keys_chord_voicing[7] = {{[1 + 6*W]=true, [3 + 6*W]=true, [2 + 5*W]=true}, {[1 + 6*W]=true, [2 + 8*W]=true, [1 + 7*W]=true}, {[1 + 6*W]=true, [2 + 8*W]=true, [2 + 5*W]=true}, {[4 + 7*W]=true, [2 + 8*W]=true, [1 + 7*W]=true}, {[4 + 7*W]=true, [2 + 8*W]=true, [2 + 5*W]=true}}
 local _keys_idle = {}
 _keys_idle[1 + 5*W] = 3
 _keys_idle[2 + 5*W] = 3
@@ -101,15 +102,22 @@ local function handle_keys(x, y, z)
       if opts then
         state.keys_coach_chord = opts[math.random(1, #opts)]
       end
+      local vs = _keys_chord_voicing[state.keys_coach_chord]
+      if vs and #vs > 0 then
+        state.keys_coach_voicing_idx = math.random(1, #vs)
+      end
     end
   end
 end
 
 local function _keys_pixel(k)
   if state.keys_held[k] then return 12 end
-  local v = _keys_chord_voicing[state.keys_coach_chord]
-  if v and v[k] then
-    return state.keys_coach_blink == 0 and 13 or 6
+  local vs = _keys_chord_voicing[state.keys_coach_chord]
+  if vs then
+    local v = vs[state.keys_coach_voicing_idx]
+    if v and v[k] then
+      return state.keys_coach_blink == 0 and 13 or 6
+    end
   end
   return _keys_idle[k] or 0
 end

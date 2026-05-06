@@ -100,27 +100,31 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
       })
     : [];
 
-  // Per-chord voicing: pick a SPECIFIC set of cells (one per chord
-  // tone) that's spatially tight, instead of lighting every cell
-  // whose pitch class matches. On an isomorphic keyboard the same
-  // pitch class often appears in many cells, and lighting them all
-  // turns the hint into "all the in-key keys" — useless. Picking one
-  // tight voicing per chord gives the user a concrete shape to copy.
+  // Per-chord voicings: pick MULTIPLE specific voicings (3 cells
+  // each, one per chord tone) covering the span range from tight
+  // (closed) to spread (open). At runtime the script rolls a fresh
+  // random voicing index each time the chord-suggestion advances,
+  // so repeated visits to chord I show different shapes — including
+  // open voicings whenever the keyboard is large enough.
   const chordVoicings = useCoach
-    ? chordPitchClasses.map((pcs) => pickVoicing(inRange, pcs))
+    ? chordPitchClasses.map((pcs) => pickVoicings(inRange, pcs))
     : [];
 
-  // Lua table keyed by chord degree → set of cell-keys that should
-  // blink for that chord. Empty entries (chord tones unreachable on
-  // this keyboard) yield an empty set; the pixel function silently
-  // shows no hint when that happens.
+  // Lua emit: for each chord degree, an array of voicings; each
+  // voicing is a {[cell_key]=true,...} set of 3 cells.
   const chordVoicingLines = useCoach
-    ? chordVoicings.map((voicing, di) => {
+    ? chordVoicings.map((voicings, di) => {
         const d = di + 1;
-        const entries = voicing
-          .map((c) => `[${luaKey(c)}]=true`)
+        if (voicings.length === 0) {
+          return `${voicingTable(safeName)}[${d}] = {}`;
+        }
+        const inner = voicings
+          .map((v) => {
+            const entries = v.map((c) => `[${luaKey(c)}]=true`).join(', ');
+            return `{${entries}}`;
+          })
           .join(', ');
-        return `${voicingTable(safeName)}[${d}] = {${entries}}`;
+        return `${voicingTable(safeName)}[${d}] = {${inner}}`;
       })
     : [];
 
@@ -149,6 +153,9 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   // transitions from non-empty to empty (i.e. the user has finished
   // playing this chord and lifted all keys). Walking on every press
   // would advance 3+ times for a single triad — extremely confusing.
+  // After advancing the chord we also re-roll a random voicing index
+  // so repeated visits to the same chord show different shapes
+  // (closed → open) — that's how open voicings appear over time.
   const handlerCoachRelease = useCoach
     ? [
         `    if next(state.${stateSlot}) == nil then`,
@@ -156,6 +163,10 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
         `      local opts = ${nextChordTable(safeName)}[state.${coachChordSlot(safeName)}]`,
         `      if opts then`,
         `        state.${coachChordSlot(safeName)} = opts[math.random(1, #opts)]`,
+        '      end',
+        `      local vs = ${voicingTable(safeName)}[state.${coachChordSlot(safeName)}]`,
+        `      if vs and #vs > 0 then`,
+        `        state.${coachVoicingIdxSlot(safeName)} = math.random(1, #vs)`,
         '      end',
         '    end',
       ].join('\n')
@@ -179,14 +190,20 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     .join('\n');
 
   // ---- pixel function (coach mode only) ----
+  // Voicing structure changed: voicings[chord] is now a list of
+  // voicings (each a {[cell_key]=true,...} set). The currently-shown
+  // voicing is voicings[chord][coach_voicing_idx].
   const pixelFn = useCoach
     ? [
         '',
         `local function ${pixelName(safeName)}(k)`,
         `  if state.${stateSlot}[k] then return ${params.led_held} end`,
-        `  local v = ${voicingTable(safeName)}[state.${coachChordSlot(safeName)}]`,
-        `  if v and v[k] then`,
-        `    return state.${coachBlinkSlot(safeName)} == 0 and ${LED_CHORD_HI} or ${LED_CHORD_LO}`,
+        `  local vs = ${voicingTable(safeName)}[state.${coachChordSlot(safeName)}]`,
+        `  if vs then`,
+        `    local v = vs[state.${coachVoicingIdxSlot(safeName)}]`,
+        `    if v and v[k] then`,
+        `      return state.${coachBlinkSlot(safeName)} == 0 and ${LED_CHORD_HI} or ${LED_CHORD_LO}`,
+        '    end',
         '  end',
         `  return ${idleTable(safeName)}[k] or 0`,
         'end',
@@ -261,6 +278,7 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   if (useCoach) {
     stateInitLines.push(
       `${coachChordSlot(safeName)} = 1,`,
+      `${coachVoicingIdxSlot(safeName)} = 1,`,
       `${coachBlinkSlot(safeName)} = 0,`,
     );
   }
@@ -288,25 +306,40 @@ const pixelName = (n: string) => `_${n}_pixel`;
 const blinkTickName = (n: string) => `_${n}_blink_tick`;
 const blinkMetroName = (n: string) => `_${n}_blink_metro`;
 const coachChordSlot = (n: string) => `${n}_coach_chord`;
+const coachVoicingIdxSlot = (n: string) => `${n}_coach_voicing_idx`;
 const coachBlinkSlot = (n: string) => `${n}_coach_blink`;
 
 /**
- * Pick a tight voicing for a chord on the current keyboard.
+ * Maximum number of distinct voicings emitted per chord. The runtime
+ * picks one of them at random each time the chord becomes the
+ * suggestion, so the user sees varied voicings — closed, medium,
+ * spread (a.k.a. "open") — instead of always the tightest 3 cells.
  *
- * Given the chord's pitch classes (root / third / fifth) and the set
- * of cells in the keyboard, find ONE cell per pitch class that
- * minimises the bounding-box span of the chosen 3 cells (Manhattan).
- * Returns the picked Cells in the order matching `chordPCs`.
- *
- * If the keyboard doesn't contain all three pitch classes, returns
- * just the cells for the reachable ones (or empty if none reach).
- * The pixel function silently shows no hint when a chord's voicing
- * is empty.
+ * 5 is a balance between Lua data size and visible variety. On a
+ * keyboard small enough that fewer than 5 unique voicings exist,
+ * we just emit however many do.
  */
-function pickVoicing(
+const MAX_VOICINGS_PER_CHORD = 5;
+
+/**
+ * Pick up to N voicings for a chord on the current keyboard.
+ *
+ * Given the chord's pitch classes (root / third / fifth) and the
+ * cells in the keyboard, enumerate every (root_cell, third_cell,
+ * fifth_cell) combination, dedupe by cell set, sort by Manhattan
+ * bounding-box span, then sample evenly across the span range so
+ * the picked voicings cover tight → spread (open) shapes. The
+ * runtime pixel function blinks one of these per chord visit.
+ *
+ * If the keyboard doesn't contain all three pitch classes we fall
+ * back to whatever is reachable (or empty if none). The pixel
+ * function silently shows no hint when a chord's voicing array is
+ * empty.
+ */
+function pickVoicings(
   cellsWithNote: Array<{ cell: Cell; note: number }>,
   chordPCs: number[],
-): Cell[] {
+): Cell[][] {
   const byPc = new Map<number, Cell[]>();
   for (const { cell, note } of cellsWithNote) {
     const pc = ((note % 12) + 12) % 12;
@@ -319,13 +352,13 @@ function pickVoicing(
   // Drop chord tones with no cells; we'll voice with whatever's left.
   const reachable = candidates.filter((arr) => arr.length > 0);
   if (reachable.length === 0) return [];
-  if (reachable.length === 1) return [reachable[0]![0]!];
+  if (reachable.length === 1) return [[reachable[0]![0]!]];
 
-  // Enumerate all combinations across the reachable tones; pick the
-  // tightest by Manhattan bounding-box span. With ≤ 3 tones and at
-  // most a dozen cells per tone, this is tiny — runs at codegen time.
-  let best: Cell[] = [];
-  let bestSpan = Infinity;
+  // Enumerate every full-chord combination across the reachable
+  // tones. With ≤ 3 tones and at most a dozen cells per tone, this
+  // is at most a few hundred combos — runs at codegen time.
+  type Voicing = { cells: Cell[]; span: number };
+  const all: Voicing[] = [];
   function search(idx: number, current: Cell[]): void {
     if (idx === reachable.length) {
       const xs = current.map((c) => c.x);
@@ -334,10 +367,7 @@ function pickVoicing(
         Math.max(...xs) -
         Math.min(...xs) +
         (Math.max(...ys) - Math.min(...ys));
-      if (span < bestSpan) {
-        bestSpan = span;
-        best = [...current];
-      }
+      all.push({ cells: [...current], span });
       return;
     }
     for (const candidate of reachable[idx]!) {
@@ -347,7 +377,43 @@ function pickVoicing(
     }
   }
   search(0, []);
-  return best;
+
+  // Sort by span ascending (tight → wide).
+  all.sort((a, b) => a.span - b.span);
+
+  // Dedupe by sorted cell-set (some 3-tuples differ only in tone
+  // order; same physical voicing).
+  const seen = new Set<string>();
+  const unique: Voicing[] = [];
+  for (const v of all) {
+    const key = v.cells
+      .map((c) => `${c.x},${c.y}`)
+      .sort()
+      .join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(v);
+  }
+
+  // Sample evenly across the span-sorted unique list so the picked
+  // voicings cover the available range, not just the tightest few.
+  const N = unique.length;
+  const K = Math.min(MAX_VOICINGS_PER_CHORD, N);
+  if (K <= 1) return unique.slice(0, K).map((v) => v.cells);
+  const picked: Cell[][] = [];
+  const pickedKeys = new Set<string>();
+  for (let i = 0; i < K; i++) {
+    const idx = Math.floor((i * (N - 1)) / (K - 1));
+    const v = unique[idx]!;
+    const key = v.cells
+      .map((c) => `${c.x},${c.y}`)
+      .sort()
+      .join('|');
+    if (pickedKeys.has(key)) continue;
+    pickedKeys.add(key);
+    picked.push(v.cells);
+  }
+  return picked;
 }
 
 function analyzeSelection(cells: Cell[]): {
