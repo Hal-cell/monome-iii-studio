@@ -50,15 +50,15 @@ for y = 5, 8 do
   end
 end
 local _keys_chord_voicing = {
+  {{99,82,115,98}},
+  {{131,113,129},{131,113,99}},
+  {{82,115,98,131}},
+  {{113,99,82},{83,99,82}},
+  {{115,98,131,113}},
   {{99,82,115}},
-  {{131,113}},
-  {{82,115,98}},
-  {{113,129},{113,99},{83,99}},
-  {{115,98,131}},
-  {{99,82}},
   {{98,131,113}},
 }
-local _keys_next_chord = {[1]={2,3,4,5,6,7},[2]={5,7},[3]={4,6},[4]={1,5,7},[5]={1,6},[6]={2,4,5},[7]={1,3}}
+local _keys_next_chord = {[1]={4,4,5,5,6,6,2,2,3},[2]={5,5,5,7},[3]={6,6,4,1},[4]={5,5,5,1,1,2,7},[5]={1,1,1,1,1,6},[6]={2,2,4,4,5},[7]={1,1,1,1,3}}
 local function _keys_revoice()
   local vs = _keys_chord_voicing[state.keys_coach_chord]
   if not vs or #vs == 0 then state.keys_coach_voicing = nil; return end
@@ -107,7 +107,7 @@ end
 local function _keys_pixel(k)
   if state.keys_held[k] then return 12 end
   local cv = state.keys_coach_voicing
-  if cv and (cv[1] == k or cv[2] == k or cv[3] == k) then
+  if cv and (cv[1] == k or cv[2] == k or cv[3] == k or cv[4] == k) then
     return state.keys_coach_blink == 0 and 13 or 6
   end
   local note = _keys_note[k]
