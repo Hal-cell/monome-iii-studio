@@ -1,9 +1,9 @@
 /**
  * Conway's Game of Life — easter egg for monome iii grid.
  *
- * Self-contained Lua, ~180 lines, fits well under iii's 32 KB
- * script buffer and 512-byte per-line limit. Uses only the
- * standard iii Lua API (no codegen dependency).
+ * Self-contained Lua, fits well under iii's 32 KB script buffer
+ * and 512-byte per-line limit. Uses only the standard iii Lua
+ * API (no codegen dependency).
  *
  * Layout:
  *   columns 1..15, rows 1..8  → canvas (toroidal wrap)
@@ -12,20 +12,37 @@
  * Right-column controls:
  *   (16,1) play / pause
  *   (16,2) step (single tick when paused)
- *   (16,3) speed cycle  — 10 Hz / 5 Hz / 2.5 Hz / 1.25 Hz
+ *   (16,3) speed cycle      — column-scan rate (4 levels)
+ *   (16,4) scale cycle      — D Dorian / Aeolian / Phrygian / Major
  *   (16,5) clear all
  *   (16,6) random sparse (~25% density)
  *   (16,7) random dense  (~50% density)
- *   (16,4) and (16,8) unused — dim glow marks the strip
+ *   (16,8) sim-rate cycle   — advance sim every 1 / 2 / 4 full scans
  *
- * Canvas LED brightness:
- *   just born this tick   = 15 (flash)
- *   alive ≥ 1 tick        = 12
- *   just died this tick   = 5 (dim afterglow)
- *   dead                  = 0
+ * Music — column scan ("piano roll"):
+ *   Each tick scans one column, left → right, wrapping. Alive
+ *   cells in the current column trigger note-on (staccato), with
+ *   y → pitch via the active scale (8 entries, top y=1 = highest
+ *   pitch). All notes are released before the next column's notes
+ *   trigger, giving a clean stepped-arpeggio feel. Sim advances
+ *   only after a full scan (or every N scans, see sim-rate).
+ *   Pattern shape becomes audible:
+ *     - blinker → two-note alternation
+ *     - glider  → a single note drifting through the pitch range
+ *     - still life → stable repeating chord cluster
+ *     - random  → continuous chord wash
  *
- * Triggered from the web UI by typing "life" anywhere outside an
- * input field.
+ * Canvas LED:
+ *   just born this tick     = 15 (flash)
+ *   alive ≥ 1 tick           = 12
+ *   just died this tick      = 5  (afterglow)
+ *   dead                     = 0
+ *   current scan column overrides:
+ *     alive cell             = 15 (brightest)
+ *     dead cell              = 2  (dim scan trail)
+ *
+ * Triggered from the web UI by typing "life" anywhere outside
+ * an input field.
  */
 
 export function golLua(): string {
@@ -43,19 +60,23 @@ local CTRL_X = W
 local CTRL_PAUSE  = 1
 local CTRL_STEP   = 2
 local CTRL_SPEED  = 3
+local CTRL_SCALE  = 4
 local CTRL_CLEAR  = 5
 local CTRL_RAND_S = 6
 local CTRL_RAND_D = 7
+local CTRL_SIMR   = 8
 
 local function ctrl_at(x, y)
   if x ~= CTRL_X then return nil end
   if y == CTRL_PAUSE  then return 'pause'  end
   if y == CTRL_STEP   then return 'step'   end
   if y == CTRL_SPEED  then return 'speed'  end
+  if y == CTRL_SCALE  then return 'scale'  end
   if y == CTRL_CLEAR  then return 'clear'  end
   if y == CTRL_RAND_S then return 'rand_s' end
   if y == CTRL_RAND_D then return 'rand_d' end
-  return 'unused'  -- y=4 or y=8: dim spacer
+  if y == CTRL_SIMR   then return 'simr'   end
+  return nil
 end
 
 -- ---- LED brightness ----
@@ -63,12 +84,12 @@ local LED_LIVE     = 12
 local LED_BORN     = 15
 local LED_DYING    = 5
 local LED_DEAD     = 0
-local LED_UNUSED   = 1   -- dim spacer in control strip
+local LED_SCAN_DIM = 2   -- dead cell at current scan column
 local LED_CTRL     = 4   -- idle control button
 local LED_PAUSED   = 14  -- pause button when sim is paused
 local LED_RUNNING  = 5   -- pause button when sim is running
 
--- ---- State ----
+-- ---- Sim state ----
 -- alive[y][x] uses 4 values:
 --   0  = dead (long)
 --   1  = just born this tick (LED 15)
@@ -84,10 +105,39 @@ end
 
 local paused = true  -- start paused so user can draw an initial pattern
 
--- Speed cycle: tick period in seconds. Indices 1..4.
-local SPEEDS = { 0.1, 0.2, 0.4, 0.8 }
-local speed_idx = 2  -- 5 Hz default
-local tick_period = SPEEDS[speed_idx]
+-- Speed cycle: column-scan period in seconds.
+local SPEEDS = { 0.08, 0.15, 0.25, 0.5 }
+local speed_idx = 2  -- ~6.7 Hz default = full scan in ~2.25 s
+
+-- Sim-rate cycle: advance sim every N full scans.
+local SIM_RATES = { 1, 2, 4 }
+local sim_rate_idx = 1  -- evolve every full scan
+
+-- ---- Music ----
+local MIDI_CH = 1
+local NOTE_VEL = 60  -- mid-soft for ambient feel
+
+-- Pitch tables, indexed by y (1=top of grid → highest pitch).
+-- Each scale fits in one octave + 1, anchored at D2/D3.
+--   D Dorian:  D E F G A B C D
+--   D Aeolian: D E F G A Bb C D (natural minor)
+--   D Phrygian: D Eb F G A Bb C D
+--   D Major:   D E F# G A B C# D (Ionian)
+local SCALES = {
+  { 50, 48, 47, 45, 43, 41, 40, 38 },  -- 1 dorian
+  { 50, 48, 46, 45, 43, 41, 40, 38 },  -- 2 aeolian
+  { 50, 48, 46, 45, 43, 41, 39, 38 },  -- 3 phrygian
+  { 50, 49, 47, 45, 43, 42, 40, 38 },  -- 4 major
+}
+local scale_idx = 1
+
+-- ---- Scan state ----
+local scan_col = 1
+local sim_counter = 0  -- counts full scans since last sim step
+
+-- Notes triggered last scan tick — to be note-off'd before the
+-- next column's note-ons fire.
+local pending_notes = {}
 
 local _metro  -- forward decl so event_grid can adjust _metro.time
 
@@ -114,8 +164,8 @@ local function neighbors(x, y)
 end
 
 local function step()
-  -- Apply Conway B3/S23 rules. Build into a fresh table so the
-  -- update is simultaneous (no in-place corruption mid-pass).
+  -- Conway B3/S23. Build into a fresh table so the update is
+  -- simultaneous (no in-place corruption mid-pass).
   local new = {}
   for y = 1, H do
     new[y] = {}
@@ -142,16 +192,42 @@ local function step()
   alive = new
 end
 
+-- ---- Music plumbing ----
+local function release_pending()
+  for i = 1, #pending_notes do
+    midi_note_off(pending_notes[i], 0, MIDI_CH)
+  end
+  pending_notes = {}
+end
+
+local function trigger_column(col)
+  local pitch = SCALES[scale_idx]
+  for y = 1, H do
+    if is_alive(y, col) then
+      local note = pitch[y]
+      midi_note_on(note, NOTE_VEL, MIDI_CH)
+      pending_notes[#pending_notes + 1] = note
+    end
+  end
+end
+
 -- ---- LED render ----
 local function redraw()
   -- Canvas
+  local show_scan = not paused
   for y = 1, H do
     for x = 1, CW do
-      local v = alive[y][x]
-      local b = LED_DEAD
-      if     v == 1  then b = LED_BORN
-      elseif v == 2  then b = LED_LIVE
-      elseif v == -1 then b = LED_DYING
+      local b
+      if show_scan and x == scan_col then
+        -- Scan column override: alive = brightest, dead = dim trail.
+        b = is_alive(y, x) and LED_BORN or LED_SCAN_DIM
+      else
+        local v = alive[y][x]
+        if     v == 1  then b = LED_BORN
+        elseif v == 2  then b = LED_LIVE
+        elseif v == -1 then b = LED_DYING
+        else                b = LED_DEAD
+        end
       end
       grid_led(x, y, b)
     end
@@ -159,24 +235,38 @@ local function redraw()
   -- Control strip
   for y = 1, H do
     local kind = ctrl_at(CTRL_X, y)
-    local b = LED_UNUSED
+    local b = 1  -- dim default for any unmapped slot
     if kind == 'pause' then
       b = paused and LED_PAUSED or LED_RUNNING
     elseif kind == 'step' then
       b = paused and LED_CTRL or 1  -- only meaningful while paused
     elseif kind == 'speed' then
-      -- Brightness scales with speed: faster = brighter.
-      b = 2 + (5 - speed_idx) * 2  -- speeds 1..4 → 10, 8, 6, 4
-    elseif kind == 'clear' or kind == 'rand_s' or kind == 'rand_d' then
-      b = LED_CTRL
+      -- Brighter = faster (smaller period).
+      b = 2 + (5 - speed_idx) * 2  -- idx 1..4 → 10, 8, 6, 4
+    elseif kind == 'scale' then
+      -- Distinct brightness per scale so user can tell which is
+      -- selected at a glance.
+      local SCALE_LED = { 7, 5, 3, 11 }  -- dorian/aeolian/phrygian/major
+      b = SCALE_LED[scale_idx]
+    elseif kind == 'clear' then
+      b = 3  -- dim "off"
+    elseif kind == 'rand_s' then
+      b = 5  -- medium "some"
+    elseif kind == 'rand_d' then
+      b = 8  -- brighter "lots" — denser button looks denser
+    elseif kind == 'simr' then
+      -- Brighter = faster sim (smaller N). idx 1..3 → 11, 6, 3.
+      local SIMR_LED = { 11, 6, 3 }
+      b = SIMR_LED[sim_rate_idx]
     end
     grid_led(CTRL_X, y, b)
   end
   grid_refresh()
 end
 
--- ---- Helpers for control actions ----
+-- ---- Control actions ----
 local function fill_random(density)
+  release_pending()
   for y = 1, H do
     for x = 1, CW do
       if math.random() < density then
@@ -189,6 +279,7 @@ local function fill_random(density)
 end
 
 local function clear_all()
+  release_pending()
   for y = 1, H do
     for x = 1, CW do
       alive[y][x] = 0
@@ -198,48 +289,76 @@ end
 
 -- ---- Input ----
 function event_grid(x, y, z)
-  if z ~= 1 then return end  -- only react on press, not release
+  if z ~= 1 then return end  -- only on press, not release
   local kind = ctrl_at(x, y)
   if kind == 'pause' then
     paused = not paused
+    -- On pause-down, release any sounding notes so we don't leave
+    -- voices hanging while the metro is dormant in user terms.
+    if paused then release_pending() end
   elseif kind == 'step' then
     if paused then step() end
   elseif kind == 'speed' then
     speed_idx = (speed_idx % #SPEEDS) + 1
-    tick_period = SPEEDS[speed_idx]
-    if _metro then _metro.time = tick_period end
+    if _metro then _metro.time = SPEEDS[speed_idx] end
+  elseif kind == 'scale' then
+    -- Switching scale mid-flight: release sounding pitches from
+    -- the old scale; the next column's note-ons will use the new.
+    release_pending()
+    scale_idx = (scale_idx % #SCALES) + 1
   elseif kind == 'clear' then
     clear_all()
   elseif kind == 'rand_s' then
     fill_random(0.25)
   elseif kind == 'rand_d' then
     fill_random(0.5)
-  elseif kind == 'unused' then
-    -- spacer cells: do nothing
-  else
+  elseif kind == 'simr' then
+    sim_rate_idx = (sim_rate_idx % #SIM_RATES) + 1
+    sim_counter = 0  -- reset counter so next sim step honors the new rate
+  elseif kind == nil then
     -- canvas cell: toggle alive/dead
     if is_alive(y, x) then
-      alive[y][x] = -1  -- mark "just died" so it shows the afterglow
+      alive[y][x] = -1  -- afterglow shows the user's edit
     else
-      alive[y][x] = 1   -- mark "just born" so it shows the bright flash
+      alive[y][x] = 1
     end
   end
   redraw()
 end
 
--- ---- Tick metro ----
+-- ---- Tick ----
 local function tick_fn()
-  if not paused then
-    step()
+  -- 1. Release notes from previous scan column (always, even when
+  --    we're about to bail on pause — keeps pause silent).
+  release_pending()
+
+  if paused then
     redraw()
+    return
   end
+
+  -- 2. Trigger note-ons for current column's alive cells.
+  trigger_column(scan_col)
+
+  -- 3. Advance scan; on wrap, count it for sim cadence.
+  scan_col = scan_col + 1
+  if scan_col > CW then
+    scan_col = 1
+    sim_counter = sim_counter + 1
+    if sim_counter >= SIM_RATES[sim_rate_idx] then
+      sim_counter = 0
+      step()
+    end
+  end
+
+  redraw()
 end
 
 -- ---- Init ----
 math.randomseed(math.floor(get_time() * 1000))
 grid_led_all(0)
 
-_metro = metro.init(tick_fn, tick_period)
+_metro = metro.init(tick_fn, SPEEDS[speed_idx])
 _metro:start()
 
 redraw()
