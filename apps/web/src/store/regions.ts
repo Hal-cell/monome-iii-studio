@@ -203,10 +203,19 @@ export function renameRegion(id: string, name: string): void {
   );
 }
 
-/** O(1) cell → region lookup, refreshed on every regions change. */
+/**
+ * O(1) cell → region lookup, refreshed on every regions or active-page
+ * change. Filters to regions on the active page, plus page_select
+ * regions (which are globally visible — they're meant to always show
+ * so the user can switch pages from anywhere). Cells that belong to
+ * an inactive page's region appear empty on the canvas, just like
+ * they will on the iii grid hardware once the layout runs.
+ */
 const cellOwnership = createMemo(() => {
   const map = new Map<string, SavedRegion>();
+  const activePage = _activePageIndex();
   for (const r of regions()) {
+    if (r.recipeKind !== 'page_select' && r.pageIndex !== activePage) continue;
     for (const k of r.cellKeys) {
       map.set(k, r);
     }

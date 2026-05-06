@@ -603,6 +603,24 @@ function PageTabBar() {
     setEditing(null);
   }
 
+  // Warn if the page_select region's cell count doesn't match the
+  // page count: too few cells = unreachable pages, too many = inert
+  // (dim) cells. A user-visible reminder is the cleanest fix —
+  // auto-resizing page_select would have to invent a placement
+  // strategy and surprise the user.
+  const pageSelectStatus = (): {
+    cells: number;
+    pages: number;
+    issue: 'short' | 'extra' | null;
+  } | null => {
+    const ps = regions().find((r) => r.recipeKind === 'page_select');
+    if (!ps) return null;
+    const cells = ps.cellKeys.size;
+    const pages = pageNames().length;
+    if (cells === pages) return { cells, pages, issue: null };
+    return { cells, pages, issue: cells < pages ? 'short' : 'extra' };
+  };
+
   return (
     <div class="space-y-2">
       <div class="flex flex-wrap gap-1">
@@ -675,6 +693,27 @@ function PageTabBar() {
             delete current page
           </button>
         </div>
+      </Show>
+      <Show when={pageSelectStatus()?.issue === 'short'}>
+        <p class="text-[10px] text-amber-200/70 italic leading-relaxed">
+          page_select has {pageSelectStatus()!.cells} cell
+          {pageSelectStatus()!.cells === 1 ? '' : 's'} but{' '}
+          {pageSelectStatus()!.pages} pages exist — pages{' '}
+          {pageSelectStatus()!.cells + 1} and up will be unreachable
+          from the grid. Re-create page_select with at least{' '}
+          {pageSelectStatus()!.pages} cells.
+        </p>
+      </Show>
+      <Show when={pageSelectStatus()?.issue === 'extra'}>
+        <p class="text-[10px] text-neutral-500 italic leading-relaxed">
+          page_select has {pageSelectStatus()!.cells} cells but only{' '}
+          {pageSelectStatus()!.pages} pages exist — the extra{' '}
+          {pageSelectStatus()!.cells - pageSelectStatus()!.pages} cell
+          {pageSelectStatus()!.cells - pageSelectStatus()!.pages === 1
+            ? ''
+            : 's'}{' '}
+          will render dim and be inert.
+        </p>
       </Show>
       <p class="text-[10px] text-neutral-600 leading-relaxed">
         click a tab to switch · double-click to rename · regions added
