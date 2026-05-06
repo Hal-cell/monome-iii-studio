@@ -685,22 +685,32 @@ type ScoredVoicing = {
  * Pick up to N voicings for one chord, for the harmony coach.
  * Returned as integer-key tuples (cellKeyInt).
  *
- * Three constraints, in priority order:
- *   1. Compactness — pitch span ≤ MAX_PITCH_SPAN (one octave) so
- *      the blinking cells stay close together visually. Hard
- *      filter at enumeration time; if no voicing satisfies this
- *      we fall back to the unfiltered set (very narrow keyboards
- *      only).
- *   2. Register variety — sort by bass-note pitch ascending and
- *      take K evenly-spaced picks. On a tall keyboard this
- *      naturally gives one voicing per octave (low / mid / high),
- *      not three voicings stacked at the top. The previous
- *      inversion-bucket round-robin enumerated cells top-down so
- *      every inversion's "most compact" voicing landed in the
- *      upper register — exactly the bias we're now fixing.
- *   3. Within a register, prefer smaller Manhattan span (visual
- *      compactness on the grid).
+ * Constraints in priority order:
+ *   1. Compactness — both axes:
+ *        a. Pitch span ≤ MAX_PITCH_SPAN (one octave). The user
+ *           actually hears these notes; spreading across octaves
+ *           makes the suggestion nonsense.
+ *        b. Grid-Manhattan span. The user has to PRESS these
+ *           cells, so a triad scattered across the whole 16-col
+ *           keyboard is unplayable. We compute the minimum
+ *           achievable Manhattan span on the current keyboard
+ *           and discard anything more than `+TIGHT_TOLERANCE`
+ *           wider — adaptive so we don't reject everything on
+ *           layouts where tight isn't possible.
+ *   2. Register variety — sort surviving voicings by bass-note
+ *      pitch and take K evenly-spaced picks across the list.
+ *      Gives one voicing per register zone (low / mid / high)
+ *      rather than all three at the top.
+ *   3. Within a register, dedup by bass note keeping only the
+ *      tightest representative — without dedup, stratified
+ *      indexes can land in the middle of a same-bass cluster
+ *      and pick a wider voicing when a tighter one is right
+ *      next to it.
+ *
+ * Falls back to looser filters if a constraint over-prunes.
  */
+const TIGHT_TOLERANCE = 2;
+
 function pickVoicings(
   cellsWithNote: CellNote[],
   chordPCs: number[],
@@ -760,39 +770,53 @@ function pickVoicings(
     unique.push(v);
   }
 
-  // Hard-filter octave-spanning voicings. Use pitchSpan (in
-  // semitones) computed from the actual note values — that's what
-  // the user actually hears.
-  const compact = unique.filter((v) => {
+  // Filter 1: pitch span ≤ one octave.
+  const pitchOk = unique.filter((v) => {
     const ns = v.items.map((it) => it.note);
     return Math.max(...ns) - Math.min(...ns) <= MAX_PITCH_SPAN;
   });
+  const afterPitch = pitchOk.length > 0 ? pitchOk : unique;
+  if (afterPitch.length === 0) return [];
 
-  const pool = compact.length > 0 ? compact : unique;
-  if (pool.length === 0) return [];
+  // Filter 2: grid Manhattan span ≤ minSpan + TIGHT_TOLERANCE.
+  // Adaptive — if the keyboard layout only supports wide voicings
+  // we widen accordingly rather than returning nothing.
+  const minSpan = afterPitch.reduce(
+    (m, v) => Math.min(m, v.span),
+    Infinity,
+  );
+  const pool = afterPitch.filter(
+    (v) => v.span <= minSpan + TIGHT_TOLERANCE,
+  );
 
-  // Sort by bass pitch ASC, span ASC as tiebreak. The tiebreak
-  // means voicings stacked at the same bass note (e.g. different
-  // upper-voice positions) prefer the more compact one.
+  // Sort by bass pitch ASC, span ASC tiebreak.
   pool.sort((a, b) => a.bass - b.bass || a.span - b.span);
 
-  const N = pool.length;
+  // Dedup by bass note: keep the tightest representative at each
+  // distinct bass. Stratified picking can otherwise land in the
+  // middle of a same-bass cluster and grab a less-tight voicing
+  // when a tighter one of the same bass is right next to it.
+  const dedupByBass: ScoredVoicing[] = [];
+  let lastBass = Number.NaN;
+  for (const v of pool) {
+    if (v.bass !== lastBass) {
+      dedupByBass.push(v);
+      lastBass = v.bass;
+    }
+  }
+
+  const N = dedupByBass.length;
   const K = Math.min(maxVoicings, N);
   if (K === 1) {
-    return [pool[0]!.items.map((it) => cellKeyInt(it.cell))];
+    return [dedupByBass[0]!.items.map((it) => cellKeyInt(it.cell))];
   }
 
   // Stratified pick: K evenly-spaced indexes across the
-  // bass-pitch-sorted list. Index 0 = lowest bass, N-1 = highest.
-  // Dedup against same-index picks (rare, only if K > N which we
-  // already cap above).
+  // bass-sorted list. Index 0 = lowest bass, N-1 = highest.
   const picked: ScoredVoicing[] = [];
-  const seenIdx = new Set<number>();
   for (let i = 0; i < K; i++) {
-    let idx = Math.floor((i * (N - 1)) / (K - 1));
-    while (seenIdx.has(idx) && idx < N - 1) idx++;
-    seenIdx.add(idx);
-    picked.push(pool[idx]!);
+    const idx = Math.floor((i * (N - 1)) / (K - 1));
+    picked.push(dedupByBass[idx]!);
   }
 
   return picked.map((v) => v.items.map((it) => cellKeyInt(it.cell)));
