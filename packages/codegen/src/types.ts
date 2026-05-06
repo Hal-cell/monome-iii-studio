@@ -296,6 +296,18 @@ export type StepSequencerCommonParams = {
    */
   gate_length: number;
   /**
+   * Swing 0..75 (percent). 0 = straight time. Positive values
+   * lengthen even-indexed steps (0, 2, 4, ...) and shorten odd ones
+   * by the same amount, giving a shuffle / dotted-feel. 50 ≈ heavy
+   * 3:1 swing; 33 ≈ triplet feel. Average tempo is preserved.
+   *
+   * When > 0 the emitter runs the metro at 4× the master rate and
+   * scales divs / gate_length accordingly so swing has resolution
+   * even at the default divs=1. swing=0 emits the same code as
+   * before. Odd-numbered loop lengths desync at the wrap.
+   */
+  swing: number;
+  /**
    * Per-row clock division. Length = number of rows in the selection.
    * Each entry is an integer ≥ 1 — how many master ticks elapse
    * between this row's step advances. Default [1, 1, ...] gives

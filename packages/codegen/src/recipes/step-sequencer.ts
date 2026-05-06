@@ -22,6 +22,7 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
   const rowTable = `_${name}_row`;
   const colTable = `_${name}_col`;
   const divsTable = `_${name}_divs`;
+  const swingTable = `_${name}_swing`;
   const stepSlot = `${name}_step`;
   const onSlot = `${name}_on`;
   const dirSlot = `${name}_dir`;
@@ -38,14 +39,31 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
 
   const isMono = params.output_mode === 'note_per_row' && params.mono;
 
-  // Master tick rate. Per-row divs slow individual rows down from this.
-  const masterTickSeconds = 60 / params.bpm / params.steps_per_beat;
+  // Swing splits each pair of steps into long+short. To get useful
+  // resolution at the default divs=1 we run the metro at 4× the
+  // master rate when swing > 0, and scale divs / gate / offset into
+  // the same internal-tick space. swing=0 keeps the old 1× rate so
+  // the goldens remain stable.
+  const swingPercent = Math.max(0, Math.min(75, params.swing ?? 0));
+  const subTicks = swingPercent > 0 ? 4 : 1;
+  const masterTickSeconds = 60 / params.bpm / params.steps_per_beat / subTicks;
 
   // Pad / truncate the user-supplied divs array to exactly numRows.
   const divs = Array.from({ length: numRows }, (_, r) => {
     const v = params.divs?.[r];
     return typeof v === 'number' && v >= 1 ? v : 1;
   });
+
+  // Each row's "step duration" in metro-tick units.
+  const internalDivs = divs.map((d) => d * subTicks);
+  // Per-row swing offset in metro ticks. Even-indexed steps last
+  // (D + offset), odd-indexed last (D - offset); pair total = 2D so
+  // tempo is preserved. floor() so the pair always fits an integer
+  // number of metro ticks.
+  const swingOffsets = divs.map((d) =>
+    Math.floor((d * subTicks * swingPercent) / 100),
+  );
+  const internalGate = params.gate_length * subTicks;
 
   // Sort cells row-major for emission consistency.
   const sortedCells = [...region.cells].sort(
@@ -71,11 +89,31 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     (_, r) => `[${r}]=${valueForRow(r)}`,
   ).join(', ');
 
-  const divsEntries = divs.map((d, r) => `[${r}]=${d}`).join(', ');
+  const divsEntries = internalDivs.map((d, r) => `[${r}]=${d}`).join(', ');
+  const swingEntries = swingOffsets.map((o, r) => `[${r}]=${o}`).join(', ');
+  const swingArg = swingPercent > 0 ? swingTable : null;
 
   const tickBody = isMono
-    ? buildMonoTickBody(params, numRows, numCols, name, valuesTable, divsTable)
-    : buildPolyTickBody(params, numRows, numCols, name, valuesTable, divsTable);
+    ? buildMonoTickBody(
+        params,
+        numRows,
+        numCols,
+        name,
+        valuesTable,
+        divsTable,
+        internalGate,
+        swingArg,
+      )
+    : buildPolyTickBody(
+        params,
+        numRows,
+        numCols,
+        name,
+        valuesTable,
+        divsTable,
+        internalGate,
+        swingArg,
+      );
 
   // Press handler. In poly mode each cell toggles independently. In
   // mono mode only one row may be "on" per column at a time —
@@ -115,6 +153,7 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
     colLines,
     `local ${valuesTable} = {${valuesEntries}}`,
     `local ${divsTable} = {${divsEntries}}`,
+    ...(swingArg ? [`local ${swingTable} = {${swingEntries}}`] : []),
     '',
     `local function ${tickName}()`,
     ...tickBody.map((l) => `  ${l}`),
@@ -154,7 +193,7 @@ export function emitStepSequencer(region: StepSeqRegion): EmittedFragments {
   const stepTableInit = `{${range(numRows, '-1').join(', ')}}`;
   const onTableInit = `{${range(numRows, '{}').join(', ')}}`;
   const dirTableInit = `{${range(numRows, '1').join(', ')}}`;
-  const tickTableInit = `{${divs.map((d, r) => `[${r}]=${d}`).join(', ')}}`;
+  const tickTableInit = `{${internalDivs.map((d, r) => `[${r}]=${d}`).join(', ')}}`;
 
   // Polyphony-specific state. In poly mode each row tracks its own
   // gate countdown; in mono mode there's one shared active voice.
@@ -200,6 +239,8 @@ function buildPolyTickBody(
   name: string,
   valuesTable: string,
   divsTable: string,
+  gateTicks: number,
+  swingTable: string | null,
 ): string[] {
   const stepSlot = `${name}_step`;
   const onSlot = `${name}_on`;
@@ -223,6 +264,14 @@ function buildPolyTickBody(
     stepSlot,
     dirSlot,
   );
+  const advanceAndReset = buildAdvanceAndReset(
+    advance,
+    tickSlot,
+    divsTable,
+    swingTable,
+    stepSlot,
+    'r',
+  );
 
   return [
     '-- master tick (poly): each row independently gates + fires; voices overlap',
@@ -237,14 +286,13 @@ function buildPolyTickBody(
     "  -- 2. tick the row's div countdown; advance + fire only when it hits 0",
     `  state.${tickSlot}[r] = state.${tickSlot}[r] - 1`,
     `  if state.${tickSlot}[r] <= 0 then`,
-    `    state.${tickSlot}[r] = ${divsTable}[r]`,
-    ...advance.map((l) => '    ' + l),
+    ...advanceAndReset.map((l) => '    ' + l),
     `    if state.${onSlot}[r][state.${stepSlot}[r]] then`,
     `      if state.${gateSlot}[r] > 0 then`,
     `        ${closeCall}`,
     '      end',
     `      ${openCall}`,
-    `      state.${gateSlot}[r] = ${params.gate_length}`,
+    `      state.${gateSlot}[r] = ${gateTicks}`,
     '    end',
     '  end',
     'end',
@@ -262,6 +310,8 @@ function buildMonoTickBody(
   name: string,
   valuesTable: string,
   divsTable: string,
+  gateTicks: number,
+  swingTable: string | null,
 ): string[] {
   // Mono only fires for note_per_row; the schema gates this so we
   // can safely cast.
@@ -282,6 +332,14 @@ function buildMonoTickBody(
     stepSlot,
     dirSlot,
   );
+  const advanceAndReset = buildAdvanceAndReset(
+    advance,
+    tickSlot,
+    divsTable,
+    swingTable,
+    stepSlot,
+    'r',
+  );
 
   return [
     '-- master tick (mono): one active voice; later firings steal it',
@@ -297,19 +355,42 @@ function buildMonoTickBody(
     `for r = 0, ${numRows - 1} do`,
     `  state.${tickSlot}[r] = state.${tickSlot}[r] - 1`,
     `  if state.${tickSlot}[r] <= 0 then`,
-    `    state.${tickSlot}[r] = ${divsTable}[r]`,
-    ...advance.map((l) => '    ' + l),
+    ...advanceAndReset.map((l) => '    ' + l),
     `    if state.${onSlot}[r][state.${stepSlot}[r]] then`,
     `      if state.${activeRowSlot} >= 0 then`,
     `        midi_note_off(${valuesTable}[state.${activeRowSlot}], 0, ${p.channel})`,
     '      end',
     `      midi_note_on(${valuesTable}[r], ${p.velocity}, ${p.channel})`,
     `      state.${activeRowSlot} = r`,
-    `      state.${activeGateSlot} = ${p.gate_length}`,
+    `      state.${activeGateSlot} = ${gateTicks}`,
     '    end',
     '  end',
     'end',
     'redraw()',
+  ];
+}
+
+// Build the "advance step + reset countdown" lines. The two are
+// emitted together because their relative order matters: swing=0
+// resets first then advances (preserves the original byte-for-byte
+// emit so existing goldens are stable); swing>0 advances first then
+// resets using the NEW step's parity. The post-advance variant gives
+// correct alternation across direction wraps where pre-advance
+// parity would lie (e.g. reverse from -1 to numCols-1).
+function buildAdvanceAndReset(
+  advance: string[],
+  tickSlot: string,
+  divsTable: string,
+  swingTable: string | null,
+  stepSlot: string,
+  rowVar: string,
+): string[] {
+  if (swingTable === null) {
+    return [`state.${tickSlot}[${rowVar}] = ${divsTable}[${rowVar}]`, ...advance];
+  }
+  return [
+    ...advance,
+    `state.${tickSlot}[${rowVar}] = ${divsTable}[${rowVar}] + ((state.${stepSlot}[${rowVar}] % 2 == 0) and ${swingTable}[${rowVar}] or -${swingTable}[${rowVar}])`,
   ];
 }
 

@@ -374,6 +374,7 @@ const stepSequencer: RecipeMeta = {
     steps_per_beat: 4,
     direction: 'forward',
     gate_length: 1,
+    swing: 0,
     mono: 'poly',
     // Pre-fill enough entries for a full-grid selection so the value
     // store has a concrete array on day one. The emitter pads anyway,
@@ -428,6 +429,15 @@ const stepSequencer: RecipeMeta = {
         max: 16,
         default: 1,
         help: '1 = blip; higher values sustain across multiple master ticks (retriggers if same row hits again before gate expires)',
+      },
+      {
+        kind: 'int',
+        key: 'swing',
+        label: 'Swing %',
+        min: 0,
+        max: 75,
+        default: 0,
+        help: '0 = straight; even steps lengthen, odd shorten. 33 ≈ triplet feel, 50 ≈ 3:1 shuffle. metro runs at 4× rate when > 0',
       },
       ...(ctx.numRows > 0
         ? ([
@@ -505,6 +515,7 @@ const stepSequencer: RecipeMeta = {
       steps_per_beat: asInt(v.steps_per_beat, 4),
       direction,
       gate_length: asInt(v.gate_length, 1),
+      swing: asInt(v.swing, 0),
       divs,
       led_current_on: asInt(v.led_current_on, 15),
       led_current_off: asInt(v.led_current_off, 8),
