@@ -6,6 +6,7 @@ import {
 } from 'solid-js';
 import { VERSION as CODEGEN_VERSION } from '@monome-iii-studio/codegen';
 import { BehaviorPanel } from './components/BehaviorPanel.tsx';
+import { EasterEgg } from './components/EasterEgg.tsx';
 import { GridCanvas } from './components/GridCanvas.tsx';
 import { loadSession, saveSession } from './lib/persist.ts';
 import { restoreSession, snapshotSession } from './store/session.ts';
@@ -68,6 +69,8 @@ const App: Component = () => {
       <p class="absolute bottom-2 left-4 text-[10px] text-neutral-700 font-mono pointer-events-none">
         codegen v{CODEGEN_VERSION}
       </p>
+
+      <EasterEgg />
     </main>
   );
 };
