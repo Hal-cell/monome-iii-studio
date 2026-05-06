@@ -7,17 +7,43 @@ type NKRegion = Region & { behavior: NoteKeyboardBehavior };
 
 /**
  * Diatonic chord progression graph used by the harmony-coach mode.
- * Generic across 7-note scales — chord quality (M/m/dim) follows
- * from the scale's interval pattern automatically.
+ * Generic across 7-note scales — chord quality (maj7 / min7 / dom7
+ * / m7b5 etc.) follows from the scale's interval pattern
+ * automatically when we sample the 1st / 3rd / 5th / 7th degree.
+ *
+ * Edges are repeated to encode WEIGHTS via the `math.random(1,
+ * #opts)` runtime pick — the duplicates skew the random walk
+ * toward classical functional cadences (T → SD → D → T) so the
+ * coach feels like real harmony instead of a random shuffle.
+ *
+ * Function families:
+ *   T  (tonic)        : I, iii, vi
+ *   SD (subdominant)  : ii, IV, vi
+ *   D  (dominant)     : V, vii°
+ *
+ * Strong moves (heavy weight): T → SD, SD → D, D → T.
+ * Avoided: D → SD (backward), random skips.
  */
 const NEXT_CHORD_DEGREE: Record<number, number[]> = {
-  1: [2, 3, 4, 5, 6, 7],
-  2: [5, 7],
-  3: [4, 6],
-  4: [1, 5, 7],
-  5: [1, 6],
-  6: [2, 4, 5],
-  7: [1, 3],
+  // I (T): bias toward IV / V / vi — the standard departures.
+  // iii / vii° rarely follow tonic directly.
+  1: [4, 4, 5, 5, 6, 6, 2, 2, 3],
+  // ii (SD): textbook ii → V. vii° as alternate dominant.
+  2: [5, 5, 5, 7],
+  // iii (T-substitute): typically continues the tonic prolongation
+  // via vi (relative motion) or IV (subdominant).
+  3: [6, 6, 4, 1],
+  // IV (SD): strong push to V (subdom→dom), or plagal "amen"
+  // back to I, occasionally ii (strengthen predominant).
+  4: [5, 5, 5, 1, 1, 2, 7],
+  // V (D): authentic cadence — overwhelmingly resolves to I.
+  // vi gives the deceptive cadence as a less-frequent surprise.
+  5: [1, 1, 1, 1, 1, 6],
+  // vi (T-substitute): launches a new cadence via ii / IV;
+  // direct V is also common in pop progressions (vi-V-I).
+  6: [2, 2, 4, 4, 5],
+  // vii° (D): leading-tone resolution to I, occasional iii.
+  7: [1, 1, 1, 1, 3],
 };
 
 // LED brightness levels for runtime modes.
@@ -386,15 +412,16 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     if (useCoach) {
       // Coach overlay. The walk + revoice logic already gates by
       // scale_idx (live) and emits nothing for static+chromatic
-      // (useCoach is false there), so here we just need to read
-      // state.<n>_coach_voicing directly. Linear-scan check covers
-      // 1/2/3-cell voicings — extra cv[i] slots are nil and won't
-      // match k.
+      // (useCoach is false there), so here we just read
+      // state.<n>_coach_voicing directly. Linear-scan check
+      // covers 7th-chord voicings (up to 4 cells) — voicings
+      // shorter than 4 cells leave the unused cv[i] slots nil
+      // which won't match any k.
       pixelLines.push(
         `  local cv = state.${coachVoicingSlot(safeName)}`,
       );
       pixelLines.push(
-        `  if cv and (cv[1] == k or cv[2] == k or cv[3] == k) then`,
+        `  if cv and (cv[1] == k or cv[2] == k or cv[3] == k or cv[4] == k) then`,
       );
       pixelLines.push(
         `    return state.${coachBlinkSlot(safeName)} == 0 and ${LED_CHORD_HI} or ${LED_CHORD_LO}`,
@@ -822,6 +849,17 @@ function pickVoicings(
   return picked.map((v) => v.items.map((it) => cellKeyInt(it.cell)));
 }
 
+/**
+ * Build voicings for all 7 chord degrees of a scale. Each chord is
+ * a SEVENTH chord — root, 3rd, 5th, 7th of the scale (diatonic).
+ * Chord quality follows naturally from the scale: in major you
+ * get Imaj7 ii7 iii7 IVmaj7 V7 vi7 viiø7; in minor i7 iiø7 IIImaj7
+ * iv7 v7 VImaj7 VII7; etc.
+ *
+ * 4-note chords give the coach more harmonic information per
+ * suggestion and make voice-leading common-tone preservation more
+ * effective — most diatonic 7th-chord transitions share 2-3 PCs.
+ */
 function buildVoicingsForScale(
   cellsWithNote: Array<{ cell: Cell; note: number }>,
   rootNote: number,
@@ -831,7 +869,8 @@ function buildVoicingsForScale(
   return Array.from({ length: 7 }, (_, di) => {
     const d = di + 1;
     const pcs: number[] = [];
-    for (let i = 0; i < 3; i++) {
+    // 1st, 3rd, 5th, 7th of the scale degree (4-note 7th chord).
+    for (let i = 0; i < 4; i++) {
       const note = noteAtDegree(rootNote, scale, (d - 1) + i * 2);
       pcs.push(((note % 12) + 12) % 12);
     }
