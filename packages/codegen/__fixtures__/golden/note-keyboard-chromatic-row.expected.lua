@@ -50,7 +50,6 @@ _keys_note[5 + 8*W] = 40
 _keys_note[6 + 8*W] = 41
 _keys_note[7 + 8*W] = 42
 _keys_note[8 + 8*W] = 43
-
 local function handle_keys(x, y, z)
   local note = _keys_note[x + y*W]
   if not note then return end

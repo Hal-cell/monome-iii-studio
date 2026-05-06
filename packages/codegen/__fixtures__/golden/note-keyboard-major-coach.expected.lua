@@ -3,7 +3,7 @@
 -- Layout: 16x8, 1 page, 1 region
 --   page 1 "main":
 --     - "keys" (16 cells, note keyboard per_cell, ch1 root MIDI 60 (row=3, col=1, major))
--- Upload: diii  →  first("test-nk-major.lua")
+-- Upload: diii  →  first("test-nk-coach.lua")
 -- =========================================================
 
 local W, H = grid_size_x(), grid_size_y()
@@ -12,6 +12,8 @@ local W, H = grid_size_x(), grid_size_y()
 local state = {
   page = 0,
   keys_held = {},
+  keys_coach_chord = 1,
+  keys_coach_blink = 0,
 }
 
 -- ---- differential LED writes ----
@@ -58,37 +60,93 @@ _keys_note[1 + 8*W] = 60
 _keys_note[2 + 8*W] = 62
 _keys_note[3 + 8*W] = 64
 _keys_note[4 + 8*W] = 65
+local _keys_chord_match = {}
+_keys_chord_match[1 + 5*W] = {[1]=true, [3]=true, [6]=true}
+_keys_chord_match[2 + 5*W] = {[2]=true, [4]=true, [7]=true}
+_keys_chord_match[3 + 5*W] = {[1]=true, [3]=true, [5]=true}
+_keys_chord_match[4 + 5*W] = {[2]=true, [4]=true, [6]=true}
+_keys_chord_match[1 + 6*W] = {[3]=true, [5]=true, [7]=true}
+_keys_chord_match[2 + 6*W] = {[1]=true, [4]=true, [6]=true}
+_keys_chord_match[3 + 6*W] = {[2]=true, [5]=true, [7]=true}
+_keys_chord_match[4 + 6*W] = {[1]=true, [3]=true, [6]=true}
+_keys_chord_match[1 + 7*W] = {[2]=true, [4]=true, [7]=true}
+_keys_chord_match[2 + 7*W] = {[1]=true, [3]=true, [5]=true}
+_keys_chord_match[3 + 7*W] = {[2]=true, [4]=true, [6]=true}
+_keys_chord_match[4 + 7*W] = {[3]=true, [5]=true, [7]=true}
+_keys_chord_match[1 + 8*W] = {[1]=true, [4]=true, [6]=true}
+_keys_chord_match[2 + 8*W] = {[2]=true, [5]=true, [7]=true}
+_keys_chord_match[3 + 8*W] = {[1]=true, [3]=true, [6]=true}
+_keys_chord_match[4 + 8*W] = {[2]=true, [4]=true, [7]=true}
+local _keys_idle = {}
+_keys_idle[1 + 5*W] = 3
+_keys_idle[2 + 5*W] = 3
+_keys_idle[3 + 5*W] = 3
+_keys_idle[4 + 5*W] = 3
+_keys_idle[1 + 6*W] = 3
+_keys_idle[2 + 6*W] = 6
+_keys_idle[3 + 6*W] = 3
+_keys_idle[4 + 6*W] = 3
+_keys_idle[1 + 7*W] = 3
+_keys_idle[2 + 7*W] = 3
+_keys_idle[3 + 7*W] = 3
+_keys_idle[4 + 7*W] = 3
+_keys_idle[1 + 8*W] = 6
+_keys_idle[2 + 8*W] = 3
+_keys_idle[3 + 8*W] = 3
+_keys_idle[4 + 8*W] = 3
+local _keys_next_chord = {[1]={2, 3, 4, 5, 6, 7}, [2]={5, 7}, [3]={4, 6}, [4]={1, 5, 7}, [5]={1, 6}, [6]={2, 4, 5}, [7]={1, 3}}
 local function handle_keys(x, y, z)
   local note = _keys_note[x + y*W]
   if not note then return end
   if z == 1 then
     midi_note_on(note, 100, 1)
     state.keys_held[x + y*W] = true
+    -- harmony coach: walk to the next plausible chord degree
+    local opts = _keys_next_chord[state.keys_coach_chord]
+    if opts then
+      state.keys_coach_chord = opts[math.random(1, #opts)]
+    end
   else
     midi_note_off(note, 0, 1)
     state.keys_held[x + y*W] = nil
   end
 end
 
+local function _keys_pixel(k)
+  if state.keys_held[k] then return 12 end
+  local m = _keys_chord_match[k]
+  if m and m[state.keys_coach_chord] then
+    return state.keys_coach_blink == 0 and 13 or 6
+  end
+  return _keys_idle[k] or 0
+end
+
+local function _keys_blink_tick()
+  state.keys_coach_blink = 1 - state.keys_coach_blink
+  redraw()
+end
+local _keys_blink_metro = metro.init(_keys_blink_tick, 0.25)
+_keys_blink_metro:start()
+
 -- ---- per-page LED draw ----
 local function _draw_p0()
   -- region: keys
-  grid_led(1, 5, state.keys_held[1 + 5*W] and 12 or 3)
-  grid_led(2, 5, state.keys_held[2 + 5*W] and 12 or 3)
-  grid_led(3, 5, state.keys_held[3 + 5*W] and 12 or 3)
-  grid_led(4, 5, state.keys_held[4 + 5*W] and 12 or 3)
-  grid_led(1, 6, state.keys_held[1 + 6*W] and 12 or 3)
-  grid_led(2, 6, state.keys_held[2 + 6*W] and 12 or 6)
-  grid_led(3, 6, state.keys_held[3 + 6*W] and 12 or 3)
-  grid_led(4, 6, state.keys_held[4 + 6*W] and 12 or 3)
-  grid_led(1, 7, state.keys_held[1 + 7*W] and 12 or 3)
-  grid_led(2, 7, state.keys_held[2 + 7*W] and 12 or 3)
-  grid_led(3, 7, state.keys_held[3 + 7*W] and 12 or 3)
-  grid_led(4, 7, state.keys_held[4 + 7*W] and 12 or 3)
-  grid_led(1, 8, state.keys_held[1 + 8*W] and 12 or 6)
-  grid_led(2, 8, state.keys_held[2 + 8*W] and 12 or 3)
-  grid_led(3, 8, state.keys_held[3 + 8*W] and 12 or 3)
-  grid_led(4, 8, state.keys_held[4 + 8*W] and 12 or 3)
+  grid_led(1, 5, _keys_pixel(1 + 5*W))
+  grid_led(2, 5, _keys_pixel(2 + 5*W))
+  grid_led(3, 5, _keys_pixel(3 + 5*W))
+  grid_led(4, 5, _keys_pixel(4 + 5*W))
+  grid_led(1, 6, _keys_pixel(1 + 6*W))
+  grid_led(2, 6, _keys_pixel(2 + 6*W))
+  grid_led(3, 6, _keys_pixel(3 + 6*W))
+  grid_led(4, 6, _keys_pixel(4 + 6*W))
+  grid_led(1, 7, _keys_pixel(1 + 7*W))
+  grid_led(2, 7, _keys_pixel(2 + 7*W))
+  grid_led(3, 7, _keys_pixel(3 + 7*W))
+  grid_led(4, 7, _keys_pixel(4 + 7*W))
+  grid_led(1, 8, _keys_pixel(1 + 8*W))
+  grid_led(2, 8, _keys_pixel(2 + 8*W))
+  grid_led(3, 8, _keys_pixel(3 + 8*W))
+  grid_led(4, 8, _keys_pixel(4 + 8*W))
 end
 
 -- ---- master redraw ----
@@ -140,4 +198,5 @@ end
 
 -- ---- init ----
 grid_led_all(0)
+math.randomseed(math.floor(get_time() * 1000))
 redraw()

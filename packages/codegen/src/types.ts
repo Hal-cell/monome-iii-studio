@@ -222,6 +222,19 @@ export type NoteKeyboardParams = {
    * and held). Set equal to `led_idle` to disable highlighting.
    */
   led_octave: number;
+  /**
+   * Harmony coach mode: when on, cells whose pitch class is in the
+   * currently-suggested diatonic chord blink between two brightness
+   * levels. Each note-on press walks one step along a chord
+   * progression graph (I → ii / iii / IV / V / vi / vii° etc.,
+   * resolving back through dominant / subdominant families). Helps
+   * the player practise harmonic motion in their chosen key.
+   *
+   * Silently no-op when `scale` is 'chromatic' — diatonic harmony
+   * doesn't apply to a 12-note set. Default off so existing layouts
+   * keep their pre-coach behaviour.
+   */
+  harmony_coach: boolean;
 };
 
 export type NoteKeyboardBehavior = {
