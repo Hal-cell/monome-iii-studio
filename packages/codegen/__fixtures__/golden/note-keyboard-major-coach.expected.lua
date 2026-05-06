@@ -60,23 +60,14 @@ _keys_note[1 + 8*W] = 60
 _keys_note[2 + 8*W] = 62
 _keys_note[3 + 8*W] = 64
 _keys_note[4 + 8*W] = 65
-local _keys_chord_match = {}
-_keys_chord_match[1 + 5*W] = {[1]=true, [3]=true, [6]=true}
-_keys_chord_match[2 + 5*W] = {[2]=true, [4]=true, [7]=true}
-_keys_chord_match[3 + 5*W] = {[1]=true, [3]=true, [5]=true}
-_keys_chord_match[4 + 5*W] = {[2]=true, [4]=true, [6]=true}
-_keys_chord_match[1 + 6*W] = {[3]=true, [5]=true, [7]=true}
-_keys_chord_match[2 + 6*W] = {[1]=true, [4]=true, [6]=true}
-_keys_chord_match[3 + 6*W] = {[2]=true, [5]=true, [7]=true}
-_keys_chord_match[4 + 6*W] = {[1]=true, [3]=true, [6]=true}
-_keys_chord_match[1 + 7*W] = {[2]=true, [4]=true, [7]=true}
-_keys_chord_match[2 + 7*W] = {[1]=true, [3]=true, [5]=true}
-_keys_chord_match[3 + 7*W] = {[2]=true, [4]=true, [6]=true}
-_keys_chord_match[4 + 7*W] = {[3]=true, [5]=true, [7]=true}
-_keys_chord_match[1 + 8*W] = {[1]=true, [4]=true, [6]=true}
-_keys_chord_match[2 + 8*W] = {[2]=true, [5]=true, [7]=true}
-_keys_chord_match[3 + 8*W] = {[1]=true, [3]=true, [6]=true}
-_keys_chord_match[4 + 8*W] = {[2]=true, [4]=true, [7]=true}
+local _keys_chord_voicing = {}
+_keys_chord_voicing[1] = {[2 + 6*W]=true, [1 + 5*W]=true, [3 + 5*W]=true}
+_keys_chord_voicing[2] = {[3 + 6*W]=true, [2 + 5*W]=true, [4 + 5*W]=true}
+_keys_chord_voicing[3] = {[1 + 5*W]=true, [3 + 5*W]=true, [1 + 6*W]=true}
+_keys_chord_voicing[4] = {[2 + 5*W]=true, [4 + 5*W]=true, [2 + 6*W]=true}
+_keys_chord_voicing[5] = {[3 + 5*W]=true, [1 + 6*W]=true, [3 + 6*W]=true}
+_keys_chord_voicing[6] = {[4 + 5*W]=true, [2 + 6*W]=true, [4 + 6*W]=true}
+_keys_chord_voicing[7] = {[1 + 6*W]=true, [3 + 6*W]=true, [2 + 5*W]=true}
 local _keys_idle = {}
 _keys_idle[1 + 5*W] = 3
 _keys_idle[2 + 5*W] = 3
@@ -101,21 +92,23 @@ local function handle_keys(x, y, z)
   if z == 1 then
     midi_note_on(note, 100, 1)
     state.keys_held[x + y*W] = true
-    -- harmony coach: walk to the next plausible chord degree
-    local opts = _keys_next_chord[state.keys_coach_chord]
-    if opts then
-      state.keys_coach_chord = opts[math.random(1, #opts)]
-    end
   else
     midi_note_off(note, 0, 1)
     state.keys_held[x + y*W] = nil
+    if next(state.keys_held) == nil then
+      -- All keys released — user has finished this chord. Walk.
+      local opts = _keys_next_chord[state.keys_coach_chord]
+      if opts then
+        state.keys_coach_chord = opts[math.random(1, #opts)]
+      end
+    end
   end
 end
 
 local function _keys_pixel(k)
   if state.keys_held[k] then return 12 end
-  local m = _keys_chord_match[k]
-  if m and m[state.keys_coach_chord] then
+  local v = _keys_chord_voicing[state.keys_coach_chord]
+  if v and v[k] then
     return state.keys_coach_blink == 0 and 13 or 6
   end
   return _keys_idle[k] or 0
