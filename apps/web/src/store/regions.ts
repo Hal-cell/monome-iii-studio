@@ -42,6 +42,13 @@ export type SavedRegion = {
   /** Snapshot of the param form values at the moment Add Region was clicked. */
   values: Record<string, unknown>;
   colorIndex: number;
+  /**
+   * Which page this region lives on. Default 0. The codegen treats
+   * page_select regions as globally active regardless of this value;
+   * for every other recipe kind, the region is only active when its
+   * pageIndex matches state.page.
+   */
+  pageIndex: number;
 };
 
 const [_regions, _setRegions] = createSignal<SavedRegion[]>([]);
@@ -50,6 +57,70 @@ export const regions = _regions;
 const [_layoutName, _setLayoutName] = createSignal<string>('untitled');
 export const layoutName = _layoutName;
 export const setLayoutName = _setLayoutName;
+
+// ---------- Pages ----------
+//
+// pageNames is the canonical source of "how many pages exist". The
+// active page index is tracked separately so it can persist across
+// session restores. Each region carries its own pageIndex; region
+// list display is filtered by activePageIndex (with page_select
+// regions always shown).
+
+const [_pageNames, _setPageNames] = createSignal<string[]>(['main']);
+export const pageNames = _pageNames;
+
+const [_activePageIndex, _setActivePageIndex] = createSignal<number>(0);
+export const activePageIndex = _activePageIndex;
+export function setActivePageIndex(i: number): void {
+  if (i < 0 || i >= _pageNames().length) return;
+  _setActivePageIndex(i);
+}
+
+export function addPage(name?: string): number {
+  const next = _pageNames().length;
+  const auto = name ?? `p${next + 1}`;
+  _setPageNames([..._pageNames(), auto]);
+  _setActivePageIndex(next);
+  return next;
+}
+
+export function renamePage(i: number, name: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  _setPageNames(_pageNames().map((n, k) => (k === i ? trimmed : n)));
+}
+
+/**
+ * Remove a page and any regions that lived on it. Active page falls
+ * back to 0 if the deleted page was active. Refuses to delete the
+ * last remaining page.
+ */
+export function removePage(i: number): void {
+  const names = _pageNames();
+  if (names.length <= 1) return;
+  if (i < 0 || i >= names.length) return;
+  // Drop regions on this page; shift later regions' pageIndex down.
+  _setRegions((prev) =>
+    prev
+      .filter((r) => r.pageIndex !== i)
+      .map((r) =>
+        r.pageIndex > i ? { ...r, pageIndex: r.pageIndex - 1 } : r,
+      ),
+  );
+  _setPageNames(names.filter((_, k) => k !== i));
+  if (_activePageIndex() >= _pageNames().length) {
+    _setActivePageIndex(_pageNames().length - 1);
+  } else if (_activePageIndex() > i) {
+    _setActivePageIndex(_activePageIndex() - 1);
+  }
+}
+
+export function setPageNames(names: string[]): void {
+  _setPageNames(names.length > 0 ? names : ['main']);
+  if (_activePageIndex() >= _pageNames().length) {
+    _setActivePageIndex(0);
+  }
+}
 
 let _idCounter = 1;
 
@@ -77,6 +148,8 @@ export function addRegion(input: {
   mode: RegionMode;
   recipeKind: BehaviorKind;
   values: Record<string, unknown>;
+  /** Which page to add this region to. Defaults to the active page. */
+  pageIndex?: number;
 }): SavedRegion {
   const region: SavedRegion = {
     id: `r-${_idCounter++}`,
@@ -90,6 +163,7 @@ export function addRegion(input: {
     recipeKind: input.recipeKind,
     values: input.values,
     colorIndex: regions().length % REGION_PALETTE.length,
+    pageIndex: input.pageIndex ?? _activePageIndex(),
   };
   _setRegions((prev) => [...prev, region]);
   return region;
@@ -119,6 +193,8 @@ export function replaceAllRegions(newRegions: SavedRegion[]): void {
 export function clearAllRegions(): void {
   _setRegions([]);
   _idCounter = 1;
+  _setPageNames(['main']);
+  _setActivePageIndex(0);
 }
 
 export function renameRegion(id: string, name: string): void {

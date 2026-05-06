@@ -118,6 +118,9 @@ function describeBehavior(region: Region): string {
     const velInfo = p.velocity_responsive ? ', velocity-scaled' : '';
     return `note monitor group, ${ch} notes ${p.base_note}..${top}${velInfo}`;
   }
+  if (region.behavior.kind === 'page_select') {
+    return `page select global, ${region.cells.length} cells`;
+  }
   // Exhaustive: every behavior kind handled above.
   return '';
 }

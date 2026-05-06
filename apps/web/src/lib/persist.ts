@@ -30,6 +30,8 @@ export type SavedRegionJSON = {
   recipeKind: BehaviorKind;
   values: Record<string, unknown>;
   colorIndex: number;
+  /** Page this region lives on. Older format files default to 0. */
+  pageIndex?: number;
 };
 
 export type LayoutExport = {
@@ -37,6 +39,11 @@ export type LayoutExport = {
   tool_version: string;
   layoutName: string;
   regions: SavedRegionJSON[];
+  /**
+   * Page name list. Length determines the page count. Older files
+   * without this field load as a single page named 'main'.
+   */
+  pageNames?: string[];
 };
 
 export type SessionState = LayoutExport & {
@@ -49,12 +56,14 @@ export type SessionState = LayoutExport & {
 export function makeLayoutExport(
   layoutName: string,
   regions: SavedRegionJSON[],
+  pageNames: string[] = ['main'],
 ): LayoutExport {
   return {
     format_version: FORMAT_VERSION,
     tool_version: TOOL_VERSION,
     layoutName,
     regions,
+    pageNames,
   };
 }
 

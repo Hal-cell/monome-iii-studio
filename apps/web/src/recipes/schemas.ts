@@ -670,6 +670,33 @@ const noteMonitor: RecipeMeta = {
   }),
 };
 
+// ---------- Page select (global) ----------
+
+const pageSelect: RecipeMeta = {
+  id: 'page_select',
+  label: 'Page select',
+  description: 'cells that switch the active page (global — visible on every page)',
+  modes: [{ id: 'group', label: 'group' }],
+  defaultValues: {
+    led_active: 12,
+    led_inactive: 4,
+    led_unused: 1,
+  },
+  paramsFor: () => [
+    { kind: 'int', key: 'led_active', label: 'LED active', min: 0, max: 15, default: 12 },
+    { kind: 'int', key: 'led_inactive', label: 'LED inactive', min: 0, max: 15, default: 4 },
+    { kind: 'int', key: 'led_unused', label: 'LED unused', min: 0, max: 15, default: 1 },
+  ],
+  build: (_mode, v): Behavior => ({
+    kind: 'page_select',
+    params: {
+      led_active: asInt(v.led_active, 12),
+      led_inactive: asInt(v.led_inactive, 4),
+      led_unused: asInt(v.led_unused, 1),
+    },
+  }),
+};
+
 // ---------- Wake sequencer ----------
 
 const wakeSequencer: RecipeMeta = {
@@ -742,6 +769,7 @@ export const RECIPES: Record<BehaviorKind, RecipeMeta> = {
   wake_sequencer: wakeSequencer,
   lfo,
   note_monitor: noteMonitor,
+  page_select: pageSelect,
 };
 
 /**
@@ -759,4 +787,5 @@ export const RECIPE_ORDER: BehaviorKind[] = [
   'note_monitor',
   'step_sequencer',
   'wake_sequencer',
+  'page_select',
 ];

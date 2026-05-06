@@ -10,6 +10,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
+  page = 0,
   wake_step = -1,
   wake_page = 0,
   wake_data = {[0]={[0]=0, [1]=0, [2]=0, [3]=0, [4]=0}, [1]={[0]=2, [1]=2, [2]=2, [3]=2, [4]=2}, [2]={[0]=3, [1]=3, [2]=3, [3]=3, [4]=3}, [3]={[0]=3, [1]=3, [2]=3, [3]=3, [4]=3}},
@@ -199,8 +200,8 @@ end
 local _wake_metro = metro.init(_wake_tick, 0.015625)
 _wake_metro:start()
 
--- ---- LED draw ----
-redraw = function()
+-- ---- per-page LED draw ----
+local function _draw_p0()
   -- region: wake
   grid_led(1, 1, _wake_pixel(0, 0))
   grid_led(2, 1, _wake_pixel(1, 0))
@@ -222,35 +223,56 @@ redraw = function()
   grid_led(3, 4, _wake_pixel(2, 3))
   grid_led(4, 4, _wake_pixel(3, 3))
   grid_led(5, 4, _wake_pixel(4, 3))
+end
+
+-- ---- master redraw ----
+redraw = function()
+  _draw_p0()
   grid_refresh()
 end
 
 -- ---- dispatch ----
-local _route = {}
-_route[1 + 1*W] = handle_wake
-_route[2 + 1*W] = handle_wake
-_route[3 + 1*W] = handle_wake
-_route[4 + 1*W] = handle_wake
-_route[5 + 1*W] = handle_wake
-_route[1 + 2*W] = handle_wake
-_route[2 + 2*W] = handle_wake
-_route[3 + 2*W] = handle_wake
-_route[4 + 2*W] = handle_wake
-_route[5 + 2*W] = handle_wake
-_route[1 + 3*W] = handle_wake
-_route[2 + 3*W] = handle_wake
-_route[3 + 3*W] = handle_wake
-_route[4 + 3*W] = handle_wake
-_route[5 + 3*W] = handle_wake
-_route[1 + 4*W] = handle_wake
-_route[2 + 4*W] = handle_wake
-_route[3 + 4*W] = handle_wake
-_route[4 + 4*W] = handle_wake
-_route[5 + 4*W] = handle_wake
+local _route_global = {}
+
+local _route_p0 = {}
+_route_p0[1 + 1*W] = handle_wake
+_route_p0[2 + 1*W] = handle_wake
+_route_p0[3 + 1*W] = handle_wake
+_route_p0[4 + 1*W] = handle_wake
+_route_p0[5 + 1*W] = handle_wake
+_route_p0[1 + 2*W] = handle_wake
+_route_p0[2 + 2*W] = handle_wake
+_route_p0[3 + 2*W] = handle_wake
+_route_p0[4 + 2*W] = handle_wake
+_route_p0[5 + 2*W] = handle_wake
+_route_p0[1 + 3*W] = handle_wake
+_route_p0[2 + 3*W] = handle_wake
+_route_p0[3 + 3*W] = handle_wake
+_route_p0[4 + 3*W] = handle_wake
+_route_p0[5 + 3*W] = handle_wake
+_route_p0[1 + 4*W] = handle_wake
+_route_p0[2 + 4*W] = handle_wake
+_route_p0[3 + 4*W] = handle_wake
+_route_p0[4 + 4*W] = handle_wake
+_route_p0[5 + 4*W] = handle_wake
+
+local _routes = {[0]=_route_p0}
 
 function event_grid(x, y, z)
-  local h = _route[x + y*W]
-  if h then h(x, y, z) end
+  local k = x + y*W
+  -- global (page_select) handlers run first; they may switch state.page
+  local h = _route_global[k]
+  if h then
+    h(x, y, z)
+    redraw()
+    return
+  end
+  -- per-page dispatch
+  local route = _routes[state.page]
+  if route then
+    h = route[k]
+    if h then h(x, y, z) end
+  end
   redraw()
 end
 

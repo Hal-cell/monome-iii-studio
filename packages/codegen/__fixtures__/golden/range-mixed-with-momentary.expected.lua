@@ -11,6 +11,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
+  page = 0,
   notes_held = {},
   fader_held = {},
   fader_count = 0,
@@ -96,8 +97,8 @@ local function handle_fader(x, y, z)
   end
 end
 
--- ---- LED draw ----
-redraw = function()
+-- ---- per-page LED draw ----
+local function _draw_p0()
   -- region: notes
   grid_led(1, 8, state.notes_held[1 + 8*W] and 12 or 3)
   grid_led(2, 8, state.notes_held[2 + 8*W] and 12 or 3)
@@ -116,27 +117,48 @@ redraw = function()
     grid_led(3, 1, set and lo <= 2 and 2 <= hi and 12 or 3)
     grid_led(4, 1, set and lo <= 3 and 3 <= hi and 12 or 3)
   end
+end
+
+-- ---- master redraw ----
+redraw = function()
+  _draw_p0()
   grid_refresh()
 end
 
 -- ---- dispatch ----
-local _route = {}
-_route[1 + 8*W] = handle_notes
-_route[2 + 8*W] = handle_notes
-_route[3 + 8*W] = handle_notes
-_route[4 + 8*W] = handle_notes
-_route[5 + 8*W] = handle_notes
-_route[6 + 8*W] = handle_notes
-_route[7 + 8*W] = handle_notes
-_route[8 + 8*W] = handle_notes
-_route[1 + 1*W] = handle_fader
-_route[2 + 1*W] = handle_fader
-_route[3 + 1*W] = handle_fader
-_route[4 + 1*W] = handle_fader
+local _route_global = {}
+
+local _route_p0 = {}
+_route_p0[1 + 8*W] = handle_notes
+_route_p0[2 + 8*W] = handle_notes
+_route_p0[3 + 8*W] = handle_notes
+_route_p0[4 + 8*W] = handle_notes
+_route_p0[5 + 8*W] = handle_notes
+_route_p0[6 + 8*W] = handle_notes
+_route_p0[7 + 8*W] = handle_notes
+_route_p0[8 + 8*W] = handle_notes
+_route_p0[1 + 1*W] = handle_fader
+_route_p0[2 + 1*W] = handle_fader
+_route_p0[3 + 1*W] = handle_fader
+_route_p0[4 + 1*W] = handle_fader
+
+local _routes = {[0]=_route_p0}
 
 function event_grid(x, y, z)
-  local h = _route[x + y*W]
-  if h then h(x, y, z) end
+  local k = x + y*W
+  -- global (page_select) handlers run first; they may switch state.page
+  local h = _route_global[k]
+  if h then
+    h(x, y, z)
+    redraw()
+    return
+  end
+  -- per-page dispatch
+  local route = _routes[state.page]
+  if route then
+    h = route[k]
+    if h then h(x, y, z) end
+  end
   redraw()
 end
 

@@ -10,6 +10,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
+  page = 0,
   selector_index = 0,
 }
 
@@ -53,26 +54,47 @@ local function handle_selector(x, y, z)
   midi_cc(30, _selector_values[state.selector_index], 1)
 end
 
--- ---- LED draw ----
-redraw = function()
+-- ---- per-page LED draw ----
+local function _draw_p0()
   -- region: selector
   grid_led(1, 1, state.selector_index == 0 and 15 or 3)
   grid_led(2, 1, state.selector_index == 1 and 15 or 3)
   grid_led(3, 1, state.selector_index == 2 and 15 or 3)
   grid_led(4, 1, state.selector_index == 3 and 15 or 3)
+end
+
+-- ---- master redraw ----
+redraw = function()
+  _draw_p0()
   grid_refresh()
 end
 
 -- ---- dispatch ----
-local _route = {}
-_route[1 + 1*W] = handle_selector
-_route[2 + 1*W] = handle_selector
-_route[3 + 1*W] = handle_selector
-_route[4 + 1*W] = handle_selector
+local _route_global = {}
+
+local _route_p0 = {}
+_route_p0[1 + 1*W] = handle_selector
+_route_p0[2 + 1*W] = handle_selector
+_route_p0[3 + 1*W] = handle_selector
+_route_p0[4 + 1*W] = handle_selector
+
+local _routes = {[0]=_route_p0}
 
 function event_grid(x, y, z)
-  local h = _route[x + y*W]
-  if h then h(x, y, z) end
+  local k = x + y*W
+  -- global (page_select) handlers run first; they may switch state.page
+  local h = _route_global[k]
+  if h then
+    h(x, y, z)
+    redraw()
+    return
+  end
+  -- per-page dispatch
+  local route = _routes[state.page]
+  if route then
+    h = route[k]
+    if h then h(x, y, z) end
+  end
   redraw()
 end
 

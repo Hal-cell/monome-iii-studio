@@ -10,6 +10,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
+  page = 0,
   faders_h = {[0]=1, [1]=1, [2]=1, [3]=1, [4]=1, [5]=1, [6]=1, [7]=1, [8]=1, [9]=1, [10]=1, [11]=1, [12]=1, [13]=1, [14]=1, [15]=1},
 }
 
@@ -179,8 +180,8 @@ local function handle_faders(x, y, z)
   midi_cc(16 + col, _faders_values[h], 1)
 end
 
--- ---- LED draw ----
-redraw = function()
+-- ---- per-page LED draw ----
+local function _draw_p0()
   -- region: faders
   grid_led(1, 1, state.faders_h[0] > 7 and 12 or 3)
   grid_led(1, 2, state.faders_h[0] > 6 and 12 or 3)
@@ -310,143 +311,164 @@ redraw = function()
   grid_led(16, 6, state.faders_h[15] > 2 and 12 or 3)
   grid_led(16, 7, state.faders_h[15] > 1 and 12 or 3)
   grid_led(16, 8, state.faders_h[15] > 0 and 12 or 3)
+end
+
+-- ---- master redraw ----
+redraw = function()
+  _draw_p0()
   grid_refresh()
 end
 
 -- ---- dispatch ----
-local _route = {}
-_route[1 + 1*W] = handle_faders
-_route[2 + 1*W] = handle_faders
-_route[3 + 1*W] = handle_faders
-_route[4 + 1*W] = handle_faders
-_route[5 + 1*W] = handle_faders
-_route[6 + 1*W] = handle_faders
-_route[7 + 1*W] = handle_faders
-_route[8 + 1*W] = handle_faders
-_route[9 + 1*W] = handle_faders
-_route[10 + 1*W] = handle_faders
-_route[11 + 1*W] = handle_faders
-_route[12 + 1*W] = handle_faders
-_route[13 + 1*W] = handle_faders
-_route[14 + 1*W] = handle_faders
-_route[15 + 1*W] = handle_faders
-_route[16 + 1*W] = handle_faders
-_route[1 + 2*W] = handle_faders
-_route[2 + 2*W] = handle_faders
-_route[3 + 2*W] = handle_faders
-_route[4 + 2*W] = handle_faders
-_route[5 + 2*W] = handle_faders
-_route[6 + 2*W] = handle_faders
-_route[7 + 2*W] = handle_faders
-_route[8 + 2*W] = handle_faders
-_route[9 + 2*W] = handle_faders
-_route[10 + 2*W] = handle_faders
-_route[11 + 2*W] = handle_faders
-_route[12 + 2*W] = handle_faders
-_route[13 + 2*W] = handle_faders
-_route[14 + 2*W] = handle_faders
-_route[15 + 2*W] = handle_faders
-_route[16 + 2*W] = handle_faders
-_route[1 + 3*W] = handle_faders
-_route[2 + 3*W] = handle_faders
-_route[3 + 3*W] = handle_faders
-_route[4 + 3*W] = handle_faders
-_route[5 + 3*W] = handle_faders
-_route[6 + 3*W] = handle_faders
-_route[7 + 3*W] = handle_faders
-_route[8 + 3*W] = handle_faders
-_route[9 + 3*W] = handle_faders
-_route[10 + 3*W] = handle_faders
-_route[11 + 3*W] = handle_faders
-_route[12 + 3*W] = handle_faders
-_route[13 + 3*W] = handle_faders
-_route[14 + 3*W] = handle_faders
-_route[15 + 3*W] = handle_faders
-_route[16 + 3*W] = handle_faders
-_route[1 + 4*W] = handle_faders
-_route[2 + 4*W] = handle_faders
-_route[3 + 4*W] = handle_faders
-_route[4 + 4*W] = handle_faders
-_route[5 + 4*W] = handle_faders
-_route[6 + 4*W] = handle_faders
-_route[7 + 4*W] = handle_faders
-_route[8 + 4*W] = handle_faders
-_route[9 + 4*W] = handle_faders
-_route[10 + 4*W] = handle_faders
-_route[11 + 4*W] = handle_faders
-_route[12 + 4*W] = handle_faders
-_route[13 + 4*W] = handle_faders
-_route[14 + 4*W] = handle_faders
-_route[15 + 4*W] = handle_faders
-_route[16 + 4*W] = handle_faders
-_route[1 + 5*W] = handle_faders
-_route[2 + 5*W] = handle_faders
-_route[3 + 5*W] = handle_faders
-_route[4 + 5*W] = handle_faders
-_route[5 + 5*W] = handle_faders
-_route[6 + 5*W] = handle_faders
-_route[7 + 5*W] = handle_faders
-_route[8 + 5*W] = handle_faders
-_route[9 + 5*W] = handle_faders
-_route[10 + 5*W] = handle_faders
-_route[11 + 5*W] = handle_faders
-_route[12 + 5*W] = handle_faders
-_route[13 + 5*W] = handle_faders
-_route[14 + 5*W] = handle_faders
-_route[15 + 5*W] = handle_faders
-_route[16 + 5*W] = handle_faders
-_route[1 + 6*W] = handle_faders
-_route[2 + 6*W] = handle_faders
-_route[3 + 6*W] = handle_faders
-_route[4 + 6*W] = handle_faders
-_route[5 + 6*W] = handle_faders
-_route[6 + 6*W] = handle_faders
-_route[7 + 6*W] = handle_faders
-_route[8 + 6*W] = handle_faders
-_route[9 + 6*W] = handle_faders
-_route[10 + 6*W] = handle_faders
-_route[11 + 6*W] = handle_faders
-_route[12 + 6*W] = handle_faders
-_route[13 + 6*W] = handle_faders
-_route[14 + 6*W] = handle_faders
-_route[15 + 6*W] = handle_faders
-_route[16 + 6*W] = handle_faders
-_route[1 + 7*W] = handle_faders
-_route[2 + 7*W] = handle_faders
-_route[3 + 7*W] = handle_faders
-_route[4 + 7*W] = handle_faders
-_route[5 + 7*W] = handle_faders
-_route[6 + 7*W] = handle_faders
-_route[7 + 7*W] = handle_faders
-_route[8 + 7*W] = handle_faders
-_route[9 + 7*W] = handle_faders
-_route[10 + 7*W] = handle_faders
-_route[11 + 7*W] = handle_faders
-_route[12 + 7*W] = handle_faders
-_route[13 + 7*W] = handle_faders
-_route[14 + 7*W] = handle_faders
-_route[15 + 7*W] = handle_faders
-_route[16 + 7*W] = handle_faders
-_route[1 + 8*W] = handle_faders
-_route[2 + 8*W] = handle_faders
-_route[3 + 8*W] = handle_faders
-_route[4 + 8*W] = handle_faders
-_route[5 + 8*W] = handle_faders
-_route[6 + 8*W] = handle_faders
-_route[7 + 8*W] = handle_faders
-_route[8 + 8*W] = handle_faders
-_route[9 + 8*W] = handle_faders
-_route[10 + 8*W] = handle_faders
-_route[11 + 8*W] = handle_faders
-_route[12 + 8*W] = handle_faders
-_route[13 + 8*W] = handle_faders
-_route[14 + 8*W] = handle_faders
-_route[15 + 8*W] = handle_faders
-_route[16 + 8*W] = handle_faders
+local _route_global = {}
+
+local _route_p0 = {}
+_route_p0[1 + 1*W] = handle_faders
+_route_p0[2 + 1*W] = handle_faders
+_route_p0[3 + 1*W] = handle_faders
+_route_p0[4 + 1*W] = handle_faders
+_route_p0[5 + 1*W] = handle_faders
+_route_p0[6 + 1*W] = handle_faders
+_route_p0[7 + 1*W] = handle_faders
+_route_p0[8 + 1*W] = handle_faders
+_route_p0[9 + 1*W] = handle_faders
+_route_p0[10 + 1*W] = handle_faders
+_route_p0[11 + 1*W] = handle_faders
+_route_p0[12 + 1*W] = handle_faders
+_route_p0[13 + 1*W] = handle_faders
+_route_p0[14 + 1*W] = handle_faders
+_route_p0[15 + 1*W] = handle_faders
+_route_p0[16 + 1*W] = handle_faders
+_route_p0[1 + 2*W] = handle_faders
+_route_p0[2 + 2*W] = handle_faders
+_route_p0[3 + 2*W] = handle_faders
+_route_p0[4 + 2*W] = handle_faders
+_route_p0[5 + 2*W] = handle_faders
+_route_p0[6 + 2*W] = handle_faders
+_route_p0[7 + 2*W] = handle_faders
+_route_p0[8 + 2*W] = handle_faders
+_route_p0[9 + 2*W] = handle_faders
+_route_p0[10 + 2*W] = handle_faders
+_route_p0[11 + 2*W] = handle_faders
+_route_p0[12 + 2*W] = handle_faders
+_route_p0[13 + 2*W] = handle_faders
+_route_p0[14 + 2*W] = handle_faders
+_route_p0[15 + 2*W] = handle_faders
+_route_p0[16 + 2*W] = handle_faders
+_route_p0[1 + 3*W] = handle_faders
+_route_p0[2 + 3*W] = handle_faders
+_route_p0[3 + 3*W] = handle_faders
+_route_p0[4 + 3*W] = handle_faders
+_route_p0[5 + 3*W] = handle_faders
+_route_p0[6 + 3*W] = handle_faders
+_route_p0[7 + 3*W] = handle_faders
+_route_p0[8 + 3*W] = handle_faders
+_route_p0[9 + 3*W] = handle_faders
+_route_p0[10 + 3*W] = handle_faders
+_route_p0[11 + 3*W] = handle_faders
+_route_p0[12 + 3*W] = handle_faders
+_route_p0[13 + 3*W] = handle_faders
+_route_p0[14 + 3*W] = handle_faders
+_route_p0[15 + 3*W] = handle_faders
+_route_p0[16 + 3*W] = handle_faders
+_route_p0[1 + 4*W] = handle_faders
+_route_p0[2 + 4*W] = handle_faders
+_route_p0[3 + 4*W] = handle_faders
+_route_p0[4 + 4*W] = handle_faders
+_route_p0[5 + 4*W] = handle_faders
+_route_p0[6 + 4*W] = handle_faders
+_route_p0[7 + 4*W] = handle_faders
+_route_p0[8 + 4*W] = handle_faders
+_route_p0[9 + 4*W] = handle_faders
+_route_p0[10 + 4*W] = handle_faders
+_route_p0[11 + 4*W] = handle_faders
+_route_p0[12 + 4*W] = handle_faders
+_route_p0[13 + 4*W] = handle_faders
+_route_p0[14 + 4*W] = handle_faders
+_route_p0[15 + 4*W] = handle_faders
+_route_p0[16 + 4*W] = handle_faders
+_route_p0[1 + 5*W] = handle_faders
+_route_p0[2 + 5*W] = handle_faders
+_route_p0[3 + 5*W] = handle_faders
+_route_p0[4 + 5*W] = handle_faders
+_route_p0[5 + 5*W] = handle_faders
+_route_p0[6 + 5*W] = handle_faders
+_route_p0[7 + 5*W] = handle_faders
+_route_p0[8 + 5*W] = handle_faders
+_route_p0[9 + 5*W] = handle_faders
+_route_p0[10 + 5*W] = handle_faders
+_route_p0[11 + 5*W] = handle_faders
+_route_p0[12 + 5*W] = handle_faders
+_route_p0[13 + 5*W] = handle_faders
+_route_p0[14 + 5*W] = handle_faders
+_route_p0[15 + 5*W] = handle_faders
+_route_p0[16 + 5*W] = handle_faders
+_route_p0[1 + 6*W] = handle_faders
+_route_p0[2 + 6*W] = handle_faders
+_route_p0[3 + 6*W] = handle_faders
+_route_p0[4 + 6*W] = handle_faders
+_route_p0[5 + 6*W] = handle_faders
+_route_p0[6 + 6*W] = handle_faders
+_route_p0[7 + 6*W] = handle_faders
+_route_p0[8 + 6*W] = handle_faders
+_route_p0[9 + 6*W] = handle_faders
+_route_p0[10 + 6*W] = handle_faders
+_route_p0[11 + 6*W] = handle_faders
+_route_p0[12 + 6*W] = handle_faders
+_route_p0[13 + 6*W] = handle_faders
+_route_p0[14 + 6*W] = handle_faders
+_route_p0[15 + 6*W] = handle_faders
+_route_p0[16 + 6*W] = handle_faders
+_route_p0[1 + 7*W] = handle_faders
+_route_p0[2 + 7*W] = handle_faders
+_route_p0[3 + 7*W] = handle_faders
+_route_p0[4 + 7*W] = handle_faders
+_route_p0[5 + 7*W] = handle_faders
+_route_p0[6 + 7*W] = handle_faders
+_route_p0[7 + 7*W] = handle_faders
+_route_p0[8 + 7*W] = handle_faders
+_route_p0[9 + 7*W] = handle_faders
+_route_p0[10 + 7*W] = handle_faders
+_route_p0[11 + 7*W] = handle_faders
+_route_p0[12 + 7*W] = handle_faders
+_route_p0[13 + 7*W] = handle_faders
+_route_p0[14 + 7*W] = handle_faders
+_route_p0[15 + 7*W] = handle_faders
+_route_p0[16 + 7*W] = handle_faders
+_route_p0[1 + 8*W] = handle_faders
+_route_p0[2 + 8*W] = handle_faders
+_route_p0[3 + 8*W] = handle_faders
+_route_p0[4 + 8*W] = handle_faders
+_route_p0[5 + 8*W] = handle_faders
+_route_p0[6 + 8*W] = handle_faders
+_route_p0[7 + 8*W] = handle_faders
+_route_p0[8 + 8*W] = handle_faders
+_route_p0[9 + 8*W] = handle_faders
+_route_p0[10 + 8*W] = handle_faders
+_route_p0[11 + 8*W] = handle_faders
+_route_p0[12 + 8*W] = handle_faders
+_route_p0[13 + 8*W] = handle_faders
+_route_p0[14 + 8*W] = handle_faders
+_route_p0[15 + 8*W] = handle_faders
+_route_p0[16 + 8*W] = handle_faders
+
+local _routes = {[0]=_route_p0}
 
 function event_grid(x, y, z)
-  local h = _route[x + y*W]
-  if h then h(x, y, z) end
+  local k = x + y*W
+  -- global (page_select) handlers run first; they may switch state.page
+  local h = _route_global[k]
+  if h then
+    h(x, y, z)
+    redraw()
+    return
+  end
+  -- per-page dispatch
+  local route = _routes[state.page]
+  if route then
+    h = route[k]
+    if h then h(x, y, z) end
+  end
   redraw()
 end
 

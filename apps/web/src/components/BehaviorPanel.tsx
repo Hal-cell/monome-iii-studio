@@ -14,13 +14,19 @@ import {
 } from '../store/behavior.ts';
 import {
   type SavedRegion,
+  activePageIndex,
+  addPage,
   addRegion,
   findRegionForCell,
   layoutName,
+  pageNames,
   regionColor,
   regions,
+  removePage,
   removeRegion,
+  renamePage,
   renameRegion,
+  setActivePageIndex,
   setLayoutName,
   totalRegionCells,
 } from '../store/regions.ts';
@@ -114,6 +120,14 @@ export function BehaviorPanel() {
 
   const canAdd = () =>
     selectionSize() > 0 && recipe() !== null && shapeViolation() === null;
+
+  // Region list filter: show regions on the active page, plus
+  // page_select regions (which are always globally visible).
+  const visibleRegions = () =>
+    regions().filter(
+      (r) =>
+        r.pageIndex === activePageIndex() || r.recipeKind === 'page_select',
+    );
   const downloadName = () => (layoutName().trim() || 'untitled');
   // Layout name "init" or "lib" would clobber iii's core files
   // (init.lua / lib.lua) on upload — block it before the user gets
@@ -167,7 +181,7 @@ export function BehaviorPanel() {
   }
 
   function buildLayout(): GridLayout {
-    const regionList: Region[] = regions().map((r) => {
+    const toRegion = (r: SavedRegion): Region => {
       const cells = Array.from(r.cellKeys)
         .map(keyToCell)
         .sort((a, b) => a.y - b.y || a.x - b.x);
@@ -179,7 +193,16 @@ export function BehaviorPanel() {
         mode: r.mode,
         behavior: meta.build(r.mode, r.values),
       };
-    });
+    };
+    // Partition regions by pageIndex into the per-page arrays the
+    // codegen expects. pageNames is the canonical "how many pages
+    // exist" list — even an empty page (no regions) gets emitted so
+    // the page_select dispatch table covers the right indices.
+    const pages = pageNames().map((name, i) => ({
+      id: `p${i + 1}`,
+      name,
+      regions: regions().filter((r) => r.pageIndex === i).map(toRegion),
+    }));
     return {
       version: 1,
       tool_version: '0.0.0',
@@ -187,7 +210,7 @@ export function BehaviorPanel() {
       width: COLS,
       height: ROWS,
       active_page_index: 0,
-      pages: [{ id: 'p1', name: 'main', regions: regionList }],
+      pages,
     };
   }
 
@@ -394,10 +417,14 @@ export function BehaviorPanel() {
         </Show>
       </div>
 
-      <Show when={regions().length > 0}>
-        <Section title="Regions">
+      <Section title="Pages">
+        <PageTabBar />
+      </Section>
+
+      <Show when={visibleRegions().length > 0}>
+        <Section title={`Regions on ${pageNames()[activePageIndex()]}`}>
           <div class="space-y-1">
-            <For each={regions()}>{(r) => <RegionRow region={r} />}</For>
+            <For each={visibleRegions()}>{(r) => <RegionRow region={r} />}</For>
           </div>
         </Section>
       </Show>
@@ -562,6 +589,99 @@ function Section(props: { title: string; children: JSX.Element }) {
         {props.title}
       </h2>
       {props.children}
+    </div>
+  );
+}
+
+function PageTabBar() {
+  const [editing, setEditing] = createSignal<number | null>(null);
+  const [draft, setDraft] = createSignal('');
+
+  function commitRename(i: number) {
+    const next = draft().trim();
+    if (next) renamePage(i, next);
+    setEditing(null);
+  }
+
+  return (
+    <div class="space-y-2">
+      <div class="flex flex-wrap gap-1">
+        <For each={pageNames()}>
+          {(name, i) => {
+            const active = () => activePageIndex() === i();
+            return (
+              <Show
+                when={editing() === i()}
+                fallback={
+                  <button
+                    type="button"
+                    onClick={() => setActivePageIndex(i())}
+                    onDblClick={() => {
+                      setDraft(name);
+                      setEditing(i());
+                    }}
+                    class={`px-2 py-1 text-xs rounded border font-mono ${
+                      active()
+                        ? 'border-amber-200/60 bg-amber-100/10 text-amber-100'
+                        : 'border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-neutral-200 hover:border-neutral-700'
+                    }`}
+                    title={`switch to ${name} (double-click to rename)`}
+                  >
+                    {i() + 1}. {name}
+                  </button>
+                }
+              >
+                <input
+                  type="text"
+                  value={draft()}
+                  onInput={(e) => setDraft(e.currentTarget.value)}
+                  onBlur={() => commitRename(i())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+                    if (e.key === 'Escape') setEditing(null);
+                  }}
+                  ref={(el) => setTimeout(() => el?.focus(), 0)}
+                  class="w-20 bg-neutral-950 border border-neutral-700 rounded px-1 py-1 text-xs text-neutral-200 font-mono focus:outline-none"
+                />
+              </Show>
+            );
+          }}
+        </For>
+        <button
+          type="button"
+          onClick={() => addPage()}
+          class="px-2 py-1 text-xs rounded border border-neutral-800 bg-neutral-950 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700 font-mono"
+          title="add page"
+        >
+          + page
+        </button>
+      </div>
+      <Show when={pageNames().length > 1}>
+        <div class="flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                confirm(
+                  `Delete page ${activePageIndex() + 1} "${pageNames()[activePageIndex()]}" and its regions?`,
+                )
+              ) {
+                removePage(activePageIndex());
+              }
+            }}
+            class="text-[10px] text-neutral-700 hover:text-rose-400 italic"
+            title="delete current page"
+          >
+            delete current page
+          </button>
+        </div>
+      </Show>
+      <p class="text-[10px] text-neutral-600 leading-relaxed">
+        click a tab to switch · double-click to rename · regions added
+        on the current page only show on that page (except{' '}
+        <span class="text-neutral-400">page_select</span>, which shows
+        on every page)
+      </p>
     </div>
   );
 }

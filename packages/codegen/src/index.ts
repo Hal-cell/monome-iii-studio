@@ -24,6 +24,8 @@ export type {
   MomentaryParams,
   NoteMonitorBehavior,
   NoteMonitorParams,
+  PageSelectBehavior,
+  PageSelectParams,
   Page,
   Region,
   RegionMode,

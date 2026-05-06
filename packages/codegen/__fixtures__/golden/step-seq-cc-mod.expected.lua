@@ -10,6 +10,7 @@ local W, H = grid_size_x(), grid_size_y()
 
 -- ---- state ----
 local state = {
+  page = 0,
   mods_step = {[0]=-1, [1]=-1},
   mods_on = {[0]={}, [1]={}},
   mods_dir = {[0]=1, [1]=1},
@@ -161,8 +162,8 @@ end
 local _mods_metro = metro.init(_mods_tick, 0.3)
 _mods_metro:start()
 
--- ---- LED draw ----
-redraw = function()
+-- ---- per-page LED draw ----
+local function _draw_p0()
   -- region: mods
   grid_led(1, 1, _mods_pixel(0, 0))
   grid_led(2, 1, _mods_pixel(0, 1))
@@ -196,47 +197,68 @@ redraw = function()
   grid_led(14, 2, _mods_pixel(1, 13))
   grid_led(15, 2, _mods_pixel(1, 14))
   grid_led(16, 2, _mods_pixel(1, 15))
+end
+
+-- ---- master redraw ----
+redraw = function()
+  _draw_p0()
   grid_refresh()
 end
 
 -- ---- dispatch ----
-local _route = {}
-_route[1 + 1*W] = handle_mods
-_route[2 + 1*W] = handle_mods
-_route[3 + 1*W] = handle_mods
-_route[4 + 1*W] = handle_mods
-_route[5 + 1*W] = handle_mods
-_route[6 + 1*W] = handle_mods
-_route[7 + 1*W] = handle_mods
-_route[8 + 1*W] = handle_mods
-_route[9 + 1*W] = handle_mods
-_route[10 + 1*W] = handle_mods
-_route[11 + 1*W] = handle_mods
-_route[12 + 1*W] = handle_mods
-_route[13 + 1*W] = handle_mods
-_route[14 + 1*W] = handle_mods
-_route[15 + 1*W] = handle_mods
-_route[16 + 1*W] = handle_mods
-_route[1 + 2*W] = handle_mods
-_route[2 + 2*W] = handle_mods
-_route[3 + 2*W] = handle_mods
-_route[4 + 2*W] = handle_mods
-_route[5 + 2*W] = handle_mods
-_route[6 + 2*W] = handle_mods
-_route[7 + 2*W] = handle_mods
-_route[8 + 2*W] = handle_mods
-_route[9 + 2*W] = handle_mods
-_route[10 + 2*W] = handle_mods
-_route[11 + 2*W] = handle_mods
-_route[12 + 2*W] = handle_mods
-_route[13 + 2*W] = handle_mods
-_route[14 + 2*W] = handle_mods
-_route[15 + 2*W] = handle_mods
-_route[16 + 2*W] = handle_mods
+local _route_global = {}
+
+local _route_p0 = {}
+_route_p0[1 + 1*W] = handle_mods
+_route_p0[2 + 1*W] = handle_mods
+_route_p0[3 + 1*W] = handle_mods
+_route_p0[4 + 1*W] = handle_mods
+_route_p0[5 + 1*W] = handle_mods
+_route_p0[6 + 1*W] = handle_mods
+_route_p0[7 + 1*W] = handle_mods
+_route_p0[8 + 1*W] = handle_mods
+_route_p0[9 + 1*W] = handle_mods
+_route_p0[10 + 1*W] = handle_mods
+_route_p0[11 + 1*W] = handle_mods
+_route_p0[12 + 1*W] = handle_mods
+_route_p0[13 + 1*W] = handle_mods
+_route_p0[14 + 1*W] = handle_mods
+_route_p0[15 + 1*W] = handle_mods
+_route_p0[16 + 1*W] = handle_mods
+_route_p0[1 + 2*W] = handle_mods
+_route_p0[2 + 2*W] = handle_mods
+_route_p0[3 + 2*W] = handle_mods
+_route_p0[4 + 2*W] = handle_mods
+_route_p0[5 + 2*W] = handle_mods
+_route_p0[6 + 2*W] = handle_mods
+_route_p0[7 + 2*W] = handle_mods
+_route_p0[8 + 2*W] = handle_mods
+_route_p0[9 + 2*W] = handle_mods
+_route_p0[10 + 2*W] = handle_mods
+_route_p0[11 + 2*W] = handle_mods
+_route_p0[12 + 2*W] = handle_mods
+_route_p0[13 + 2*W] = handle_mods
+_route_p0[14 + 2*W] = handle_mods
+_route_p0[15 + 2*W] = handle_mods
+_route_p0[16 + 2*W] = handle_mods
+
+local _routes = {[0]=_route_p0}
 
 function event_grid(x, y, z)
-  local h = _route[x + y*W]
-  if h then h(x, y, z) end
+  local k = x + y*W
+  -- global (page_select) handlers run first; they may switch state.page
+  local h = _route_global[k]
+  if h then
+    h(x, y, z)
+    redraw()
+    return
+  end
+  -- per-page dispatch
+  local route = _routes[state.page]
+  if route then
+    h = route[k]
+    if h then h(x, y, z) end
+  end
   redraw()
 end
 
