@@ -28,6 +28,15 @@ export type EmittedFragments = {
    * bottom row at height=1).
    */
   initLines?: string[];
+  /**
+   * Name of a Lua function `f(d1, d2, d3)` defined in `declarations`
+   * that should be invoked from the global event_midi dispatcher.
+   * iii calls a single global event_midi(d1, d2, d3) on every
+   * incoming MIDI byte triple; emit.ts builds a single dispatcher
+   * that fans out to whichever regions registered a handler. Recipes
+   * that don't consume MIDI input (most of them) leave this unset.
+   */
+  midiHandler?: string;
 };
 
 type MomentaryRegion = Region & { behavior: MomentaryBehavior };

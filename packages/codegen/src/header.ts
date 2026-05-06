@@ -111,6 +111,13 @@ function describeBehavior(region: Region): string {
     const hi = Math.min(127, Math.ceil(p.center + p.depth / 2));
     return `lfo group, ${p.waveform} ch${p.channel} cc${p.cc} ${lo}..${hi} @ ${p.period_seconds}s`;
   }
+  if (region.behavior.kind === 'note_monitor') {
+    const p = region.behavior.params;
+    const ch = p.channel === 0 ? 'any ch' : `ch${p.channel}`;
+    const top = p.base_note + region.cells.length - 1;
+    const velInfo = p.velocity_responsive ? ', velocity-scaled' : '';
+    return `note monitor group, ${ch} notes ${p.base_note}..${top}${velInfo}`;
+  }
   // Exhaustive: every behavior kind handled above.
   return '';
 }
