@@ -173,43 +173,42 @@ export type { ScaleName } from './scales.ts';
  * per_cell-only.
  *
  * Note formula for a cell at selection-relative position (rx, ry)
- * where (0, 0) is the top-left of the bounding box:
+ * where (0, 0) is the top-left of the bounding box. Intervals are
+ * ALWAYS counted in semitones (chromatic):
  *
  *   note = root_note
  *        + (height - 1 - ry) * row_interval   -- bottom row plays lowest
  *        + rx * column_interval
  *
  * Defaults match monome's traditional fourths-tuning layout:
- * row_interval=5 (perfect fourth), column_interval=1 (chromatic).
+ * row_interval=5 semitones (perfect fourth), column_interval=1
+ * (semitone). The `scale` param does NOT change the note layout —
+ * it only colours the LEDs (root / in-scale / off-scale tiers) so
+ * the player can see which cells fall inside their target key.
+ * This matches monome's reference scripts (e.g. `intervals`).
  *
  * Out-of-range behavior: cells whose computed note falls outside
  * [0, 127] are silently dropped — no _<region>_note entry, no LED
  * draw, no _route entry. The cell appears unlit and unresponsive on
- * the Grid. (Decision B+B1 from the Step 7 design discussion.)
+ * the Grid.
  */
 export type NoteKeyboardParams = {
   channel: number;
   /** MIDI note for the bottom-left cell of the selection. */
   root_note: number;
-  /**
-   * Cells per step in the horizontal direction. Units depend on
-   * `scale`: for `chromatic`, semitones; for any other scale,
-   * scale-degree steps. Default 1.
-   */
+  /** Semitones per cell along the horizontal axis. Default 1. */
   column_interval: number;
   /**
-   * Cells per step in the vertical direction (between adjacent rows).
-   * Units depend on `scale`: for `chromatic`, semitones (default 5 =
-   * perfect 4th, monome's traditional layout); for any other scale,
-   * scale-degree steps.
+   * Semitones per cell along the vertical axis. Default 5 (perfect
+   * fourth — monome's traditional fourths-tuning layout).
    */
   row_interval: number;
   /**
-   * Scale that interprets the intervals above. `chromatic` (default)
-   * preserves the original semitone semantics. Any other scale makes
-   * the keyboard "scale-aware": cells walk through the scale's
-   * degrees rather than every semitone, so every cell lands on a
-   * note that's IN the scale.
+   * Scale used purely for visual highlighting (and harmony-coach
+   * chord computation). The keyboard layout is always chromatic;
+   * this field decides which cells light at `led_idle` (in-scale)
+   * vs `led_offscale` (out-of-scale). 'chromatic' disables the
+   * highlight — every non-root cell shows at `led_idle`.
    */
   scale: import('./scales.ts').ScaleName;
   velocity: number;
@@ -223,26 +222,10 @@ export type NoteKeyboardParams = {
    */
   led_octave: number;
   /**
-   * Visual scale highlight (independent of the keyboard's tuning).
-   *
-   * When the keyboard's `scale` is 'chromatic', every cell maps to
-   * a semitone — there's no built-in distinction between in-scale
-   * and out-of-scale notes. Set `highlight_scale` to a 7-note scale
-   * (major / minor / dorian / …) to mark which cells fall inside
-   * that scale: in-scale cells stay at `led_idle`, out-of-scale
-   * cells drop to `led_offscale`. Root cells still light at
-   * `led_octave` regardless.
-   *
-   * 'none' (default) disables the highlight — every non-root cell
-   * gets `led_idle`. The setting is silently a no-op when `scale`
-   * is non-chromatic (those keyboards already only show in-scale
-   * notes by construction).
-   */
-  highlight_scale: 'none' | import('./scales.ts').ScaleName;
-  /**
-   * Brightness for cells whose pitch class is OUT of `highlight_scale`.
+   * Brightness for cells whose pitch class is OUT of `scale`.
    * Default 0 (off — matches the monome `intervals` script's
-   * convention of hiding non-scale notes entirely).
+   * convention of hiding non-scale notes entirely). Has no effect
+   * when `scale` is 'chromatic' (every PC is "in scale").
    */
   led_offscale: number;
   /**

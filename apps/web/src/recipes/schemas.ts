@@ -259,12 +259,6 @@ function asScale(v: unknown): ScaleName {
   return SCALE_OPTIONS.some((o) => o.value === s) ? (s as ScaleName) : 'chromatic';
 }
 
-function asScaleOrNone(v: unknown): 'none' | ScaleName {
-  const s = asString(v, 'none');
-  if (s === 'none') return 'none';
-  return SCALE_OPTIONS.some((o) => o.value === s) ? (s as ScaleName) : 'none';
-}
-
 const noteKeyboard: RecipeMeta = {
   id: 'note_keyboard',
   label: 'Note keyboard',
@@ -281,7 +275,6 @@ const noteKeyboard: RecipeMeta = {
     led_idle: 3,
     led_octave: 6,
     led_offscale: 0,
-    highlight_scale: 'none',
     harmony_coach: 'off',
   },
   paramsFor: (values) => [
@@ -293,6 +286,10 @@ const noteKeyboard: RecipeMeta = {
       label: 'Scale',
       options: SCALE_OPTIONS,
       default: 'chromatic',
+      help:
+        values.scale === 'chromatic' || values.scale === undefined
+          ? 'note layout is always chromatic (semitones); pick a 7-note scale to highlight only those cells visually'
+          : 'note layout is chromatic; in-scale cells show at LED idle, off-scale cells at LED off-scale (root always at LED octave marker)',
     },
     {
       kind: 'int',
@@ -301,10 +298,7 @@ const noteKeyboard: RecipeMeta = {
       min: 0,
       max: 24,
       default: 1,
-      help:
-        values.scale === 'chromatic' || values.scale === undefined
-          ? 'semitones per cell within a row (1 = chromatic)'
-          : 'scale-degree steps per cell within a row',
+      help: 'semitones per cell along a row (1 = chromatic)',
     },
     {
       kind: 'int',
@@ -313,10 +307,7 @@ const noteKeyboard: RecipeMeta = {
       min: 0,
       max: 24,
       default: 5,
-      help:
-        values.scale === 'chromatic' || values.scale === undefined
-          ? '5 = fourths, 7 = fifths, 12 = octaves (in semitones)'
-          : 'scale-degree steps between rows (e.g. 3 = thirds in scale)',
+      help: 'semitones between rows (5 = fourths, 7 = fifths, 12 = octaves)',
     },
     { kind: 'int', key: 'velocity', label: 'Velocity', min: 0, max: 127, default: 100 },
     { kind: 'int', key: 'led_held', label: 'LED held', min: 0, max: 15, default: 12 },
@@ -330,24 +321,11 @@ const noteKeyboard: RecipeMeta = {
       default: 6,
       help: 'cells whose note shares the root pitch class (every 12 semitones); set equal to LED idle to disable',
     },
-    // Scale highlight is only meaningful for a chromatic keyboard
-    // (where every semitone has a cell). Non-chromatic keyboards
-    // already filter to in-scale notes by construction. Hide the
-    // option entirely when scale != chromatic to avoid confusing
-    // the user with a no-op control.
-    ...(values.scale === 'chromatic' || values.scale === undefined
+    // led_offscale only matters when scale is non-chromatic (chromatic
+    // has no off-scale notes). Hide for chromatic to keep the panel
+    // tidy; otherwise show it right after the scale picker.
+    ...(values.scale !== 'chromatic' && values.scale !== undefined
       ? ([
-          {
-            kind: 'enum' as const,
-            key: 'highlight_scale',
-            label: 'Highlight scale',
-            options: [
-              { value: 'none', label: 'None' },
-              ...SCALE_OPTIONS.filter((o) => o.value !== 'chromatic'),
-            ],
-            default: 'none',
-            help: 'mark in-scale cells at LED idle; out-of-scale cells drop to LED off-scale (root still glows at LED octave marker)',
-          },
           {
             kind: 'int' as const,
             key: 'led_offscale',
@@ -355,7 +333,7 @@ const noteKeyboard: RecipeMeta = {
             min: 0,
             max: 15,
             default: 0,
-            help: 'brightness for cells whose note is OUT of the highlight scale; 0 hides them entirely',
+            help: 'brightness for cells whose note is OUT of the chosen scale; 0 hides them entirely',
           },
         ] as ParamSchema[])
       : []),
@@ -387,7 +365,6 @@ const noteKeyboard: RecipeMeta = {
       led_idle: asInt(v.led_idle, 3),
       led_octave: asInt(v.led_octave, 6),
       led_offscale: asInt(v.led_offscale, 0),
-      highlight_scale: asScaleOrNone(v.highlight_scale),
       harmony_coach: asString(v.harmony_coach, 'off') === 'on',
     },
   }),

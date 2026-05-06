@@ -86,12 +86,13 @@
               "channel": 1,
               "root_note": 60,
               "column_interval": 1,
-              "row_interval": 3,
+              "row_interval": 5,
               "scale": "major",
               "velocity": 100,
               "led_held": 12,
               "led_idle": 3,
-              "led_octave": 6
+              "led_octave": 6,
+              "led_offscale": 0
             }
           }
         }
