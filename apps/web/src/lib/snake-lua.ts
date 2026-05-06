@@ -10,10 +10,11 @@
  *      . . . . . . . . . . . . . ← . →
  *      . . . . . . . . . . . . . . ↓ .
  *
- * Music: each apple eaten plays the next degree of the D minor
- * pentatonic across two octaves; death plays a low D. Apple blinks
- * via a single shared metro running at 50 Hz that schedules snake
- * movement, apple blink, d-pad press feedback, and note-off.
+ * Music: each apple eaten plays the next chord in a random walk over
+ * a D-minor harmonic-progression graph (so the sequence sounds like
+ * an actual sad piano piece, not a static scale). Death plays a
+ * sustained tonic Dm. The metro running at 50 Hz schedules snake
+ * movement, apple blink, d-pad press feedback, and chord note-off.
  *
  * Triggered from the web UI by typing "snake" anywhere outside an
  * input field.
@@ -46,10 +47,36 @@ local LED_DPAD_PRESS = 12
 local LED_DEATH      = 9
 local LED_OFF        = 0
 
--- ---- Music ------------------------------------------------------
--- D minor pentatonic, two octaves, ascends as the snake grows.
-local SCALE = {62, 65, 67, 69, 72, 74, 77, 79, 81, 84, 86, 89}
+-- ---- Music: D-minor harmonic progression ----------------------
+-- Each chord is voiced as bass note + triad in the next octave so it
+-- reads as a real chord stab, not a thin triad. Notes are MIDI #s.
 local MIDI_CH = 1
+
+local CHORDS = {
+  -- name      bass  triad
+  i      = { 50, 62, 65, 69 },  -- Dm   (i, tonic — saddest, home)
+  ii_dim = { 52, 64, 67, 70 },  -- E°   (ii°, tense)
+  III    = { 53, 65, 69, 72 },  -- F    (III, relative major — wistful)
+  iv     = { 55, 67, 70, 74 },  -- Gm   (iv, plaintive subdominant)
+  v      = { 57, 69, 72, 76 },  -- Am   (v, modal/Aeolian dominant)
+  V      = { 57, 69, 73, 76 },  -- A    (V, harmonic-minor dominant)
+  VI     = { 58, 70, 74, 77 },  -- Bb   (VI, mournful submediant)
+  VII    = { 60, 72, 76, 79 },  -- C    (VII, hopeful relative)
+}
+
+-- Transition graph: from each chord, which chords can plausibly come
+-- next. The walker picks one at random, so the progression varies on
+-- every play but always sounds like a coherent minor-key piece.
+local NEXT_CHORD = {
+  i      = { 'iv', 'v', 'V', 'VI', 'VII', 'III', 'ii_dim' },
+  ii_dim = { 'V', 'v', 'i' },
+  III    = { 'VI', 'VII', 'iv', 'i' },
+  iv     = { 'i', 'VII', 'v', 'V', 'III' },
+  v      = { 'i', 'iv', 'VI' },
+  V      = { 'i', 'VI', 'iv' },
+  VI     = { 'III', 'iv', 'VII', 'i', 'ii_dim' },
+  VII    = { 'III', 'VI', 'i' },
+}
 
 -- ---- Direction helpers ------------------------------------------
 local DIR_VEC = {
@@ -65,7 +92,8 @@ local TICK_S            = 0.05
 local SNAKE_MOVE_TICKS  = 4   -- 0.20 s/move (5 moves/sec)
 local APPLE_BLINK_TICKS = 8   -- 0.40 s
 local DPAD_PRESS_TICKS  = 4   -- 0.20 s
-local NOTE_HOLD_TICKS   = 3   -- 0.15 s
+local CHORD_HOLD_TICKS  = 8   -- 0.40 s — let each chord ring
+local DEATH_HOLD_TICKS  = 16  -- 0.80 s — sustained tonic on death
 local DEATH_TICKS       = 24  -- 1.20 s of flashing before reset
 
 -- ---- Game state -------------------------------------------------
@@ -78,10 +106,11 @@ local alive
 local death_frame
 local pressed_dir
 local pressed_at_tick
-local active_note
+local active_notes      -- list of MIDI #s currently held (full chord)
 local note_off_tick
 local apple_phase
 local tick_count
+local current_chord     -- name of last-played chord (graph walker state)
 
 -- ---- Helpers ----------------------------------------------------
 local function is_dpad(x, y)
@@ -110,18 +139,30 @@ local function spawn_apple()
   apple = nil
 end
 
-local function note_off_active()
-  if active_note and active_note >= 0 then
-    midi_note_off(active_note, 0, MIDI_CH)
-    active_note = -1
+local function notes_off()
+  if active_notes then
+    for _, n in ipairs(active_notes) do
+      midi_note_off(n, 0, MIDI_CH)
+    end
   end
+  active_notes = {}
 end
 
-local function play_note(m, hold)
-  note_off_active()
-  midi_note_on(m, 100, MIDI_CH)
-  active_note = m
+local function play_chord(notes, hold, vel)
+  notes_off()
+  vel = vel or 100
+  active_notes = {}
+  for _, n in ipairs(notes) do
+    midi_note_on(n, vel, MIDI_CH)
+    table.insert(active_notes, n)
+  end
   note_off_tick = tick_count + hold
+end
+
+-- Pick the next chord by random walk through the transition graph.
+local function next_progression_chord()
+  local options = NEXT_CHORD[current_chord] or NEXT_CHORD.i
+  return options[math.random(1, #options)]
 end
 
 local function reset_game()
@@ -136,13 +177,17 @@ local function reset_game()
   death_frame = 0
   spawn_apple()
   apple_phase = 0
-  play_note(SCALE[1], 4)
+  -- Reset progression to the tonic so each new game starts on home.
+  current_chord = 'i'
+  play_chord(CHORDS.i, CHORD_HOLD_TICKS, 80)
 end
 
 local function die()
   alive = false
   death_frame = 0
-  play_note(50, 6)  -- low D
+  -- Sustained tonic Dm on death — soft + long, the saddest landing.
+  play_chord(CHORDS.i, DEATH_HOLD_TICKS, 70)
+  current_chord = 'i'
 end
 
 local function move_snake()
@@ -162,8 +207,9 @@ local function move_snake()
 
   if apple and nx == apple.x and ny == apple.y then
     length = length + 1
-    local idx = ((length - 4) % #SCALE) + 1
-    play_note(SCALE[idx], NOTE_HOLD_TICKS)
+    -- Walk one step in the progression graph and play that chord.
+    current_chord = next_progression_chord()
+    play_chord(CHORDS[current_chord], CHORD_HOLD_TICKS)
     spawn_apple()
   else
     table.remove(snake)
@@ -218,8 +264,8 @@ end
 local function tick()
   tick_count = tick_count + 1
 
-  if active_note and active_note >= 0 and tick_count >= note_off_tick then
-    note_off_active()
+  if active_notes and #active_notes > 0 and tick_count >= note_off_tick then
+    notes_off()
   end
 
   if tick_count % APPLE_BLINK_TICKS == 0 then
@@ -266,11 +312,12 @@ end
 -- ---- Bootstrap --------------------------------------------------
 math.randomseed(math.floor(get_time() * 1000))
 tick_count = 0
-active_note = -1
+active_notes = {}
 note_off_tick = 0
 pressed_dir = nil
 pressed_at_tick = 0
 apple_phase = 0
+current_chord = 'i'
 grid_led_all(0)
 reset_game()
 
