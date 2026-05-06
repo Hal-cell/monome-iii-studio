@@ -19,9 +19,12 @@ import {
   type SavedRegion,
   clearAllRegions,
   layoutName,
+  pageNames,
   regions,
   replaceAllRegions,
+  setActivePageIndex,
   setLayoutName,
+  setPageNames,
 } from './regions.ts';
 import {
   mode,
@@ -43,6 +46,7 @@ export function serializeRegion(r: SavedRegion): SavedRegionJSON {
     recipeKind: r.recipeKind,
     values: r.values,
     colorIndex: r.colorIndex,
+    pageIndex: r.pageIndex,
   };
 }
 
@@ -55,12 +59,18 @@ function deserializeRegion(r: SavedRegionJSON): SavedRegion {
     recipeKind: r.recipeKind,
     values: r.values,
     colorIndex: r.colorIndex,
+    // Older exports without pageIndex default to page 0.
+    pageIndex: r.pageIndex ?? 0,
   };
 }
 
 export function snapshotSession(): SessionState {
   return {
-    ...makeLayoutExport(layoutName(), regions().map(serializeRegion)),
+    ...makeLayoutExport(
+      layoutName(),
+      regions().map(serializeRegion),
+      pageNames(),
+    ),
     selection: Array.from(selection()),
     recipeKind: recipeKind(),
     mode: mode(),
@@ -71,11 +81,16 @@ export function snapshotSession(): SessionState {
 }
 
 export function snapshotLayout(): LayoutExport {
-  return makeLayoutExport(layoutName(), regions().map(serializeRegion));
+  return makeLayoutExport(
+    layoutName(),
+    regions().map(serializeRegion),
+    pageNames(),
+  );
 }
 
 export function restoreSession(saved: SessionState): void {
   setLayoutName(saved.layoutName);
+  setPageNames(saved.pageNames ?? ['main']);
   replaceAllRegions(saved.regions.map(deserializeRegion));
   setSelection(new Set<string>(saved.selection));
   setRecipeKind(saved.recipeKind);
@@ -83,15 +98,20 @@ export function restoreSession(saved: SessionState): void {
   if (saved.values && Object.keys(saved.values).length > 0) {
     setValues(reconcile(saved.values));
   }
+  // setActivePageIndex isn't persisted — restoring always lands on
+  // the first page so the user has a predictable starting view.
+  setActivePageIndex(0);
 }
 
 export function loadLayout(layout: LayoutExport): void {
   setLayoutName(layout.layoutName);
+  setPageNames(layout.pageNames ?? ['main']);
   replaceAllRegions(layout.regions.map(deserializeRegion));
   // Discard any in-progress editing state — imported layout starts
   // fresh from the user's perspective.
   setSelection(new Set<string>());
   setRecipeKind(null);
+  setActivePageIndex(0);
 }
 
 export function newLayout(): void {
@@ -100,6 +120,7 @@ export function newLayout(): void {
   setSelection(new Set<string>());
   setRecipeKind(null);
 }
+
 
 /**
  * Apply a history (undo / redo) snapshot back to the underlying
