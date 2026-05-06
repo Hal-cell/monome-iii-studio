@@ -93,11 +93,14 @@ export function renamePage(i: number, name: string): void {
 /**
  * Remove a page and any regions that lived on it. Active page falls
  * back to 0 if the deleted page was active. Refuses to delete the
- * last remaining page.
+ * last remaining page, AND refuses to delete page 0 (the "main"
+ * page) — keeping a fixed anchor at index 0 means region/page
+ * indices never reshuffle out from under saved layouts.
  */
 export function removePage(i: number): void {
   const names = _pageNames();
   if (names.length <= 1) return;
+  if (i === 0) return;
   if (i < 0 || i >= names.length) return;
   // Drop regions on this page; shift later regions' pageIndex down.
   _setRegions((prev) =>

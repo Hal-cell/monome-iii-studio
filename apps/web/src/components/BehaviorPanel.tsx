@@ -674,7 +674,7 @@ function PageTabBar() {
           + page
         </button>
       </div>
-      <Show when={pageNames().length > 1}>
+      <Show when={pageNames().length > 1 && activePageIndex() > 0}>
         <div class="flex justify-end">
           <button
             type="button"
