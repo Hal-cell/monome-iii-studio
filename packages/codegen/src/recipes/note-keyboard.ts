@@ -1,6 +1,6 @@
 import type { Cell, NoteKeyboardBehavior, Region } from '../types.ts';
 import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
-import { noteAtDegree } from '../scales.ts';
+import { type ScaleName, SCALE_INTERVALS, noteAtDegree } from '../scales.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type NKRegion = Region & { behavior: NoteKeyboardBehavior };
@@ -129,13 +129,16 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     : [];
 
   // Idle brightness lookup per cell (used by the pixel function in
-  // coach mode). Octave markers — cells whose note matches the root
-  // pitch class — get `led_octave`; others get `led_idle`.
+  // coach mode). Three tiers, in priority order:
+  //   1. Octave marker (cell pitch class == root)        → led_octave
+  //   2. In highlight_scale (only meaningful in chromatic) → led_idle
+  //   3. Out of highlight_scale                           → led_offscale
+  // When highlight_scale is 'none' or scale is non-chromatic, every
+  // non-root cell is treated as in-scale (collapses to led_idle).
   const idleLines = useCoach
     ? inRange
         .map(({ cell, note }) => {
-          const isOctave = (note - params.root_note) % 12 === 0;
-          const v = isOctave ? params.led_octave : params.led_idle;
+          const v = idleBrightnessFor(note, params);
           return `${idleTable(safeName)}[${luaKey(cell)}] = ${v}`;
         })
         .join('\n')
@@ -257,12 +260,12 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
             `  grid_led(${luaXY(cell)}, ${pixelName(safeName)}(${luaKey(cell)}))`,
         )
         .join('\n')
-    : // Non-coach: existing inline expression with octave brightness
-      // baked in at compile time. Faster, no function call.
+    : // Non-coach: inline expression with idle brightness baked in
+      // at compile time (octave / in-scale / off-scale tier). Faster,
+      // no function call.
       inRange
         .map(({ cell, note }) => {
-          const isOctave = (note - params.root_note) % 12 === 0;
-          const idleVal = isOctave ? params.led_octave : params.led_idle;
+          const idleVal = idleBrightnessFor(note, params);
           return `  grid_led(${luaXY(cell)}, state.${stateSlot}[${luaKey(cell)}] and ${params.led_held} or ${idleVal})`;
         })
         .join('\n');
@@ -295,6 +298,40 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
     routeAdditions,
     initLines,
   };
+}
+
+/**
+ * Compute the per-cell "not held" brightness for a given note,
+ * honouring the four-tier visual hierarchy:
+ *
+ *   held cell                            → led_held    (handled separately)
+ *   pitch class matches root             → led_octave
+ *   pitch class is in highlight_scale    → led_idle
+ *   pitch class is OUT of highlight_scale → led_offscale
+ *
+ * If `highlight_scale` is 'none' or the keyboard's `scale` already
+ * filters to a non-chromatic set, the highlight is a no-op and
+ * every non-root cell collapses to `led_idle`.
+ */
+function idleBrightnessFor(
+  note: number,
+  params: NoteKeyboardBehavior['params'],
+): number {
+  const pc = ((note - params.root_note) % 12 + 12) % 12;
+  if (pc === 0) return params.led_octave;
+  // Highlight only meaningful for chromatic keyboards. Non-chromatic
+  // already constrain cells to in-scale notes. Older layout files
+  // (pre-highlight_scale) leave the field undefined, which we treat
+  // as 'none' for backward compatibility.
+  const hi = params.highlight_scale;
+  const highlightActive =
+    hi !== undefined &&
+    hi !== 'none' &&
+    params.scale === 'chromatic' &&
+    hi in SCALE_INTERVALS;
+  if (!highlightActive) return params.led_idle;
+  const intervals = SCALE_INTERVALS[hi as ScaleName];
+  return intervals.includes(pc) ? params.led_idle : params.led_offscale ?? 0;
 }
 
 // Identifier helpers — keep all the coach-only locals namespaced under
