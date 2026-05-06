@@ -1,6 +1,6 @@
 import type { Cell, NoteKeyboardBehavior, Region } from '../types.ts';
 import { luaIdent, luaKey, luaXY } from '../lua-coords.ts';
-import { type ScaleName, SCALE_INTERVALS, noteAtDegree } from '../scales.ts';
+import { SCALE_INTERVALS, noteAtDegree } from '../scales.ts';
 import type { EmittedFragments } from './momentary.ts';
 
 type NKRegion = Region & { behavior: NoteKeyboardBehavior };
@@ -52,21 +52,19 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
   // distinction). Silently disabled for chromatic.
   const useCoach = params.harmony_coach && params.scale !== 'chromatic';
 
-  // Compute the MIDI note for each cell. Drop cells whose note falls
-  // outside [0, 127]: they get no note table entry, no LED line, no
-  // route — they appear unlit and unresponsive.
-  //
-  // For chromatic scale, the row/column intervals are semitones —
-  // identical to the pre-scale behaviour. For any other scale, they
-  // are scale-degree steps; the keyboard becomes scale-aware, with
-  // every cell landing on a note IN the scale.
+  // Compute the MIDI note for each cell. The keyboard layout is
+  // ALWAYS chromatic — row_interval and column_interval are counted
+  // in semitones, regardless of the `scale` param. (Scale only
+  // affects the LED colouring; see idleBrightnessFor.) Drop cells
+  // whose computed note falls outside [0, 127]: they get no note
+  // entry, no LED, no route — appear unlit and unresponsive.
   const cellsWithNote = region.cells.map((c) => {
     const rx = c.x - xLeft;
     const ry = c.y - yTop;
-    const degree =
+    const note =
+      params.root_note +
       (height - 1 - ry) * params.row_interval +
       rx * params.column_interval;
-    const note = noteAtDegree(params.root_note, params.scale, degree);
     return { cell: c, note };
   });
 
@@ -304,14 +302,16 @@ export function emitNoteKeyboard(region: NKRegion): EmittedFragments {
  * Compute the per-cell "not held" brightness for a given note,
  * honouring the four-tier visual hierarchy:
  *
- *   held cell                            → led_held    (handled separately)
- *   pitch class matches root             → led_octave
- *   pitch class is in highlight_scale    → led_idle
- *   pitch class is OUT of highlight_scale → led_offscale
+ *   held cell                       → led_held    (handled separately)
+ *   pitch class matches root        → led_octave
+ *   pitch class is in `scale`       → led_idle
+ *   pitch class is OUT of `scale`   → led_offscale
  *
- * If `highlight_scale` is 'none' or the keyboard's `scale` already
- * filters to a non-chromatic set, the highlight is a no-op and
- * every non-root cell collapses to `led_idle`.
+ * `scale === 'chromatic'` collapses tiers 3 and 4 — every non-root
+ * cell shows at `led_idle` (chromatic has no notion of off-scale).
+ * Non-chromatic scales make the keyboard "monome `intervals` style":
+ * the layout is still chromatic but the LEDs visually mark which
+ * cells fall inside the chosen key.
  */
 function idleBrightnessFor(
   note: number,
@@ -319,18 +319,8 @@ function idleBrightnessFor(
 ): number {
   const pc = ((note - params.root_note) % 12 + 12) % 12;
   if (pc === 0) return params.led_octave;
-  // Highlight only meaningful for chromatic keyboards. Non-chromatic
-  // already constrain cells to in-scale notes. Older layout files
-  // (pre-highlight_scale) leave the field undefined, which we treat
-  // as 'none' for backward compatibility.
-  const hi = params.highlight_scale;
-  const highlightActive =
-    hi !== undefined &&
-    hi !== 'none' &&
-    params.scale === 'chromatic' &&
-    hi in SCALE_INTERVALS;
-  if (!highlightActive) return params.led_idle;
-  const intervals = SCALE_INTERVALS[hi as ScaleName];
+  if (params.scale === 'chromatic') return params.led_idle;
+  const intervals = SCALE_INTERVALS[params.scale];
   return intervals.includes(pc) ? params.led_idle : params.led_offscale ?? 0;
 }
 
