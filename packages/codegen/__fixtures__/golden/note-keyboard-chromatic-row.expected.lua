@@ -42,14 +42,11 @@ local redraw
 
 -- ---- region: keys ----
 local _keys_note = {}
-_keys_note[1 + 8*W] = 36
-_keys_note[2 + 8*W] = 37
-_keys_note[3 + 8*W] = 38
-_keys_note[4 + 8*W] = 39
-_keys_note[5 + 8*W] = 40
-_keys_note[6 + 8*W] = 41
-_keys_note[7 + 8*W] = 42
-_keys_note[8 + 8*W] = 43
+for y = 8, 8 do
+  for x = 1, 8 do
+    _keys_note[x + y*W] = 36 + (8-y) + (x-1)
+  end
+end
 local function handle_keys(x, y, z)
   local note = _keys_note[x + y*W]
   if not note then return end
@@ -85,14 +82,11 @@ end
 local _route_global = {}
 
 local _route_p0 = {}
-_route_p0[1 + 8*W] = handle_keys
-_route_p0[2 + 8*W] = handle_keys
-_route_p0[3 + 8*W] = handle_keys
-_route_p0[4 + 8*W] = handle_keys
-_route_p0[5 + 8*W] = handle_keys
-_route_p0[6 + 8*W] = handle_keys
-_route_p0[7 + 8*W] = handle_keys
-_route_p0[8 + 8*W] = handle_keys
+for y = 8, 8 do
+  for x = 1, 8 do
+    _route_p0[x + y*W] = handle_keys
+  end
+end
 
 local _routes = {[0]=_route_p0}
 
