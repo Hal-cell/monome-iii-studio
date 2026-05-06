@@ -13,7 +13,6 @@ local state = {
   page = 0,
   keys_held = {},
   keys_coach_chord = 1,
-  keys_coach_voicing_idx = 1,
   keys_coach_blink = 0,
 }
 
@@ -62,14 +61,40 @@ _keys_note[2 + 8*W] = 61
 _keys_note[3 + 8*W] = 62
 _keys_note[4 + 8*W] = 63
 local _keys_chord_voicing = {}
-_keys_chord_voicing[1] = {{99, 82, 115}, {129, 82, 115}}
-_keys_chord_voicing[2] = {{131, 83}, {131, 113}}
+_keys_chord_voicing[1] = {{99, 82, 115}}
+_keys_chord_voicing[2] = {{131, 113}}
 _keys_chord_voicing[3] = {{82, 115, 98}}
-_keys_chord_voicing[4] = {{83, 99}, {113, 129}, {113, 99}, {83, 129}}
+_keys_chord_voicing[4] = {{113, 99}, {83, 99}, {113, 129}}
 _keys_chord_voicing[5] = {{115, 98, 131}}
-_keys_chord_voicing[6] = {{99, 82}, {129, 82}}
-_keys_chord_voicing[7] = {{98, 131, 83}, {98, 131, 113}}
+_keys_chord_voicing[6] = {{99, 82}}
+_keys_chord_voicing[7] = {{98, 131, 113}}
 local _keys_next_chord = {[1]={2, 3, 4, 5, 6, 7}, [2]={5, 7}, [3]={4, 6}, [4]={1, 5, 7}, [5]={1, 6}, [6]={2, 4, 5}, [7]={1, 3}}
+local function _keys_revoice()
+  local vs = _keys_chord_voicing[state.keys_coach_chord]
+  if not vs or #vs == 0 then state.keys_coach_voicing = nil; return end
+  local base = vs[math.random(1, #vs)]
+  local prev = state.keys_coach_voicing
+  local n = #base
+  local nv = {}
+  for i = 1, n do nv[i] = base[i] end
+  if prev then
+    for i = 1, n do
+      local nn = _keys_note[nv[i]]
+      if nn then
+        local npc = (nn - 60) % 12
+        for j = 1, #prev do
+          local pc = prev[j]
+          local pn = _keys_note[pc]
+          if pn and (pn - 60) % 12 == npc then
+            nv[i] = pc
+            break
+          end
+        end
+      end
+    end
+  end
+  state.keys_coach_voicing = nv
+end
 local function handle_keys(x, y, z)
   local note = _keys_note[x + y*W]
   if not note then return end
@@ -85,21 +110,15 @@ local function handle_keys(x, y, z)
       if opts then
         state.keys_coach_chord = opts[math.random(1, #opts)]
       end
-      local vs = _keys_chord_voicing[state.keys_coach_chord]
-      if vs and #vs > 0 then
-        state.keys_coach_voicing_idx = math.random(1, #vs)
-      end
+      _keys_revoice()
     end
   end
 end
 local function _keys_pixel(k)
   if state.keys_held[k] then return 12 end
-  local v = _keys_chord_voicing[state.keys_coach_chord]
-  if v then
-    local cv = v[state.keys_coach_voicing_idx]
-    if cv and (cv[1] == k or cv[2] == k or cv[3] == k) then
-      return state.keys_coach_blink == 0 and 13 or 6
-    end
+  local cv = state.keys_coach_voicing
+  if cv and (cv[1] == k or cv[2] == k or cv[3] == k) then
+    return state.keys_coach_blink == 0 and 13 or 6
   end
   local note = _keys_note[k]
   if not note then return 0 end
@@ -187,4 +206,5 @@ end
 -- ---- init ----
 grid_led_all(0)
 math.randomseed(math.floor(get_time() * 1000))
+_keys_revoice()
 redraw()

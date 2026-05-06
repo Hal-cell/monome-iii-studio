@@ -14,7 +14,6 @@ local state = {
   keys_held = {},
   keys_scale_idx = 2,
   keys_coach_chord = 1,
-  keys_coach_voicing_idx = 1,
   keys_coach_blink = 0,
 }
 
@@ -105,56 +104,82 @@ _keys_chord_voicing[5] = {}
 _keys_chord_voicing[6] = {}
 _keys_chord_voicing[7] = {}
 _keys_chord_voicing[8] = {}
-_keys_chord_voicing[2][1] = {{99, 82, 115}, {129, 82, 115}, {129, 52, 34}}
-_keys_chord_voicing[2][2] = {{50, 83, 66}, {20, 83, 66}, {131, 113, 36}}
-_keys_chord_voicing[2][3] = {{82, 115, 98}, {82, 34, 17}, {52, 115, 17}}
-_keys_chord_voicing[2][4] = {{83, 66, 99}, {83, 36, 18}, {113, 36, 129}}
-_keys_chord_voicing[2][5] = {{34, 17, 50}, {115, 68, 50}, {115, 17, 131}}
-_keys_chord_voicing[2][6] = {{66, 99, 82}, {66, 99, 52}, {36, 129, 82}}
-_keys_chord_voicing[2][7] = {{68, 50, 83}, {17, 20, 83}, {98, 20, 113}}
-_keys_chord_voicing[3][1] = {{18, 51, 34}, {99, 81, 34}, {129, 132, 34}}
-_keys_chord_voicing[3][2] = {{50, 83, 35}, {131, 83, 65}, {20, 113, 116}}
-_keys_chord_voicing[3][3] = {{51, 34, 67}, {81, 115, 67}, {132, 34, 97}}
-_keys_chord_voicing[3][4] = {{83, 116, 99}, {83, 65, 18}, {113, 116, 18}}
-_keys_chord_voicing[3][5] = {{34, 67, 50}, {115, 67, 50}, {115, 97, 20}}
-_keys_chord_voicing[3][6] = {{35, 18, 51}, {116, 129, 81}, {65, 18, 132}}
-_keys_chord_voicing[3][7] = {{67, 50, 83}, {97, 50, 113}, {97, 20, 113}}
-_keys_chord_voicing[4][1] = {{18, 51, 34}, {99, 81, 34}, {129, 132, 34}}
-_keys_chord_voicing[4][2] = {{50, 83, 66}, {20, 83, 66}, {131, 113, 36}}
-_keys_chord_voicing[4][3] = {{51, 34, 67}, {81, 115, 67}, {132, 34, 97}}
-_keys_chord_voicing[4][4] = {{83, 66, 99}, {83, 36, 18}, {113, 36, 129}}
-_keys_chord_voicing[4][5] = {{34, 67, 50}, {115, 67, 50}, {115, 97, 20}}
-_keys_chord_voicing[4][6] = {{36, 18, 51}, {36, 18, 81}, {66, 18, 132}}
-_keys_chord_voicing[4][7] = {{67, 50, 83}, {97, 50, 113}, {97, 20, 113}}
-_keys_chord_voicing[5][1] = {{18, 51, 34}, {99, 81, 34}, {129, 132, 34}}
-_keys_chord_voicing[5][2] = {{100, 83, 116}, {19, 83, 65}, {19, 113, 116}}
-_keys_chord_voicing[5][3] = {{51, 34, 67}, {81, 115, 67}, {132, 34, 97}}
-_keys_chord_voicing[5][4] = {{83, 116, 99}, {83, 65, 18}, {113, 116, 18}}
-_keys_chord_voicing[5][5] = {{34, 67, 19}, {34, 67, 100}, {115, 97, 19}}
-_keys_chord_voicing[5][6] = {{35, 18, 51}, {116, 129, 81}, {65, 18, 132}}
-_keys_chord_voicing[5][7] = {{67, 100, 83}, {67, 130, 83}, {97, 19, 113}}
-_keys_chord_voicing[6][1] = {{99, 82, 115}, {129, 82, 115}, {129, 52, 34}}
-_keys_chord_voicing[6][2] = {{50, 33, 66}, {20, 33, 66}, {131, 33, 36}}
-_keys_chord_voicing[6][3] = {{82, 115, 98}, {82, 34, 17}, {52, 115, 17}}
-_keys_chord_voicing[6][4] = {{33, 36, 18}, {84, 66, 18}, {114, 36, 129}}
-_keys_chord_voicing[6][5] = {{34, 17, 50}, {115, 68, 50}, {115, 17, 131}}
-_keys_chord_voicing[6][6] = {{66, 99, 82}, {66, 99, 52}, {36, 129, 82}}
-_keys_chord_voicing[6][7] = {{17, 50, 33}, {68, 131, 114}, {17, 131, 84}}
-_keys_chord_voicing[7][1] = {{99, 82, 115}, {129, 82, 115}, {129, 52, 34}}
-_keys_chord_voicing[7][2] = {{50, 83, 66}, {20, 83, 66}, {131, 113, 36}}
-_keys_chord_voicing[7][3] = {{52, 34, 67}, {82, 115, 97}, {52, 115, 97}}
-_keys_chord_voicing[7][4] = {{83, 66, 99}, {83, 36, 18}, {113, 36, 129}}
-_keys_chord_voicing[7][5] = {{34, 67, 50}, {115, 67, 50}, {115, 97, 20}}
-_keys_chord_voicing[7][6] = {{66, 99, 82}, {66, 99, 52}, {36, 129, 82}}
-_keys_chord_voicing[7][7] = {{67, 50, 83}, {97, 50, 113}, {97, 20, 113}}
-_keys_chord_voicing[8][1] = {{18, 51, 33}, {129, 81, 33}, {18, 132, 33}}
-_keys_chord_voicing[8][2] = {{100, 83, 116}, {19, 83, 65}, {19, 113, 116}}
-_keys_chord_voicing[8][3] = {{51, 84, 67}, {81, 114, 67}, {132, 33, 97}}
-_keys_chord_voicing[8][4] = {{83, 116, 99}, {83, 65, 18}, {113, 116, 18}}
-_keys_chord_voicing[8][5] = {{84, 67, 100}, {114, 97, 49}, {114, 97, 19}}
-_keys_chord_voicing[8][6] = {{35, 18, 51}, {116, 129, 81}, {65, 18, 132}}
-_keys_chord_voicing[8][7] = {{67, 100, 83}, {67, 130, 83}, {97, 19, 113}}
+_keys_chord_voicing[2][1] = {{18, 52, 34}, {99, 82, 115}}
+_keys_chord_voicing[2][2] = {{50, 83, 66}}
+_keys_chord_voicing[2][3] = {{52, 34, 17}, {82, 115, 98}, {52, 34, 68}}
+_keys_chord_voicing[2][4] = {{83, 66, 99}}
+_keys_chord_voicing[2][5] = {{34, 17, 20}, {34, 68, 50}, {34, 17, 50}}
+_keys_chord_voicing[2][6] = {{66, 99, 82}, {36, 18, 52}}
+_keys_chord_voicing[2][7] = {{98, 131, 113}, {68, 50, 83}}
+_keys_chord_voicing[3][1] = {{129, 132, 115}, {18, 51, 34}, {99, 81, 115}}
+_keys_chord_voicing[3][2] = {{131, 113, 116}, {50, 83, 65}}
+_keys_chord_voicing[3][3] = {{132, 115, 97}, {81, 115, 97}, {51, 34, 67}}
+_keys_chord_voicing[3][4] = {{113, 116, 99}, {83, 116, 99}, {83, 65, 99}}
+_keys_chord_voicing[3][5] = {{34, 67, 50}, {115, 97, 131}}
+_keys_chord_voicing[3][6] = {{116, 99, 81}, {65, 99, 81}, {35, 18, 51}}
+_keys_chord_voicing[3][7] = {{97, 131, 113}, {67, 50, 83}}
+_keys_chord_voicing[4][1] = {{129, 132, 115}, {18, 51, 34}, {99, 81, 115}}
+_keys_chord_voicing[4][2] = {{50, 83, 66}}
+_keys_chord_voicing[4][3] = {{132, 115, 97}, {81, 115, 97}, {51, 34, 67}}
+_keys_chord_voicing[4][4] = {{83, 66, 99}}
+_keys_chord_voicing[4][5] = {{34, 67, 50}, {115, 97, 131}}
+_keys_chord_voicing[4][6] = {{66, 99, 81}, {36, 18, 51}}
+_keys_chord_voicing[4][7] = {{97, 131, 113}, {67, 50, 83}}
+_keys_chord_voicing[5][1] = {{129, 132, 115}, {18, 51, 34}, {99, 81, 115}}
+_keys_chord_voicing[5][2] = {{130, 113, 116}, {49, 83, 65}, {100, 83, 116}}
+_keys_chord_voicing[5][3] = {{132, 115, 97}, {81, 115, 97}, {51, 34, 67}}
+_keys_chord_voicing[5][4] = {{113, 116, 99}, {83, 116, 99}, {83, 65, 99}}
+_keys_chord_voicing[5][5] = {{115, 97, 100}, {34, 67, 49}, {115, 97, 130}}
+_keys_chord_voicing[5][6] = {{116, 99, 81}, {65, 99, 81}, {35, 18, 51}}
+_keys_chord_voicing[5][7] = {{97, 100, 83}, {67, 100, 83}, {67, 49, 83}}
+_keys_chord_voicing[6][1] = {{18, 52, 34}, {99, 82, 115}}
+_keys_chord_voicing[6][2] = {{50, 33, 36}, {20, 33, 36}, {50, 33, 66}}
+_keys_chord_voicing[6][3] = {{52, 34, 17}, {82, 115, 98}, {52, 34, 68}}
+_keys_chord_voicing[6][4] = {{33, 36, 18}, {84, 66, 99}}
+_keys_chord_voicing[6][5] = {{34, 17, 20}, {34, 68, 50}, {34, 17, 50}}
+_keys_chord_voicing[6][6] = {{66, 99, 82}, {36, 18, 52}}
+_keys_chord_voicing[6][7] = {{68, 50, 33}, {17, 50, 33}, {17, 20, 33}}
+_keys_chord_voicing[7][1] = {{18, 52, 34}, {99, 82, 115}}
+_keys_chord_voicing[7][2] = {{50, 83, 66}}
+_keys_chord_voicing[7][3] = {{82, 115, 97}, {52, 34, 67}}
+_keys_chord_voicing[7][4] = {{83, 66, 99}}
+_keys_chord_voicing[7][5] = {{34, 67, 50}, {115, 97, 131}}
+_keys_chord_voicing[7][6] = {{66, 99, 82}, {36, 18, 52}}
+_keys_chord_voicing[7][7] = {{97, 131, 113}, {67, 50, 83}}
+_keys_chord_voicing[8][1] = {{99, 81, 84}, {18, 51, 33}, {99, 81, 114}}
+_keys_chord_voicing[8][2] = {{130, 113, 116}, {49, 83, 65}, {100, 83, 116}}
+_keys_chord_voicing[8][3] = {{81, 84, 67}, {51, 84, 67}, {51, 33, 67}}
+_keys_chord_voicing[8][4] = {{113, 116, 99}, {83, 116, 99}, {83, 65, 99}}
+_keys_chord_voicing[8][5] = {{114, 97, 100}, {33, 67, 49}, {84, 67, 100}}
+_keys_chord_voicing[8][6] = {{116, 99, 81}, {65, 99, 81}, {35, 18, 51}}
+_keys_chord_voicing[8][7] = {{97, 100, 83}, {67, 100, 83}, {67, 49, 83}}
 local _keys_next_chord = {[1]={2, 3, 4, 5, 6, 7}, [2]={5, 7}, [3]={4, 6}, [4]={1, 5, 7}, [5]={1, 6}, [6]={2, 4, 5}, [7]={1, 3}}
+local function _keys_revoice()
+  local vs = _keys_chord_voicing[state.keys_scale_idx][state.keys_coach_chord]
+  if not vs or #vs == 0 then state.keys_coach_voicing = nil; return end
+  local base = vs[math.random(1, #vs)]
+  local prev = state.keys_coach_voicing
+  local n = #base
+  local nv = {}
+  for i = 1, n do nv[i] = base[i] end
+  if prev then
+    for i = 1, n do
+      local nn = _keys_note[nv[i]]
+      if nn then
+        local npc = (nn - 60) % 12
+        for j = 1, #prev do
+          local pc = prev[j]
+          local pn = _keys_note[pc]
+          if pn and (pn - 60) % 12 == npc then
+            nv[i] = pc
+            break
+          end
+        end
+      end
+    end
+  end
+  state.keys_coach_voicing = nv
+end
 local function handle_keys(x, y, z)
   local note = _keys_note[x + y*W]
   if not note then return end
@@ -171,10 +196,7 @@ local function handle_keys(x, y, z)
         if opts then
           state.keys_coach_chord = opts[math.random(1, #opts)]
         end
-        local vs = _keys_chord_voicing[state.keys_scale_idx][state.keys_coach_chord]
-        if vs and #vs > 0 then
-          state.keys_coach_voicing_idx = math.random(1, #vs)
-        end
+        _keys_revoice()
       end
     end
   end
@@ -186,23 +208,14 @@ local function handle_keys_picker(x, y, z)
   if target == state.keys_scale_idx then return end
   state.keys_scale_idx = target
   state.keys_coach_chord = 1
-  if state.keys_scale_idx ~= 1 then
-    local vs = _keys_chord_voicing[state.keys_scale_idx][1]
-    if vs and #vs > 0 then
-      state.keys_coach_voicing_idx = math.random(1, #vs)
-    end
-  end
+  state.keys_coach_voicing = nil
+  _keys_revoice()
 end
 local function _keys_pixel(k)
   if state.keys_held[k] then return 12 end
-  if state.keys_scale_idx ~= 1 then
-    local v = _keys_chord_voicing[state.keys_scale_idx][state.keys_coach_chord]
-    if v then
-      local cv = v[state.keys_coach_voicing_idx]
-      if cv and (cv[1] == k or cv[2] == k or cv[3] == k) then
-        return state.keys_coach_blink == 0 and 13 or 6
-      end
-    end
+  local cv = state.keys_coach_voicing
+  if cv and (cv[1] == k or cv[2] == k or cv[3] == k) then
+    return state.keys_coach_blink == 0 and 13 or 6
   end
   local note = _keys_note[k]
   if not note then return 0 end
@@ -339,4 +352,5 @@ end
 -- ---- init ----
 grid_led_all(0)
 math.randomseed(math.floor(get_time() * 1000))
+_keys_revoice()
 redraw()
