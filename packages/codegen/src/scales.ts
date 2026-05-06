@@ -23,7 +23,7 @@ export type ScaleName =
   | 'mixolydian'
   | 'locrian';
 
-const SCALE_INTERVALS: Record<ScaleName, ReadonlyArray<number>> = {
+export const SCALE_INTERVALS: Record<ScaleName, ReadonlyArray<number>> = {
   chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
   // Diatonic modes (in order around the circle of fifths starting on
   // Ionian). Each is a 7-note rotation of the major scale.

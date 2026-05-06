@@ -223,6 +223,29 @@ export type NoteKeyboardParams = {
    */
   led_octave: number;
   /**
+   * Visual scale highlight (independent of the keyboard's tuning).
+   *
+   * When the keyboard's `scale` is 'chromatic', every cell maps to
+   * a semitone — there's no built-in distinction between in-scale
+   * and out-of-scale notes. Set `highlight_scale` to a 7-note scale
+   * (major / minor / dorian / …) to mark which cells fall inside
+   * that scale: in-scale cells stay at `led_idle`, out-of-scale
+   * cells drop to `led_offscale`. Root cells still light at
+   * `led_octave` regardless.
+   *
+   * 'none' (default) disables the highlight — every non-root cell
+   * gets `led_idle`. The setting is silently a no-op when `scale`
+   * is non-chromatic (those keyboards already only show in-scale
+   * notes by construction).
+   */
+  highlight_scale: 'none' | import('./scales.ts').ScaleName;
+  /**
+   * Brightness for cells whose pitch class is OUT of `highlight_scale`.
+   * Default 0 (off — matches the monome `intervals` script's
+   * convention of hiding non-scale notes entirely).
+   */
+  led_offscale: number;
+  /**
    * Harmony coach mode: when on, cells whose pitch class is in the
    * currently-suggested diatonic chord blink between two brightness
    * levels. Each note-on press walks one step along a chord
