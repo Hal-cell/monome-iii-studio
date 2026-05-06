@@ -1,5 +1,6 @@
 import type {
   GridLayout,
+  LfoBehavior,
   MeterBehavior,
   MomentaryBehavior,
   NoteKeyboardBehavior,
@@ -11,6 +12,7 @@ import type {
   WakeSequencerBehavior,
 } from './types.ts';
 import { emitHeader } from './header.ts';
+import { emitLfo } from './recipes/lfo.ts';
 import { emitMeter } from './recipes/meter.ts';
 import { emitMomentary } from './recipes/momentary.ts';
 import { emitNoteKeyboard } from './recipes/note-keyboard.ts';
@@ -78,6 +80,9 @@ export function emit(layout: GridLayout): string {
         frags = emitWakeSequencer(
           region as Region & { behavior: WakeSequencerBehavior },
         );
+        break;
+      case 'lfo':
+        frags = emitLfo(region as Region & { behavior: LfoBehavior });
         break;
       default: {
         // Exhaustive check — adding a new behavior kind without a case

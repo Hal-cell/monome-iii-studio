@@ -349,6 +349,47 @@ export type StepSequencerBehavior = {
   params: StepSequencerParams;
 };
 
+// ---------- LFO ----------
+
+/**
+ * Low-frequency oscillator. Group-only. Selection cells are passive
+ * meter-style indicators of the current LFO output (no press
+ * handlers); the LFO continuously runs at `period_seconds` and
+ * outputs a CC scaled around `center` with peak-to-peak amplitude
+ * `depth`. Output is clamped to [0, 127].
+ *
+ * Useful for live performance — assign the CC to a synth parameter
+ * (filter cutoff, etc.) and watch the visualisation as the value
+ * sweeps. Multiple LFO regions can run simultaneously on different
+ * CCs / channels.
+ */
+export type LfoWaveform = 'sine' | 'triangle' | 'saw' | 'square';
+
+export type LfoParams = {
+  channel: number;
+  cc: number;
+  waveform: LfoWaveform;
+  /** Cycle length in seconds. 0.1 (10 Hz) up to 30 s. */
+  period_seconds: number;
+  /** Midpoint of the output range, 0..127. Default 64. */
+  center: number;
+  /**
+   * Peak-to-peak depth in MIDI CC units. Output ranges over
+   * [center - depth/2, center + depth/2], clamped to [0, 127].
+   * 0 = no modulation (CC stays at center).
+   */
+  depth: number;
+  /** Brightness for cells inside the current fill level. */
+  led_bright: number;
+  /** Brightness for cells outside the current fill level. */
+  led_dim: number;
+};
+
+export type LfoBehavior = {
+  kind: 'lfo';
+  params: LfoParams;
+};
+
 // ---------- Wake sequencer ----------
 
 /**
@@ -432,7 +473,8 @@ export type Behavior =
   | MeterBehavior
   | NoteKeyboardBehavior
   | StepSequencerBehavior
-  | WakeSequencerBehavior;
+  | WakeSequencerBehavior
+  | LfoBehavior;
 
 // ---------- Region / Page / GridLayout ----------
 
