@@ -1,6 +1,6 @@
 # monome-iii-studio — Roadmap & Status
 
-> **Current baseline tag**: `v5-coach-iterated` ([commit `f9ec870`](https://github.com/Hal-cell/monome-iii-studio/commit/f9ec870)) — note_keyboard with the full harmony-coach feature set.
+> **Current baseline tag**: `v6-gol-sonified` ([commit `c8f6b68`](https://github.com/Hal-cell/monome-iii-studio/commit/c8f6b68)) — GoL easter egg with column-scan sonification, scale picker, incremental sim (no wrap stutter); main page protected from deletion.
 
 This file is the **canonical, public** roadmap. It mirrors a private vault note used for day-to-day editing; both are kept in sync via commits to this repo.
 
@@ -83,10 +83,24 @@ GitHub serves the atom feed without auth and respects HTTP caching headers, so p
 
 | # | Task | Effort | Type | Status | Notes |
 |---|---|---|---|---|---|
-| **C1** | Conway's Game of Life + sonification | ⭐⭐⭐ 2 h | fun | ✅ (sonified, scale-pickable) | type "life" anywhere in the web UI; banner offers ▶ run on iii or download `gol.lua`. Canvas 15×8 with toroidal wrap. Each tick scans one column → alive cells trigger MIDI note-on (y → pitch via D Dorian/Aeolian/Phrygian/Major scale). Sim advances after each full scan (or every 2/4 scans). LED 15 = just born, 12 = alive, 5 = just died, scan column highlight bumps brightness. Right-column controls: pause / step / speed cycle / **scale cycle** / clear / random sparse / random dense / **sim-rate cycle** |
+| **C1** | Conway's Game of Life + sonification | ⭐⭐⭐⭐ ½ day | fun | ✅ `c8f6b68` (v6-gol-sonified) | type "life" anywhere in the web UI; banner offers ▶ run on iii or download `gol.lua`. See breakdown below. |
 | **C2** | Lights Out puzzle | ⭐⭐ 1–2 h | fun | | press cell → flip plus-neighbors; goal all dark |
 | **C3** | Two-player Pong | ⭐⭐⭐ 2–3 h | fun | | left/right paddles; needs two players to be fun |
 | **C4** | Generative ambient mode | ⭐⭐⭐ ½ day | fun | | grid evolves slowly; long-press a cell to perturb |
+
+### C1 sub-iterations
+
+| # | Sub-task | Commit | What it did |
+|---|---|---|---|
+| **C1.1** | Visual GoL on iii grid + multi-egg framework | `cd27324` | refactored EasterEgg.tsx into a list of `{trigger, label, emoji, scriptName, lua}`; added "life" trigger. 15×8 canvas, right-column controls (pause/step/speed/clear/random sparse/random dense). Toroidal wrap, B3/S23 rules. LED 15/12/5/0 for born/alive/dying/dead |
+| **C1.2** | Column-scan sonification + scale picker + sim-rate | `58c97f6` | metro tick = scan one column left-to-right; alive cells trigger MIDI note-on (y → pitch). New (16,4) scale cycle (D Dorian / Aeolian / Phrygian / Major) and (16,8) sim-rate cycle (advance every 1 / 2 / 4 full scans). Pattern shape becomes audible: blinker = two-note alternation, glider = lone note drifting through the pitch range, etc. |
+| **C1.3** | Incremental step removes scan-wrap stutter | `7832e44` | wrap tick was running the full Conway step (~2000 table ops), pushing the next tick late; user heard a brief pause as col 15's notes sustained too long. Fix: double-buffer (alive_a / alive_b), compute one row of next state per tick over 8 ticks, atomic O(1) pointer swap at the next wrap. Inlined the inner loop (cached row refs, neighbour count) for ~5× speed-up of the per-row work. |
+
+## D. Bug fixes / hardening
+
+| # | Task | Status | Notes |
+|---|---|---|---|
+| **D1** | Main page (index 0) is undeletable | ✅ `f6b0b6c` | UI hides delete button when `activePageIndex === 0`; store `removePage` defensively refuses `i === 0`. Combined with the existing "last page is undeletable" rule → there's always at least one page, and that page is always page 0 |
 
 ---
 
@@ -137,6 +151,13 @@ note_keyboard / harmony coach is mature now. Suggested order:
   - register-spread tight voicings
   - live scale select
   - 16×8 full keyboard fits in ~10 KB
+- ✅ **v6-gol-sonified** (`c8f6b68`) — Conway's Game of Life easter egg with column-scan sonification (C1.1–C1.3):
+  - 15×8 toroidal canvas + right-column control strip
+  - column-scan music: alive cells in current column trigger MIDI note-on, y → pitch via D Dorian / Aeolian / Phrygian / Major
+  - sim-rate cycle (advance every 1 / 2 / 4 scans)
+  - incremental Conway step (1 row / tick + double-buffer) — no scan-wrap stutter
+  - multi-egg `EasterEgg` framework; adding a third egg is one entry in the EGGS list
+  - bonus D1 fix: main page (index 0) is undeletable
 
 ### Rollback tags
 
@@ -148,4 +169,5 @@ note_keyboard / harmony coach is mature now. Suggested order:
 | `v2-multipage-shipped` | `881f23d` | multipage / LFO / page_select shipped |
 | `v3-keyboard-highlight-shipped` | `4f27668` | scale-highlight LED overlay (A9.1) |
 | `v4-always-chromatic-stable` | `4debc13` | always-chromatic layout (A9.2) |
-| `v5-coach-iterated` | `f9ec870` | **current**; full note_keyboard coach (A9.1–A9.10) |
+| `v5-coach-iterated` | `f9ec870` | full note_keyboard coach (A9.1–A9.10) |
+| `v6-gol-sonified` | `c8f6b68` | **current**; GoL easter egg with column-scan sonification |
