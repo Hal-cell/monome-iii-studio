@@ -206,6 +206,47 @@ export function renameRegion(id: string, name: string): void {
   );
 }
 
+/** Pin a specific palette colour to a region (B4). Out-of-range
+ *  indices are silently ignored. */
+export function setRegionColor(id: string, colorIndex: number): void {
+  if (colorIndex < 0 || colorIndex >= REGION_PALETTE.length) return;
+  _setRegions((prev) =>
+    prev.map((r) => (r.id === id ? { ...r, colorIndex } : r)),
+  );
+}
+
+/**
+ * Move the region with `fromId` so it lands immediately before
+ * `beforeId`. If `beforeId` is null, move to the end of the list.
+ * No-op if `fromId === beforeId` or either id is missing.
+ *
+ * Region list order matters: it determines BehaviorPanel display
+ * order and the order of `regions: [...]` in the emitted Lua, so
+ * users care about it (B5).
+ */
+export function reorderRegions(
+  fromId: string,
+  beforeId: string | null,
+): void {
+  if (fromId === beforeId) return;
+  const list = regions();
+  const fromIdx = list.findIndex((r) => r.id === fromId);
+  if (fromIdx < 0) return;
+  const moving = list[fromIdx]!;
+  const rest = list.filter((r) => r.id !== fromId);
+  if (beforeId === null) {
+    _setRegions([...rest, moving]);
+    return;
+  }
+  const beforeIdx = rest.findIndex((r) => r.id === beforeId);
+  if (beforeIdx < 0) return;
+  _setRegions([
+    ...rest.slice(0, beforeIdx),
+    moving,
+    ...rest.slice(beforeIdx),
+  ]);
+}
+
 /**
  * O(1) cell → region lookup, refreshed on every regions or active-page
  * change. Filters to regions on the active page, plus page_select
