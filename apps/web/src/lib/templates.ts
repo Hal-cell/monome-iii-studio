@@ -1,15 +1,25 @@
 /**
  * Layout templates — one-click starter layouts for common iii uses.
  *
+ * Two flavours coexist in the panel's Templates dropdown:
+ *   1. Starters (this file's `TEMPLATES` array) — hardcoded
+ *      LayoutExports for drum pad, step seq, synth keyboard.
+ *      Always present, never deletable.
+ *   2. User templates — user-saved snapshots of whatever layout is
+ *      currently in the editor. Persisted in localStorage under
+ *      USER_TEMPLATES_KEY. Reactive signal so the dropdown
+ *      auto-refreshes on save / delete.
+ *
  * Each template is a `LayoutExport`: it loads through `loadLayout()`
  * exactly like a user-imported `.layout.json` file, so there's no
- * separate code path. Templates are stored as plain data here, no
- * runtime computation, so the bundle stays small.
+ * separate code path. Templates are stored as plain data, no runtime
+ * computation, so the bundle stays small.
  *
  * Cell coordinates are 0-indexed, "x,y" string keys to match the
  * `cellKey()` format the rest of the app uses.
  */
 
+import { createSignal } from 'solid-js';
 import { VERSION as TOOL_VERSION } from '@monome-iii-studio/codegen';
 import type { LayoutExport, SavedRegionJSON } from './persist.ts';
 
@@ -184,3 +194,112 @@ export const TEMPLATES: ReadonlyArray<LayoutTemplate> = [
 // Used by `cells()` exported helper for callers that want to build
 // custom templates inline.
 export { cells };
+
+// ---------- User templates (persisted) ----------
+//
+// Stored in localStorage under USER_TEMPLATES_KEY as a JSON array
+// of UserTemplate. We keep the structure flat (no nesting under a
+// version envelope) — if the schema ever changes, bump the key.
+
+export type UserTemplate = {
+  /** Stable id, generated as `t-<timestamp>`. */
+  id: string;
+  /** User-provided label shown in the dropdown. */
+  label: string;
+  /** Snapshot of the layout at save time. */
+  layout: LayoutExport;
+  /** ISO timestamp of save time, used for sorting + the sub-label. */
+  savedAt: string;
+};
+
+const USER_TEMPLATES_KEY = 'monome-iii-studio:user-templates-v1';
+const MAX_USER_TEMPLATES = 30;
+
+function readFromStorage(): UserTemplate[] {
+  try {
+    const raw = localStorage.getItem(USER_TEMPLATES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Trust-but-verify each entry; drop malformed ones rather than
+    // throw, so a single bad record doesn't blow away the whole
+    // template list.
+    return parsed.filter(
+      (t): t is UserTemplate =>
+        t &&
+        typeof t.id === 'string' &&
+        typeof t.label === 'string' &&
+        typeof t.savedAt === 'string' &&
+        t.layout &&
+        typeof t.layout === 'object' &&
+        Array.isArray(t.layout.regions),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeToStorage(list: UserTemplate[]): void {
+  try {
+    localStorage.setItem(USER_TEMPLATES_KEY, JSON.stringify(list));
+  } catch {
+    // Quota exceeded / private mode — silent best-effort. Saved
+    // template will exist in memory until reload.
+  }
+}
+
+const [_userTemplates, _setUserTemplates] = createSignal<UserTemplate[]>(
+  readFromStorage(),
+);
+
+/** Reactive list of user-saved templates, sorted newest-first. */
+export const userTemplates = _userTemplates;
+
+/**
+ * Persist a fresh template. Returns the saved record. If a template
+ * with the same label already exists, this OVERWRITES it (keyed by
+ * label so re-saving "my drum kit" doesn't accumulate duplicates —
+ * users typically iterate on a layout and re-save under the same
+ * name). Otherwise prepends to the list.
+ *
+ * Hard-caps at MAX_USER_TEMPLATES; oldest entry is dropped on
+ * overflow.
+ */
+export function saveUserTemplate(
+  label: string,
+  layout: LayoutExport,
+): UserTemplate {
+  const trimmed = label.trim();
+  const finalLabel = trimmed.length > 0 ? trimmed : 'untitled';
+  const existing = _userTemplates().find((t) => t.label === finalLabel);
+  const record: UserTemplate = {
+    id: existing?.id ?? `t-${Date.now()}`,
+    label: finalLabel,
+    layout,
+    savedAt: new Date().toISOString(),
+  };
+  let next: UserTemplate[];
+  if (existing) {
+    next = _userTemplates().map((t) => (t.id === existing.id ? record : t));
+  } else {
+    next = [record, ..._userTemplates()];
+  }
+  if (next.length > MAX_USER_TEMPLATES) {
+    next = next.slice(0, MAX_USER_TEMPLATES);
+  }
+  _setUserTemplates(next);
+  writeToStorage(next);
+  return record;
+}
+
+export function deleteUserTemplate(id: string): void {
+  const next = _userTemplates().filter((t) => t.id !== id);
+  _setUserTemplates(next);
+  writeToStorage(next);
+}
+
+/** Convenience: check if a label is already taken. */
+export function userTemplateLabelExists(label: string): boolean {
+  const trimmed = label.trim();
+  return _userTemplates().some((t) => t.label === trimmed);
+}

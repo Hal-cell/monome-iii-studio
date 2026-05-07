@@ -77,7 +77,7 @@ GitHub serves the atom feed without auth and respects HTTP caching headers, so p
 | **B4** | User-customizable region color | ⭐ 30 min | UX | ✅ (this batch) | click any region's color swatch in the panel — pop-over with the 7 palette colors; pick = `setRegionColor` mutates the region's `colorIndex`. Click-outside dismisses. |
 | **B5** | Region drag-reorder | ⭐⭐ 1–2 h | UX | ✅ (this batch) | each region row is HTML5-draggable; the dragged region's id rides through `dataTransfer`, drop calls `reorderRegions(fromId, beforeId)`. List order = display order = emitted-Lua region order. Visuals: dragged row fades to opacity 40%; drop target gets an amber top-border highlight. |
 | **B6** | "Use as template" — clone a region's config | ⭐⭐ 1–2 h | UX | ✅ (this batch) | each region row has a ⎘ button. Click → load that region's recipe / mode / values into the editor draft, clear selection, prompt the user to pick cells and Add Region. Lets you configure once, apply to multiple cell groups. |
-| **B7** | Layout template library | ⭐⭐ 1–2 h | UX | ✅ (this batch) | new "Templates ▾" dropdown in the Layout section. Three starters: **Drum pad 8×4** (32 momentary cells, GM drum channel, notes 36–67), **Step seq 16×8** (16-step / 8-track, C major), **Synth keyboard** (15×8 chromatic + live scale picker + harmony coach on). Picker confirms before clobbering an existing layout. Templates are plain `LayoutExport` objects in `lib/templates.ts` — adding a fourth is one entry. |
+| **B7** | Layout template library | ⭐⭐⭐ 2–3 h | UX | ✅ (extended) | "Templates ▾" dropdown in the Layout section. Two sections: **Starters** (3 hardcoded — Drum pad 8×4, Step seq 16×8, Synth keyboard) and **My templates** (user-saved snapshots, persisted in `localStorage` under `monome-iii-studio:user-templates-v1`, max 30, hover-to-reveal × delete). Bottom action **`+ save current as template…`** prompts for a name; same name overwrites the existing entry so iterative refinement doesn't pile up duplicates. All templates load through the same `loadLayout()` path as imported `.layout.json` files. |
 
 ## C. Easter eggs / for fun
 
@@ -158,9 +158,9 @@ note_keyboard / harmony coach is mature; B4–B7 done in one batch. Suggested or
   - bonus D1 fix: main page (index 0) is undeletable
 - ✅ **v7-ux-batch** — region UX polish round (B4–B7):
   - **B4** color picker — click any region's swatch → 7-color pop-over
-  - **B5** drag-reorder — HTML5 DnD on region rows; list order = emitted-Lua order
+  - **B5** drag-reorder — HTML5 DnD on region rows; list order = emitted-Lua order. Follow-up `830924c` adds an explicit ⋮⋮ drag handle + grab cursor for clearer affordance.
   - **B6** use-as-template ⎘ button — clones a region's recipe / mode / params into the editor draft
-  - **B7** templates dropdown — three starter layouts (drum pad 8×4, step seq 16×8, synth keyboard)
+  - **B7** templates dropdown — three starter layouts; later extended with **user templates** (save current layout to localStorage, hover × to delete, max 30, same-name overwrites)
 
 ### Rollback tags
 
