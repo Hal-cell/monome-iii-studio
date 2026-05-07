@@ -22,9 +22,16 @@
  * Music — column scan ("piano roll"):
  *   Each tick scans one column, left → right, wrapping. Alive
  *   cells in the current column trigger note-on (staccato), with
- *   y → pitch via the active scale (8 entries, top y=1 = highest
- *   pitch). Notes from the previous column release before the
- *   new ones fire, giving a clean stepped-arpeggio feel.
+ *   y → pitch via the active scale. Notes are STACKED IN THIRDS —
+ *   adjacent y values are a 3rd apart in the scale, so vertically
+ *   connected cells sound as diatonic chord tones:
+ *     · 3 cells touching → a triad (C-E-G, A-C-E, etc.)
+ *     · 4 cells → a 7th chord
+ *     · 5+ cells → 9th / 11th extensions
+ *   GoL patterns naturally cluster vertically; this layout turns
+ *   clumps into proper chords instead of dissonant 2nd-stacks.
+ *   Notes from the previous column release before the new ones
+ *   fire, giving a clean stepped-arpeggio feel.
  *
  * Sim is INCREMENTAL across the scan to avoid a scan-wrap stutter.
  *   The naive version ran a full Conway step on the wrap tick,
@@ -131,12 +138,20 @@ local sim_rate_idx = 1
 local MIDI_CH = 1
 local NOTE_VEL = 60
 
--- Pitch tables, indexed by y (1=top of grid → highest pitch).
+-- Pitch tables, indexed by y (1 = top of grid → highest pitch).
+-- Notes are STACKED IN THIRDS: y → 1, 3, 5, 7, 9, 11, 13, 15 of the
+-- scale. Vertically-connected cells therefore sound as diatonic
+-- chord tones, e.g. 3 cells touching = a triad (C-E-G), 4 cells = a
+-- 7th chord, 5+ cells = 9th / 11th. GoL patterns naturally cluster
+-- vertically, so this turns clumps into proper chords instead of
+-- the 2nd-stacks the prior consecutive-scale layout produced.
+--
+-- Order (top = highest): root+2oct, 13th, 11th, 9th, 7th, 5th, 3rd, root.
 local SCALES = {
-  { 50, 48, 47, 45, 43, 41, 40, 38 },  -- 1 dorian   (D E F G A B C D)
-  { 50, 48, 46, 45, 43, 41, 40, 38 },  -- 2 aeolian  (D E F G A Bb C D)
-  { 50, 48, 46, 45, 43, 41, 39, 38 },  -- 3 phrygian (D Eb F G A Bb C D)
-  { 50, 49, 47, 45, 43, 42, 40, 38 },  -- 4 major    (D E F# G A B C# D)
+  { 62, 59, 55, 52, 48, 45, 41, 38 },  -- 1 dorian
+  { 62, 58, 55, 52, 48, 45, 41, 38 },  -- 2 aeolian (Bb instead of B)
+  { 62, 58, 55, 51, 48, 45, 41, 38 },  -- 3 phrygian (Eb + Bb)
+  { 62, 59, 55, 52, 49, 45, 42, 38 },  -- 4 major (F#, C#)
 }
 local scale_idx = 1
 
