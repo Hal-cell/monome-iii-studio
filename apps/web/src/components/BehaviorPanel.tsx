@@ -1,5 +1,5 @@
-import { For, Show, type JSX, createSignal } from 'solid-js';
-import { unwrap } from 'solid-js/store';
+import { For, Show, type JSX, createSignal, onCleanup, onMount } from 'solid-js';
+import { reconcile, unwrap } from 'solid-js/store';
 import type { GridLayout, Region } from '@monome-iii-studio/codegen';
 import { emit } from '@monome-iii-studio/codegen';
 import { downloadText } from '../lib/download.ts';
@@ -14,6 +14,7 @@ import {
 } from '../store/behavior.ts';
 import {
   type SavedRegion,
+  REGION_PALETTE,
   activePageIndex,
   addPage,
   addRegion,
@@ -26,10 +27,13 @@ import {
   removeRegion,
   renamePage,
   renameRegion,
+  reorderRegions,
   setActivePageIndex,
   setLayoutName,
+  setRegionColor,
   totalRegionCells,
 } from '../store/regions.ts';
+import { TEMPLATES } from '../lib/templates.ts';
 import {
   COLS,
   ROWS,
@@ -296,6 +300,44 @@ export function BehaviorPanel() {
     setNotice('new layout');
   }
 
+  // ---- Templates (B7) ----
+  const [templatesOpen, setTemplatesOpen] = createSignal(false);
+  function onTemplatePick(idx: number) {
+    const t = TEMPLATES[idx];
+    if (!t) return;
+    if (
+      hasContent() &&
+      !confirm(`Replace your current layout with "${t.label}"?`)
+    ) {
+      setTemplatesOpen(false);
+      return;
+    }
+    loadLayout(t.build());
+    setNotice(`loaded template: ${t.label}`);
+    setTemplatesOpen(false);
+  }
+  // Click-outside dismisses the templates dropdown.
+  onMount(() => {
+    const handler = (e: MouseEvent) => {
+      if (!templatesOpen()) return;
+      const t = e.target as HTMLElement | null;
+      if (!t || !t.closest('[data-templates-popover]')) setTemplatesOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    onCleanup(() => document.removeEventListener('mousedown', handler));
+  });
+
+  // ---- Use-as-template (B6) ----
+  function onUseAsTemplate(r: SavedRegion) {
+    setRecipeKind(r.recipeKind);
+    setMode(r.mode);
+    setValues(reconcile(structuredClone(r.values)));
+    clearSelection();
+    setNotice(
+      `loaded "${r.name}" as template — pick cells, then Add Region`,
+    );
+  }
+
   function onUndo() {
     const snap = historyUndo();
     if (snap) applyLayoutSnapshot(snap);
@@ -334,6 +376,36 @@ export function BehaviorPanel() {
             <SmallButton onClick={onNew} disabled={!hasContent()}>
               New
             </SmallButton>
+            <div class="relative" data-templates-popover>
+              <SmallButton
+                onClick={() => setTemplatesOpen(!templatesOpen())}
+              >
+                Templates ▾
+              </SmallButton>
+              <Show when={templatesOpen()}>
+                <div
+                  class="absolute z-20 right-0 top-full mt-1 w-72 bg-neutral-950 border border-neutral-800 rounded shadow-lg overflow-hidden"
+                  data-templates-popover
+                >
+                  <For each={TEMPLATES}>
+                    {(t, i) => (
+                      <button
+                        type="button"
+                        onClick={() => onTemplatePick(i())}
+                        class="w-full text-left px-3 py-2 hover:bg-neutral-900 border-b border-neutral-900 last:border-b-0"
+                      >
+                        <div class="text-xs text-neutral-200 font-mono">
+                          {t.label}
+                        </div>
+                        <div class="text-[10px] text-neutral-500 mt-0.5">
+                          {t.description}
+                        </div>
+                      </button>
+                    )}
+                  </For>
+                </div>
+              </Show>
+            </div>
           </div>
           <div class="flex gap-1">
             <SmallButton onClick={onUndo} disabled={!canUndo()}>
@@ -424,7 +496,11 @@ export function BehaviorPanel() {
       <Show when={visibleRegions().length > 0}>
         <Section title={`Regions on ${pageNames()[activePageIndex()]}`}>
           <div class="space-y-1">
-            <For each={visibleRegions()}>{(r) => <RegionRow region={r} />}</For>
+            <For each={visibleRegions()}>
+              {(r) => (
+                <RegionRow region={r} onUseAsTemplate={onUseAsTemplate} />
+              )}
+            </For>
           </div>
         </Section>
       </Show>
@@ -486,9 +562,15 @@ export function BehaviorPanel() {
   );
 }
 
-function RegionRow(props: { region: SavedRegion }) {
+function RegionRow(props: {
+  region: SavedRegion;
+  onUseAsTemplate: (r: SavedRegion) => void;
+}) {
   const [editing, setEditing] = createSignal(false);
   const [draftName, setDraftName] = createSignal(props.region.name);
+  const [colorOpen, setColorOpen] = createSignal(false);
+  const [dragOver, setDragOver] = createSignal(false);
+  const [dragging, setDragging] = createSignal(false);
 
   function commitName() {
     const next = draftName().trim();
@@ -500,12 +582,115 @@ function RegionRow(props: { region: SavedRegion }) {
     setEditing(false);
   }
 
+  function pickColor(idx: number) {
+    setRegionColor(props.region.id, idx);
+    setColorOpen(false);
+  }
+
+  // Click-outside dismisses the color picker. Scoped to this row's
+  // `data-color-popover` container so opening row A's picker doesn't
+  // dismiss row B's (and vice-versa).
+  onMount(() => {
+    const handler = (e: MouseEvent) => {
+      if (!colorOpen()) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        !t ||
+        !t.closest(`[data-color-popover='${props.region.id}']`)
+      ) {
+        setColorOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    onCleanup(() => document.removeEventListener('mousedown', handler));
+  });
+
+  // ---- HTML5 drag-and-drop (B5) ----
+  // Region id rides through dataTransfer so we don't need a global
+  // "currently dragging" signal. Dropping calls `reorderRegions`,
+  // which moves the dragged region to land just before this row's
+  // region. Drop order = display order = emitted-Lua order.
+  function onDragStart(e: DragEvent) {
+    if (!e.dataTransfer) return;
+    e.dataTransfer.setData('text/plain', props.region.id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDragging(true);
+  }
+  function onDragEnd() {
+    setDragging(false);
+    setDragOver(false);
+  }
+  function onDragOver(e: DragEvent) {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    setDragOver(true);
+  }
+  function onDragLeave() {
+    setDragOver(false);
+  }
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const fromId = e.dataTransfer?.getData('text/plain');
+    if (fromId && fromId !== props.region.id) {
+      reorderRegions(fromId, props.region.id);
+    }
+  }
+
   return (
-    <div class="flex items-center gap-2 px-2 py-1.5 bg-neutral-900/50 rounded border border-transparent hover:border-neutral-800">
-      <span
-        class="w-3 h-3 rounded-sm flex-shrink-0"
-        style={{ 'background-color': regionColor(props.region) }}
-      />
+    <div
+      draggable={true}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      class={`flex items-center gap-2 px-2 py-1.5 bg-neutral-900/50 rounded border transition-colors ${
+        dragging()
+          ? 'opacity-40 border-neutral-700'
+          : dragOver()
+            ? 'border-amber-200/60 border-t-2 border-t-amber-200/80'
+            : 'border-transparent hover:border-neutral-800'
+      }`}
+    >
+      <div
+        class="relative"
+        data-color-popover={props.region.id}
+      >
+        <button
+          type="button"
+          class="w-3 h-3 rounded-sm flex-shrink-0 cursor-pointer hover:ring-1 hover:ring-neutral-400"
+          style={{ 'background-color': regionColor(props.region) }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setColorOpen(!colorOpen());
+          }}
+          title="change color"
+          aria-label="change region color"
+        />
+        <Show when={colorOpen()}>
+          <div
+            class="absolute z-20 left-0 top-full mt-1 flex gap-1 p-1 bg-neutral-950 border border-neutral-800 rounded shadow-lg"
+            data-color-popover={props.region.id}
+          >
+            <For each={REGION_PALETTE}>
+              {(color, i) => (
+                <button
+                  type="button"
+                  onClick={() => pickColor(i())}
+                  class={`w-4 h-4 rounded-sm transition-shadow ${
+                    props.region.colorIndex === i()
+                      ? 'ring-2 ring-neutral-200'
+                      : 'hover:ring-1 hover:ring-neutral-400'
+                  }`}
+                  style={{ 'background-color': color }}
+                  aria-label={`palette color ${i() + 1}`}
+                />
+              )}
+            </For>
+          </div>
+        </Show>
+      </div>
       <Show
         when={editing()}
         fallback={
@@ -516,7 +701,7 @@ function RegionRow(props: { region: SavedRegion }) {
               setEditing(true);
             }}
             class="flex-1 text-left text-xs text-neutral-200 font-mono truncate hover:text-neutral-50"
-            title="click to rename"
+            title="click to rename · drag row to reorder"
           >
             {props.region.name}
           </button>
@@ -541,6 +726,15 @@ function RegionRow(props: { region: SavedRegion }) {
       <span class="text-[10px] text-neutral-600 font-mono whitespace-nowrap">
         {regionSummary(props.region)}
       </span>
+      <button
+        type="button"
+        onClick={() => props.onUseAsTemplate(props.region)}
+        class="text-neutral-700 hover:text-neutral-300 text-xs leading-none px-1"
+        title="use this region's recipe + params as a template for a new region"
+        aria-label="use as template"
+      >
+        ⎘
+      </button>
       <button
         type="button"
         onClick={() => removeRegion(props.region.id)}

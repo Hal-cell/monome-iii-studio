@@ -1,6 +1,6 @@
 # monome-iii-studio — Roadmap & Status
 
-> **Current baseline tag**: `v6-gol-sonified` ([commit `c8f6b68`](https://github.com/Hal-cell/monome-iii-studio/commit/c8f6b68)) — GoL easter egg with column-scan sonification, scale picker, incremental sim (no wrap stutter); main page protected from deletion.
+> **Current baseline tag**: `v7-ux-batch` (this commit) — region color picker, drag-reorder, use-as-template, and layout template library (B4–B7).
 
 This file is the **canonical, public** roadmap. It mirrors a private vault note used for day-to-day editing; both are kept in sync via commits to this repo.
 
@@ -74,10 +74,10 @@ GitHub serves the atom feed without auth and respects HTTP caching headers, so p
 | **B1** | README + screenshots / GIF | ⭐ 30 min | docs | | repo README is currently empty |
 | **B2** | Undo / Redo | ⭐⭐ 1–2 h | UX | ✅ `3febde6` | layout-state history stack (max 50); snapshots region+layoutName, not the editor draft |
 | **B3** | Keyboard shortcuts | ⭐ 30–60 min | UX | ✅ `3febde6` | ⌘Z/⌘⇧Z undo/redo, ⌘Y redo (Win), ⌘E export, Esc clear sel |
-| **B4** | User-customizable region color | ⭐ 30 min | UX | | currently auto-cycles through 7 colors; want a swatch picker |
-| **B5** | Region drag-reorder | ⭐⭐ 1–2 h | UX | | affects region list display + download order |
-| **B6** | Selection copy/paste between regions | ⭐⭐ 1–2 h | UX | | quickly clone a configured region |
-| **B7** | Layout template library | ⭐⭐ 1–2 h | UX | | "drum pad 8x4", "4-track step seq", etc. — one-click load |
+| **B4** | User-customizable region color | ⭐ 30 min | UX | ✅ (this batch) | click any region's color swatch in the panel — pop-over with the 7 palette colors; pick = `setRegionColor` mutates the region's `colorIndex`. Click-outside dismisses. |
+| **B5** | Region drag-reorder | ⭐⭐ 1–2 h | UX | ✅ (this batch) | each region row is HTML5-draggable; the dragged region's id rides through `dataTransfer`, drop calls `reorderRegions(fromId, beforeId)`. List order = display order = emitted-Lua region order. Visuals: dragged row fades to opacity 40%; drop target gets an amber top-border highlight. |
+| **B6** | "Use as template" — clone a region's config | ⭐⭐ 1–2 h | UX | ✅ (this batch) | each region row has a ⎘ button. Click → load that region's recipe / mode / values into the editor draft, clear selection, prompt the user to pick cells and Add Region. Lets you configure once, apply to multiple cell groups. |
+| **B7** | Layout template library | ⭐⭐ 1–2 h | UX | ✅ (this batch) | new "Templates ▾" dropdown in the Layout section. Three starters: **Drum pad 8×4** (32 momentary cells, GM drum channel, notes 36–67), **Step seq 16×8** (16-step / 8-track, C major), **Synth keyboard** (15×8 chromatic + live scale picker + harmony coach on). Picker confirms before clobbering an existing layout. Templates are plain `LayoutExport` objects in `lib/templates.ts` — adding a fourth is one entry. |
 
 ## C. Easter eggs / for fun
 
@@ -112,13 +112,11 @@ GitHub serves the atom feed without auth and respects HTTP caching headers, so p
 
 ## Recommended next-up (Claude's take)
 
-note_keyboard / harmony coach is mature now. Suggested order:
+note_keyboard / harmony coach is mature; B4–B7 done in one batch. Suggested order:
 
 1. **B1** README — repo README is still empty; outsiders bounce on first impression. Screenshots + GIF demo of the flow.
 2. **A4** Euclidean rhythm — small, high-impact, very monome-flavoured.
-3. **B7** layout template library — drum pad / step seq / synth keyboard starters.
-4. **B4 / B5 / B6** — quick UX wins.
-5. **C2 / C3 / C4** — Lights Out / Pong / generative ambient (C1 done).
+3. **C2 / C3 / C4** — Lights Out / Pong / generative ambient (C1 done).
 
 ---
 
@@ -158,6 +156,11 @@ note_keyboard / harmony coach is mature now. Suggested order:
   - incremental Conway step (1 row / tick + double-buffer) — no scan-wrap stutter
   - multi-egg `EasterEgg` framework; adding a third egg is one entry in the EGGS list
   - bonus D1 fix: main page (index 0) is undeletable
+- ✅ **v7-ux-batch** — region UX polish round (B4–B7):
+  - **B4** color picker — click any region's swatch → 7-color pop-over
+  - **B5** drag-reorder — HTML5 DnD on region rows; list order = emitted-Lua order
+  - **B6** use-as-template ⎘ button — clones a region's recipe / mode / params into the editor draft
+  - **B7** templates dropdown — three starter layouts (drum pad 8×4, step seq 16×8, synth keyboard)
 
 ### Rollback tags
 
@@ -170,4 +173,5 @@ note_keyboard / harmony coach is mature now. Suggested order:
 | `v3-keyboard-highlight-shipped` | `4f27668` | scale-highlight LED overlay (A9.1) |
 | `v4-always-chromatic-stable` | `4debc13` | always-chromatic layout (A9.2) |
 | `v5-coach-iterated` | `f9ec870` | full note_keyboard coach (A9.1–A9.10) |
-| `v6-gol-sonified` | `c8f6b68` | **current**; GoL easter egg with column-scan sonification |
+| `v6-gol-sonified` | `c8f6b68` | GoL easter egg with column-scan sonification |
+| `v7-ux-batch` | (this commit) | **current**; B4–B7 region UX polish |
