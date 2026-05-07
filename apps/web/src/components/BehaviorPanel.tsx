@@ -647,12 +647,19 @@ function RegionRow(props: {
       onDrop={onDrop}
       class={`flex items-center gap-2 px-2 py-1.5 bg-neutral-900/50 rounded border transition-colors ${
         dragging()
-          ? 'opacity-40 border-neutral-700'
+          ? 'opacity-40 border-neutral-700 cursor-grabbing'
           : dragOver()
-            ? 'border-amber-200/60 border-t-2 border-t-amber-200/80'
-            : 'border-transparent hover:border-neutral-800'
+            ? 'border-amber-200/60 border-t-2 border-t-amber-200/80 cursor-grab'
+            : 'border-transparent hover:border-neutral-800 cursor-grab'
       }`}
     >
+      <span
+        class="text-neutral-600 hover:text-neutral-300 select-none flex-shrink-0 leading-none text-base"
+        title="drag to reorder"
+        aria-hidden="true"
+      >
+        ⋮⋮
+      </span>
       <div
         class="relative"
         data-color-popover={props.region.id}
