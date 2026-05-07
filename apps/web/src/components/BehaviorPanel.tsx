@@ -33,7 +33,13 @@ import {
   setRegionColor,
   totalRegionCells,
 } from '../store/regions.ts';
-import { TEMPLATES } from '../lib/templates.ts';
+import {
+  TEMPLATES,
+  deleteUserTemplate,
+  saveUserTemplate,
+  userTemplateLabelExists,
+  userTemplates,
+} from '../lib/templates.ts';
 import {
   COLS,
   ROWS,
@@ -316,6 +322,55 @@ export function BehaviorPanel() {
     setNotice(`loaded template: ${t.label}`);
     setTemplatesOpen(false);
   }
+  // User templates (B7+): save current layout as a reusable template
+  // stored in localStorage. Persists across sessions; MAX 30 entries.
+  function onSaveAsTemplate() {
+    if (regions().length === 0) {
+      setNotice('add a region first, then save as template');
+      return;
+    }
+    const suggested = layoutName().trim() || 'my template';
+    const label = window.prompt(
+      'Template name?',
+      suggested,
+    );
+    if (label === null) return; // cancelled
+    const trimmed = label.trim();
+    if (!trimmed) {
+      setNotice('template name required');
+      return;
+    }
+    if (
+      userTemplateLabelExists(trimmed) &&
+      !confirm(`Overwrite existing template "${trimmed}"?`)
+    ) {
+      return;
+    }
+    const t = saveUserTemplate(trimmed, snapshotLayout());
+    setNotice(`saved template: ${t.label}`);
+    setTemplatesOpen(false);
+  }
+  function onUserTemplatePick(id: string) {
+    const t = userTemplates().find((u) => u.id === id);
+    if (!t) return;
+    if (
+      hasContent() &&
+      !confirm(`Replace your current layout with "${t.label}"?`)
+    ) {
+      setTemplatesOpen(false);
+      return;
+    }
+    // Deep-clone the stored layout so loading doesn't share references
+    // with future saves.
+    loadLayout(structuredClone(t.layout));
+    setNotice(`loaded template: ${t.label}`);
+    setTemplatesOpen(false);
+  }
+  function onUserTemplateDelete(id: string, label: string) {
+    if (!confirm(`Delete template "${label}"?`)) return;
+    deleteUserTemplate(id);
+    setNotice(`deleted template: ${label}`);
+  }
   // Click-outside dismisses the templates dropdown.
   onMount(() => {
     const handler = (e: MouseEvent) => {
@@ -384,15 +439,18 @@ export function BehaviorPanel() {
               </SmallButton>
               <Show when={templatesOpen()}>
                 <div
-                  class="absolute z-20 right-0 top-full mt-1 w-72 bg-neutral-950 border border-neutral-800 rounded shadow-lg overflow-hidden"
+                  class="absolute z-20 right-0 top-full mt-1 w-72 bg-neutral-950 border border-neutral-800 rounded shadow-lg overflow-hidden max-h-96 overflow-y-auto"
                   data-templates-popover
                 >
+                  <div class="px-3 py-1 text-[10px] uppercase tracking-wider text-neutral-600 bg-neutral-900/50">
+                    Starters
+                  </div>
                   <For each={TEMPLATES}>
                     {(t, i) => (
                       <button
                         type="button"
                         onClick={() => onTemplatePick(i())}
-                        class="w-full text-left px-3 py-2 hover:bg-neutral-900 border-b border-neutral-900 last:border-b-0"
+                        class="w-full text-left px-3 py-2 hover:bg-neutral-900 border-b border-neutral-900"
                       >
                         <div class="text-xs text-neutral-200 font-mono">
                           {t.label}
@@ -403,6 +461,57 @@ export function BehaviorPanel() {
                       </button>
                     )}
                   </For>
+                  <div class="px-3 py-1 text-[10px] uppercase tracking-wider text-neutral-600 bg-neutral-900/50">
+                    My templates
+                  </div>
+                  <Show
+                    when={userTemplates().length > 0}
+                    fallback={
+                      <div class="px-3 py-2 text-[10px] text-neutral-600 italic">
+                        none yet — save your current layout below
+                      </div>
+                    }
+                  >
+                    <For each={userTemplates()}>
+                      {(t) => (
+                        <div class="flex items-stretch border-b border-neutral-900 hover:bg-neutral-900 group">
+                          <button
+                            type="button"
+                            onClick={() => onUserTemplatePick(t.id)}
+                            class="flex-1 text-left px-3 py-2 min-w-0"
+                          >
+                            <div class="text-xs text-neutral-200 font-mono truncate">
+                              {t.label}
+                            </div>
+                            <div class="text-[10px] text-neutral-500 mt-0.5">
+                              {t.layout.regions.length} region
+                              {t.layout.regions.length === 1 ? '' : 's'}
+                              {(t.layout.pageNames?.length ?? 1) > 1
+                                ? ` · ${t.layout.pageNames!.length} pages`
+                                : ''}
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onUserTemplateDelete(t.id, t.label)}
+                            class="px-2 text-neutral-700 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title={`delete ${t.label}`}
+                            aria-label={`delete ${t.label}`}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                    </For>
+                  </Show>
+                  <button
+                    type="button"
+                    onClick={onSaveAsTemplate}
+                    disabled={regions().length === 0}
+                    class="w-full text-left px-3 py-2 text-xs font-mono border-t border-neutral-800 bg-neutral-900/30 text-amber-200/80 hover:bg-amber-100/10 disabled:text-neutral-700 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                  >
+                    + save current as template…
+                  </button>
                 </div>
               </Show>
             </div>
